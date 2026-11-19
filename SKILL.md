@@ -51,6 +51,10 @@ app="$data/app/$version"
   tar -xzf "$asset" -C "$app"
 )
 cd "$app"
+if [ "$(node -p 'require("./package.json").version')" != "$version" ]; then
+  echo 'Package version differs from the release tag' >&2
+  exit 1
+fi
 npm ci --omit=dev --ignore-scripts
 node bin/gator.js bundle verify
 ```
@@ -87,6 +91,9 @@ try {
   Remove-Item -LiteralPath $download -Recurse -Force
 }
 Set-Location -LiteralPath $app
+if ((Get-Content -Raw -LiteralPath 'package.json' | ConvertFrom-Json).version -cne $version) {
+  throw 'Package version differs from the release tag'
+}
 npm.cmd ci --omit=dev --ignore-scripts
 if ($LASTEXITCODE -ne 0) { throw 'Dependency install failed' }
 node bin/gator.js bundle verify
@@ -293,6 +300,7 @@ means the same key also signed from another process.
    paths back and restart from the previous app with the same data and options. Check status and MCP again.
    Follow the target release's migration notes if a database change requires an owner-managed backup for rollback.
 
-**One-time migration from a v0.1.0 clone.** Use the checkout as the old app in the same steps. If its startup
-command used a relative `--data`, resolve it from the old working directory before switching. The new process opens
-the existing identity, database, settings and dashboard credential in place. Keep the checkout for rollback.
+**One-time migration from a v0.1.0 clone.** Use the checkout as the old app in the same steps. Resolve a relative
+`--data` or `GATOR_DATA` from the old daemon's working directory before switching. The new process opens the
+existing identity, database, settings and dashboard credential in place. Keep the checkout for rollback. If the
+data path is inside that checkout, it continues to hold the live data after the switch.
