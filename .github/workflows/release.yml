@@ -1,0 +1,57 @@
+name: Release assets
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency: release-assets-${{ github.event.release.id }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.1'
+      - name: Check tag against the package version
+        run: |
+          expected="v$(node -p 'require("./package.json").version')"
+          if [[ "$RELEASE_TAG" != "$expected" ]]; then
+            echo "The release tag must match package.json ($expected)." >&2
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm test
+      - run: npm run release:pack
+      - name: Verify the production install from the archive
+        working-directory: dist
+        run: |
+          sha256sum --check --strict SHA256SUMS
+          app=$(mktemp -d)
+          tar -xzf "intercom-gator-${RELEASE_TAG#v}.tgz" -C "$app"
+          cd "$app"
+          npm ci --omit=dev --ignore-scripts --offline
+          node bin/gator.js bundle verify
+      - name: Attach the verified archive and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')
+          prior=$(mktemp -d)
+          for asset in "intercom-gator-${RELEASE_TAG#v}.tgz" SHA256SUMS; do
+            if grep -Fxq "$asset" <<< "$existing"; then
+              # A retry may find the archive already uploaded. Preserve it and require identical bytes.
+              gh release download "$RELEASE_TAG" --pattern "$asset" --dir "$prior"
+              cmp "dist/$asset" "$prior/$asset"
+            else
+              gh release upload "$RELEASE_TAG" "dist/$asset"
+            fi
+          done
