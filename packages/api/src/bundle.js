@@ -17,5 +17,11 @@ export async function verifyRelease({ dir, rootKey = ROOT_KEY } = {}) {
   try { signature = readFileSync(join(dir, 'bundle.sig'), 'utf8').trim(); }
   catch (cause) { throw new Error('Release bundle signature is unavailable', { cause }); }
   if (!api.verifyBundleSignature(digest, signature, rootKey)) throw new Error('Invalid release bundle signature');
-  return { bundle, digest, rootKey, selectEndpoints: api.selectEndpoints };
+  // The release extension is outside the digest; a broken one leaves this node on the signed data alone.
+  let extensions = null;
+  try { extensions = api.loadReleaseExtensions({ dir }); }
+  catch (error) { process.emitWarning('Release extensions ignored: ' + error.message); }
+  // The release's shipped copy of its patch feed file, applied at startup when present (DESIGN "Bundle patch feed").
+  const snapshot = join(dir, 'patches', digest + '.json');
+  return { bundle, digest, rootKey, selectEndpoints: api.selectEndpoints, extensions, snapshot };
 }

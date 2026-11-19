@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { EventEmitter } from 'node:events'
-import { loadBundle } from '@gator/bundle'
+import { bundleDigest, validateBundle } from '@gator/bundle'
 import { openStore } from '@gator/store'
 import { migrations as socialMigrations } from '@gator/social'
 import { Engine, migrations } from '../src/index.js'
@@ -9,11 +9,12 @@ import { createRouter } from '../../api/src/routes.js'
 import { tickerRecords } from '../src/sources/bundle-adapter.js'
 import { seedPlan } from '../src/sources/evm.js'
 import { tapMintedTotal } from '../src/sources/supply-feeds.js'
+import { extensions, PATCHED, release, tap, tapBundle, tapErc20, tnk } from './tap-release.js'
 
 // TAP Protocol (Bitcoin ordinals metaprotocol, tick "tap") and Trac Network (TNK) are CEX-only natives. TAP also
 // trades as the bridged ERC-20 that PaidExtras charges in, in the Uniswap V2 TAP/USDT pool below.
-const tap = 'tap-protocol:native', tnk = 'trac:native'
-const tapErc20 = 'ethereum:0x5e7f6e008c6d9d7ad4c7eb75bd4ce62864cc7454'
+// A v0.1.1 node holds the signed v0.1.0 release plus the shared root patch (chains, natives, the plain ERC-20, the
+// TAP reader APIs) and reads it through the release extension (venue labels, the TAP coin group).
 const ethUsdt = 'ethereum:0xdac17f958d2ee523a2206206994597c13d831ec7'
 const originTrail = 'ethereum:0xaa7a9ca87d3694b5755f213b5d04094b8d0f0a6f'
 const pool = '0x1563e9af51616e78830de3325da752de369c1714'
@@ -29,10 +30,11 @@ class Transport extends EventEmitter {
   send(channel, message) { this.sent.push([channel, message]); return true }
 }
 
-async function engineFor(t, bundle, profile = 'small', { backgroundJobs = [], fetch } = {}) {
+async function engineFor(t, bundle, profile = 'small', { backgroundJobs = [], fetch, ext = extensions } = {}) {
   const store = openStore({ file: ':memory:', profile, migrations: [...migrations, ...socialMigrations] })
   let now = start
-  const engine = new Engine({ bundle, transport: new Transport(), store, clock: () => now, backgroundJobs, random: () => 0.5,
+  const engine = new Engine({ bundle, extensions: ext, transport: new Transport(), store, clock: () => now, backgroundJobs,
+    random: () => 0.5,
     rpcConfig: { bundleDigest: '0'.repeat(64), fetch: fetch ?? (() => assert.fail('Unexpected HTTP read')), timeout: 500,
       retries: 0, requestsPerMinute: 60 } })
   await engine.start()
@@ -41,26 +43,35 @@ async function engineFor(t, bundle, profile = 'small', { backgroundJobs = [], fe
   return { engine, store, advance: ms => { now += ms }, now: () => now }
 }
 
-test('the shipped bundle signs TAP Protocol, Trac Network and the bridged TAP as one coin', () => {
-  const bundle = loadBundle()
-  const chain = id => bundle.chains.find(c => c.id === id)
-  const token = id => bundle.tokens.tokens.find(t => t.id === id)
+test('after the shared patch v0.1.1 reads TAP Protocol, Trac Network and the bridged TAP as one coin', async t => {
+  const signed = tapBundle()
+  const chain = id => signed.chains.find(c => c.id === id)
+  const token = id => signed.tokens.tokens.find(t => t.id === id)
+  assert.equal(bundleDigest(signed), PATCHED)
   assert.deepEqual([chain('tap-protocol').family, chain('tap-protocol').native, chain('tap-protocol').endpoints],
     ['cex-only', { symbol: 'TAP', decimals: 18 }, []])
   assert.deepEqual([chain('trac').family, chain('trac').native, chain('trac').explorer],
     ['cex-only', { symbol: 'TNK', decimals: 18 }, 'https://explorer.trac.network'])
-  assert.deepEqual([token(tap).coin, token(tap).coinSupply], ['tap-protocol-tap', 'issuance'])
+  // Signed data carries no coin group; the release extension adds it for this node only.
+  assert.equal(token(tap).coin, undefined)
+  assert.equal(token(tapErc20).coin, undefined)
+  const { engine } = await engineFor(t, signed)
+  const read = id => engine.bundle.tokens.tokens.find(t => t.id === id)
+  assert.deepEqual([read(tap).coin, read(tap).coinSupply], ['tap-protocol-tap', 'issuance'])
   // The ERC-20 holds only the bridged share (3.14M of 21M on 2026-11-19), so it never adds supply to the coin.
-  assert.deepEqual([token(tapErc20).coin, token(tapErc20).coinSupply, token(tapErc20).decimals],
+  assert.deepEqual([read(tapErc20).coin, read(tapErc20).coinSupply, read(tapErc20).decimals],
     ['tap-protocol-tap', 'escrow-backed', 18])
-  assert.equal(token(tnk).coin, undefined)
-  assert.ok(bundle.tokens.coinGroups.some(g => g.id === 'tap-protocol-tap'))
+  assert.equal(read(tnk).coin, undefined)
+  assert.ok(engine.bundle.tokens.coinGroups.some(g => g.id === 'tap-protocol-tap'))
+  // The signed chain is untouched: same digest as every other version holding this patch.
+  assert.equal(engine.patches.current, signed)
+  assert.equal(bundleDigest(engine.patches.current), PATCHED)
   // PaidExtras' payment token is the same contract (DESIGN.md §8).
   assert.equal(tapErc20, 'ethereum:0x5e7f6e008c6d9d7ad4c7eb75bd4ce62864cc7454')
 })
 
-test('Gate and MEXC labels bind to the signed natives through explicit, pinned venue maps; TRAC stays OriginTrail', async t => {
-  const { engine } = await engineFor(t, loadBundle())
+test('Gate and MEXC labels bind to the signed natives through the extension venue maps (pinned); TRAC stays OriginTrail', async t => {
+  const { engine } = await engineFor(t, tapBundle())
   const { registry } = engine
   const gate = registry.cex('gate', 'TAPPROTOCOL', 'USDT', 'TAPPROTOCOL_USDT')
   const mexc = registry.cex('mexc', 'TAP', 'USDT', 'TAPUSDT')
@@ -79,7 +90,7 @@ test('Gate and MEXC labels bind to the signed natives through explicit, pinned v
 })
 
 test('the existing Gate and MEXC ticker mappings read price, 24 h volume and the venue 24 h move', async t => {
-  const { engine } = await engineFor(t, loadBundle())
+  const { engine } = await engineFor(t, tapBundle())
   const gate = engine.registry.venues.get('gate'), mexc = engine.registry.venues.get('mexc')
   // Live rows, 2026-11-19 ~21:05 UTC.
   const [g] = tickerRecords(gate, [{ currency_pair: 'TAPPROTOCOL_USDT', last: '0.04393', lowest_ask: '0.04393',
@@ -96,10 +107,13 @@ test('the existing Gate and MEXC ticker mappings read price, 24 h volume and the
 
 /** Gate + MEXC for TAP and TNK, Bitstamp for USDT/USD; tokens: the new ones and the Tether group. */
 async function venues(t, options) {
-  const bundle = structuredClone(loadBundle())
+  const bundle = structuredClone(tapBundle())
   bundle.exchanges = bundle.exchanges.filter(e => ['gate', 'mexc', 'bitstamp'].includes(e.id))
-  bundle.tokens.tokens = bundle.tokens.tokens.filter(token => token.coin === 'tether-usdt' ||
+  bundle.tokens.tokens = bundle.tokens.tokens.filter(token => token.coin === 'tether-usdt' || token.id.endsWith(':native') ||
     [tap, tnk, tapErc20].includes(token.id))
+  // A slim but valid signed bundle: the node's extension (coin group) is checked against the bundle's coin rules.
+  for (const token of bundle.tokens.tokens) token.links = []
+  validateBundle(bundle)
   const f = await engineFor(t, bundle, 'small', options)
   const { engine } = f
   const read = (venue, base, quote, price, volume) => {
@@ -169,7 +183,7 @@ test('without a TAP Protocol supply the coin has no cap, even when the bridged E
 })
 
 test('the Ethereum seeder always probes the bridged TAP, beyond the small profile rank cutoff', async t => {
-  const bundle = loadBundle()
+  const bundle = tapBundle()
   const { engine } = await engineFor(t, bundle, 'small')
   const source = engine.evm.get('ethereum')
   const plan = seedPlan(source)
@@ -228,4 +242,16 @@ test('the TAP Protocol supply job sets a local total and the coin lists a cap fr
   const page = await request('GET', '/assets/' + tap)
   assert.equal(page.capBasis, 'total')
   assert.ok(Math.abs(page.marketCap - 21e6 * price) < 1)
+})
+
+test('without the shared patch the extension names unknown assets: it is skipped and nothing changes', async t => {
+  const { engine } = await engineFor(t, release)
+  // Nothing applied: the node reads the signed release itself, exactly like a v0.1.0 node.
+  assert.equal(engine.bundle, release)
+  assert.equal(engine.bundle.exchanges.some(e => Object.hasOwn(e, 'symbolMap')), false)
+  assert.equal(engine.registry.assets.has(tap), false)
+  assert.equal(engine.registry.cex('gate', 'TAPPROTOCOL', 'USDT').base, 'unresolved:gate:TAPPROTOCOL')
+  assert.equal(engine.registry.mapped(engine.registry.cex('gate', 'TAPPROTOCOL', 'USDT')), false)
+  assert.equal(engine.registry.cex('gate', 'TRAC', 'USDT').base, originTrail)
+  assert.equal(engine.patches.digest(), bundleDigest(release))
 })

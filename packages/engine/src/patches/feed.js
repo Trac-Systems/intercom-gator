@@ -22,6 +22,28 @@ function fetchFailure(error) {
   return 'fetch'
 }
 
+/** Verify and apply one cumulative feed document (`{ v: 1, release, envelopes }`): file version, this node's release
+ * digest, then per envelope the root signature on `gator/ctl` and every check of a network receipt
+ * (BundlePatches.accept: sequence, base, shape, URL policy, patch signature, schema, digest). Shared by the network
+ * feed and the release's shipped snapshot. */
+export function applyFeed(patches, feed) {
+  if (feed?.v !== 1 || !Array.isArray(feed.envelopes)) return { result: 'rejected', reason: 'format' }
+  if (feed.release !== patches.releaseDigest()) return { result: 'rejected', reason: 'release' }
+  let applied = null, reason = null
+  for (const wire of feed.envelopes) {
+    if (wire?.message?.t !== 'patch') continue
+    const env = verifiedPatchEnvelope(wire, patches.rootKey)
+    if (!env) {
+      reason ??= 'envelope'
+      continue
+    }
+    if (patches.accept(env, why => { reason ??= why })) applied = patches.head
+  }
+  const outcome = reason ? { result: applied ? 'partial' : 'rejected', reason } :
+    { result: applied ? 'applied' : 'unchanged', reason: null }
+  return applied ? { ...outcome, appliedDigest: applied } : outcome
+}
+
 /** Poll the release's cumulative feed. All patch state changes go through BundlePatches.accept. */
 export class PatchFeed {
   constructor(patches, setting = processSetting()) {
@@ -112,23 +134,7 @@ export class PatchFeed {
   }
 
   apply(feed) {
-    if (feed?.v !== 1 || !Array.isArray(feed.envelopes)) return { result: 'rejected', reason: 'format' }
-    if (feed.release !== this.patches.releaseDigest()) return { result: 'rejected', reason: 'release' }
-    let applied = false, reason = null
-    for (const wire of feed.envelopes) {
-      if (wire?.message?.t !== 'patch') continue
-      const env = verifiedPatchEnvelope(wire, this.patches.rootKey)
-      if (!env) {
-        reason ??= 'envelope'
-        continue
-      }
-      if (this.patches.accept(env, why => { reason ??= why })) {
-        applied = true
-        this.state.appliedDigest = this.patches.head
-      }
-    }
-    if (reason) return { result: applied ? 'partial' : 'rejected', reason }
-    return { result: applied ? 'applied' : 'unchanged', reason: null }
+    return applyFeed(this.patches, feed)
   }
 
   addToSources(report) {

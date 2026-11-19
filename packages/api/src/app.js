@@ -112,7 +112,8 @@ export async function createGator(options = {}) {
     // options.nfts: NFT sale collection, off until the NFTs tab ships (tests and harness builds may turn it on).
     const engine = app.engine = new Engine({ bundle: release.bundle, transport, store, clock, profile: config.profile, nfts: options.nfts === true,
       readStaleMs: options.readStaleMs ?? 4000,
-      ...(typeof config.patchFeed === 'boolean' && { patches: { patchFeed: config.patchFeed } }),
+      extensions: release.extensions,
+      patches: { snapshot: release.snapshot, ...(typeof config.patchFeed === 'boolean' && { patchFeed: config.patchFeed }) },
       rpcConfig: { endpoints: rpcEndpoints(release, config), requestsPerMinute: config.budgetPerMin, fetch: options.fetch,
         bundleDigest: release.digest, isFollowed } });
     configureMirrors(app);
