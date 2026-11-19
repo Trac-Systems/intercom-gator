@@ -3,6 +3,16 @@ import { pageByAge } from '../../engine/src/aggregate/queries.js';
 import { check } from './local.js';
 
 const widths = { '1m': 60_000, '5m': 300_000, '1h': 3_600_000, '1d': 86_400_000 };
+// DESIGN "Trust dot per number": a venue's number is confirmed (green) when it is fresh, its own reporters agree, the
+// asset's price is green, the venue is not one of the asset's outliers, and its USD value is within 1% of that price.
+// Limited or provisional evidence stays yellow; stale or > 3% disagreement inside the market is red.
+// (v0.1.0-v0.1.2 never returned green for a market row, so every row read "Few sources".)
+export function marketDot({ stale, spread, usd, ageMs, windowMs, assetTrust, assetUsd, outlier }) {
+  if (stale || spread > 0.03) return 'red';
+  const agrees = usd > 0 && assetUsd > 0 && Math.abs(usd / assetUsd - 1) <= 0.01;
+  return assetTrust === 'green' && agrees && ageMs <= windowMs && !outlier ? 'green' : 'yellow';
+}
+
 export function integer(value, fallback, max, min = 0) {
   if (value === undefined || value === '') return fallback;
   const n = Number(value);
@@ -22,6 +32,11 @@ export function marketViews(app, people) {
     return [...ids][0];
   }
   function markets(id) {
+    const outliers = new Map();
+    const excluded = (asset, market) => {
+      if (!outliers.has(asset)) outliers.set(asset, new Set(engine.whyTrusted(asset)?.outliers ?? []));
+      return outliers.get(asset).has(market);
+    };
     return engine.assetMarkets(id).map(m => {
       const source = engine.book.marketPrices.get(m.id);
       const age = m.at == null ? null : Math.max(0, app.clock() - m.at);
@@ -34,9 +49,15 @@ export function marketViews(app, people) {
         kind: m.kind.toUpperCase(), chain: m.chain, pair: base + '/' + quote, base: m.base, quote: m.quote,
         asset: member, chainName: engine.queries.chainName(chainId),
         price: m.price, volume24h: m.volume24h, liquidity: m.liquidity ?? null,
-        trust: source ? (stale || source.spread > 0.03 ? 'red' : 'yellow') : null,
+        trust: source ? marketTrust(m, member, source, stale, age, excluded) : null,
         updated: age == null ? null : Math.floor(age / 1000), windowMs: source?.window ?? null };
     });
+  }
+  function marketTrust(m, member, source, stale, age, excluded) {
+    const asset = store.getPrice(member);
+    const fx = m.quote === 'fiat:USD' ? 1 : engine.book.snapshots.get(m.quote)?.price;
+    return marketDot({ stale, spread: source.spread, usd: fx && m.price > 0 ? fx * m.price : null, ageMs: age,
+      windowMs: source.window, assetTrust: asset?.trust, assetUsd: asset?.priceReal, outlier: excluded(member, m.id) });
   }
   // Only display comparisons the engine actually performed. The engine records
   // the local observation and peer key. Ambiguous remote matches stay unknown.
