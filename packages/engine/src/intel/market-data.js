@@ -160,8 +160,13 @@ export function engineData(engine) {
       const deployment = matches?.length === 1 ? matches[0] : undefined;
       const pool = { address: p.pool, kind: p.kind, router: routerFor(p.chain, deployment), routerKind: deployment?.routerKind,
         factory: deployment?.address, discoveryTx: p.tx };
-      const prices = Object.fromEntries([p.token0, p.token1].map(t => [t, store.getPrice(p.chain + ':' + t)?.price]));
-      return { pool, prices, lockers: dex?.lockers };
+      // Quote tokens rarely carry their own price row: a wrapped native quote takes the chain's native price
+      // (stablecoin quotes are valued at $1 inside the risk check).
+      const native = bundle.chains?.find(c => c.id === p.chain)?.native?.symbol;
+      const price = t => store.getPrice(p.chain + ':' + t)?.price ?? (dex?.quoteTokens?.some(q =>
+        q.address?.toLowerCase() === t && q.symbol === 'W' + native) ? store.getPrice(p.chain + ':native')?.price : undefined);
+      const prices = Object.fromEntries([p.token0, p.token1].map(t => [t, price(t)]));
+      return { pool, prices, lockers: dex?.lockers, liquidityUsd: Number.isFinite(p.liquidity) ? p.liquidity : undefined };
     },
     metricsFor(asset) {
       const time = engine.clock(), row = poolFor(asset);

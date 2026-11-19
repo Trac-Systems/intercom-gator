@@ -32,11 +32,14 @@ test('USDT runtime and owner RPC capture identify three privileged entry points'
   assert.equal(result.flags.unsellable, 'unknown');
 });
 
-test('WETH with no owner response supplies no privilege evidence', async () => {
+test('WETH: a recognised dispatcher without mint, pause or blacklist entry points answers false', async () => {
   const result = await checkRisk('ethereum:' + weth.address, { rpc: fixtureRpc(weth), bundle: {} });
-  assert.equal(result.flags.ownerMint, 'unknown');
+  assert.equal(result.flags.ownerMint, false);
+  assert.equal(result.flags.ownerPause, false);
+  assert.equal(result.flags.blacklist, false);
+  assert.equal(result.flags.upgradeable, false);
   assert.equal(result.evidence.owner, null);
-  assert.deepEqual(result.evidence.capabilities, {});
+  assert.equal(result.evidence.capabilities.ownerMint.method, 'no known entry point in the dispatcher');
 });
 
 for (const kind of ['v2', 'v3', 'v3-router02']) {

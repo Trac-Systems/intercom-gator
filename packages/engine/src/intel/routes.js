@@ -13,30 +13,33 @@ export function routerFor(chain, deployment) {
   if (chain === 'ethereum' || chain === 'eth') return ethereumRouters.get(deployment?.address?.toLowerCase());
 }
 
-/** Standalone checks can locate a route from the signed factory and quote-token lists.
- * Bound requests on fresh nodes. The engine's indexed pool takes precedence when present. */
+/** Standalone checks can locate a route from the signed factory and quote-token lists: up to 32 factory lookups in
+ * one Multicall3 read (individual reads, at most 8, without Multicall3). The engine's indexed pool takes precedence. */
+export const V3_KINDS = new Set(['v3', 'uniswap-v3', 'pancake-v3']);
 export async function findPool(reader, token, chain, dex, nativeSymbol) {
   const wrapped = 'W' + nativeSymbol;
   const quotes = (dex?.quoteTokens ?? []).toSorted((a, b) => Number(b.symbol === wrapped) - Number(a.symbol === wrapped))
     .map(q => q.address).filter(a => isAddress(a) && a.toLowerCase() !== token);
   const deployments = (dex?.deployments ?? []).toSorted((a, b) =>
     Number(Boolean(routerFor(chain, b))) - Number(Boolean(routerFor(chain, a))));
-  let remaining = 16;
+  const candidates = [];
   for (const d of deployments) {
-    if (!isAddress(d.address) || !['v2', 'v3'].includes(d.kind)) continue;
+    if (!isAddress(d.address) || !(d.kind === 'v2' || V3_KINDS.has(d.kind))) continue;
     for (const quote of quotes.slice(0, 4)) {
       const pair = addressWord(token) + addressWord(quote);
-      const fees = d.kind === 'v3' ? (d.feeTiersPpm ?? [3000, 500, 10000, 100])
+      const fees = V3_KINDS.has(d.kind) ? (d.feeTiersPpm ?? [3000, 500, 10000, 100])
         .filter(f => Number.isInteger(f) && f > 0 && f < 1e6) : [null];
-      for (const fee of fees) {
-        if (remaining-- <= 0) return null;
-        const data = fee === null ? await reader.call(d.address, 'getPair(address,address)', pair) :
-          await reader.call(d.address, 'getPool(address,address,uint24)', pair + word(fee));
-        const address = readAddress(data);
-        if (address && address !== ZERO) return { address, kind: d.kind, routerKind: d.routerKind,
-          router: routerFor(chain, d), factory: d.address };
-      }
+      for (const fee of fees) candidates.push({ d, call: fee === null ? [d.address, 'getPair(address,address)', pair]
+        : [d.address, 'getPool(address,address,uint24)', pair + word(fee)] });
     }
+  }
+  const list = candidates.slice(0, reader.multicall ? 32 : 8);
+  const results = reader.calls ? await reader.calls(list.map(c => c.call))
+    : await Promise.all(list.map(c => reader.call(...c.call)));
+  for (const [i, data] of results.entries()) {
+    const address = readAddress(data), { d } = list[i];
+    if (address && address !== ZERO) return { address, kind: d.kind, routerKind: d.routerKind,
+      router: routerFor(chain, d), factory: d.address };
   }
   return null;
 }

@@ -1,5 +1,6 @@
 import { keccak256 } from './keccak.js';
 import { UNKNOWN } from './evm.js';
+import { V3_KINDS } from './routes.js';
 import { addressWord, DAY, isAddress, isTime, readAddress, readUint, ZERO } from './values.js';
 
 const DEAD = '0x' + '0'.repeat(36) + 'dead';
@@ -99,71 +100,107 @@ async function ageBound(reader, pool, at, threshold, seconds) {
   return null;
 }
 
-async function lockStatus(reader, pool, lockers) {
-  const supply = readUint(await reader.call(pool.address, 'totalSupply()'));
-  if (!supply) return { flag: UNKNOWN };
+// Readers without Multicall3 support (tests, minimal adapters) fall back to individual calls.
+const callsOf = reader => reader.calls ?? (list => Promise.all(list.map(c => reader.call(...c))));
+const pct = (part, whole) => whole > 0n ? Number(part * 10_000n / whole) / 100 : null;
+
+/** V2 LP tokens: measured shares of the LP supply at the pinned block. Burned (zero, 0x…dead) and known lockers count as
+ * locked; an externally owned account can withdraw at will. true: EOAs hold >= 5%; false: >= 95% burned or locked;
+ * otherwise the seen balances cannot decide (LP in other contracts, or holders not among the candidates). */
+async function lockStatus(reader, pool, lockers, extra) {
   const lockedAccounts = new Set([ZERO, DEAD, ...addresses(lockers)]);
-  const holders = new Set([...lockedAccounts, ...await holderCandidates(reader, pool)]);
-  let locked = 0n, eoa = 0n;
-  for (const holder of holders) {
-    const balance = readUint(await reader.call(pool.address, 'balanceOf(address)', addressWord(holder)));
-    if (!balance) continue;
+  const holders = [...new Set([...lockedAccounts, ...addresses(extra), ...await holderCandidates(reader, pool)])].slice(0, 40);
+  const [supplyData, ...balanceData] = await callsOf(reader)([[pool.address, 'totalSupply()'],
+    ...holders.map(h => [pool.address, 'balanceOf(address)', addressWord(h)])]);
+  const supply = readUint(supplyData);
+  if (!supply) return { flag: UNKNOWN, reason: 'LP supply unavailable' };
+  let locked = 0n, eoa = 0n, contracts = 0n, unread = 0n;
+  const others = [];
+  holders.forEach((holder, i) => {
+    const balance = readUint(balanceData[i]);
+    if (!balance) return;
     if (lockedAccounts.has(holder)) locked += balance;
-    else if (await reader.code(holder) === '0x') eoa += balance;
+    else others.push([holder, balance]);
+  });
+  others.sort((x, y) => (y[1] > x[1]) - (y[1] < x[1]));
+  for (const [i, [holder, balance]] of others.entries()) {
+    const code = i < 4 ? await reader.code(holder) : null;
+    if (code === '0x') eoa += balance;
+    else if (typeof code === 'string') contracts += balance;
+    else unread += balance;
   }
-  let flag = UNKNOWN;
-  if (locked + eoa <= supply) {
-    if (eoa > 0n) flag = true;
-    else if (locked === supply) flag = false;
-  }
-  return { flag, supply: String(supply), locked: String(locked), eoa: String(eoa), method: 'V2 LP balances' };
+  const seen = locked + eoa + contracts + unread;
+  const evidence = { supply: String(supply), locked: String(locked), eoa: String(eoa), contracts: String(contracts),
+    lockedPct: pct(locked, supply), eoaPct: pct(eoa, supply), unseenPct: seen <= supply ? pct(supply - seen, supply) : null,
+    method: 'V2 LP balances of burn, locker, owner, token and recent LP recipients' };
+  if (seen > supply) return { flag: UNKNOWN, ...evidence, reason: 'inconsistent LP balances' };
+  if (eoa * 20n >= supply) return { flag: true, ...evidence };
+  if (locked * 20n >= supply * 19n) return { flag: false, ...evidence };
+  return { flag: UNKNOWN, ...evidence, reason: 'under 95% of LP burned or locked and under 5% seen with EOAs' +
+    (contracts > 0n ? ' (LP held by other contracts)' : '') };
 }
 
-async function usdReserves(reader, pool, a, b, v2, prices) {
-  let balances;
-  if (v2) {
-    const data = await reader.call(pool.address, 'getReserves()');
-    if (typeof data !== 'string' || !/^0x[\da-f]{192}$/i.test(data)) return null;
-    balances = data.slice(2).match(/.{64}/g).slice(0, 2).map(s => BigInt('0x' + s));
-  } else {
-    balances = await Promise.all([a, b].map(async token =>
-      readUint(await reader.call(token, 'balanceOf(address)', addressWord(pool.address)))));
-  }
-  const sides = await Promise.all([a, b].map(async (token, i) => {
-    const price = Number(prices[token]);
-    if (!positive(price) || balances[i] === null) return null;
-    const decimals = readUint(await reader.call(token, 'decimals()'));
-    if (decimals === null || decimals > 255n) return null;
+/** USD value of the pool from priced balances. Both sides priced: their sum. One side priced: a V2 pool holds equal
+ * value on both sides (2x); a concentrated-liquidity pool only gives a lower bound (the priced side). */
+async function usdReserves(reader, pool, a, b, v2, prices, reserves) {
+  const [decimalsA, decimalsB, balanceA, balanceB] = await callsOf(reader)([[a, 'decimals()'], [b, 'decimals()'],
+    ...(v2 ? [] : [[a, 'balanceOf(address)', addressWord(pool.address)], [b, 'balanceOf(address)', addressWord(pool.address)]])]);
+  const balances = v2 ? reserves : [readUint(balanceA), readUint(balanceB)];
+  if (!balances) return null;
+  const sides = [a, b].map((token, i) => {
+    const price = Number(prices[token]), decimals = readUint([decimalsA, decimalsB][i]);
+    if (!positive(price) || balances[i] === null || decimals === null || decimals > 255n) return null;
     const usd = Number(balances[i]) / 10 ** Number(decimals) * price;
     return Number.isFinite(usd) ? usd : null;
-  }));
+  });
   const priced = sides.filter(s => s !== null);
   if (priced.length === 2) return { usd: priced[0] + priced[1], method: v2 ? 'priced reserves' : 'priced pool balances' };
   if (priced.length === 1 && v2) return { usd: 2 * priced[0], method: 'V2 estimate from one priced reserve' };
+  if (priced.length === 1) return { atLeastUsd: priced[0], method: 'lower bound from one priced pool balance' };
   return null;
 }
 
-export async function poolRisk(reader, token, pool, { at, prices, lockers, lowLiquidityUsd, veryNewMs = DAY, blockTimeSeconds }) {
+/** Flags: lpUnlocked, veryNew, lowLiquidity. `why` explains every flag left unknown. */
+export async function poolRisk(reader, token, pool, { at, prices, lockers, lowLiquidityUsd, veryNewMs = DAY, blockTimeSeconds,
+  liquidityUsd, holders } = {}) {
   const flags = { lpUnlocked: UNKNOWN, veryNew: UNKNOWN, lowLiquidity: UNKNOWN };
-  const evidence = {};
-  if (!isAddress(pool?.address)) return { flags, evidence };
-  const [a, b] = await Promise.all(['token0()', 'token1()'].map(async f => readAddress(await reader.call(pool.address, f))));
-  if (!a || !b || a === b || ![a, b].includes(token)) return { flags, evidence };
+  const evidence = {}, why = {};
+  const all = reason => { for (const k of Object.keys(flags)) if (flags[k] === UNKNOWN) why[k] ??= reason; return { flags, evidence, why }; };
+  if (!isAddress(pool?.address)) return all(reader.stats?.refused ? 'pool lookup refused (' + reader.stats.reasons.at(-1) + ')' : 'no pool found');
+  const v2 = ['v2', 'uniswap-v2'].includes(pool.kind);
+  const [t0, t1, reservesData] = await callsOf(reader)([[pool.address, 'token0()'], [pool.address, 'token1()'],
+    ...(v2 ? [[pool.address, 'getReserves()']] : [])]);
+  const [a, b] = [readAddress(t0), readAddress(t1)];
+  if (!a || !b || a === b || ![a, b].includes(token)) {
+    return all(t0 === null ? 'pool state unavailable (' + (reader.stats?.reasons.at(-1) ?? 'rpc') + ')' : 'pool does not hold this token');
+  }
   evidence.pool = pool.address;
+  evidence.kind = pool.kind;
+  const threshold = lowLiquidityUsd ?? 100_000;
+  const reserves = typeof reservesData === 'string' && /^0x[\da-f]{192}$/i.test(reservesData)
+    ? reservesData.slice(2).match(/.{64}/g).slice(0, 2).map(s => BigInt('0x' + s)) : null;
+  evidence.liquidity = await usdReserves(reader, pool, a, b, v2, prices ?? {}, reserves);
+  if (Number.isFinite(evidence.liquidity?.usd)) flags.lowLiquidity = evidence.liquidity.usd < threshold;
+  else if (evidence.liquidity?.atLeastUsd >= threshold) flags.lowLiquidity = false;
+  else if (Number.isFinite(liquidityUsd) && liquidityUsd >= 0) {
+    evidence.liquidity = { usd: liquidityUsd, method: 'engine-measured pool depth' };
+    flags.lowLiquidity = liquidityUsd < threshold;
+  } else why.lowLiquidity = evidence.liquidity ? 'only one side priced; lower bound below the threshold' : 'no USD price for either pool token';
+
   if (pool.block == null && pool.discoveryTx && reader.block) pool = { ...pool, block: await findCreationBlock(reader, pool) };
   evidence.ageMs = await poolAge(reader, pool, at);
   if (evidence.ageMs !== null) {
     flags.veryNew = evidence.ageMs < veryNewMs;
-  } else if (['v2', 'uniswap-v2', 'v3', 'uniswap-v3'].includes(pool.kind)) {
+  } else if (v2 || V3_KINDS.has(pool.kind)) {
     evidence.ageBound = await ageBound(reader, pool, at, veryNewMs, blockTimeSeconds);
     if (evidence.ageBound) flags.veryNew = evidence.ageBound.flag;
-  }
-  const v2 = ['v2', 'uniswap-v2'].includes(pool.kind);
+    else why.veryNew = 'creation not observed; historical state unavailable';
+  } else why.veryNew = 'creation not observed for a ' + pool.kind + ' pool';
+
   if (v2) {
-    evidence.lp = await lockStatus(reader, pool, lockers);
+    evidence.lp = await lockStatus(reader, pool, lockers, holders);
     flags.lpUnlocked = evidence.lp.flag;
-  }
-  evidence.liquidity = await usdReserves(reader, pool, a, b, v2, prices ?? {});
-  if (Number.isFinite(evidence.liquidity?.usd)) flags.lowLiquidity = evidence.liquidity.usd < (lowLiquidityUsd ?? 100_000);
-  return { flags, evidence };
+    if (evidence.lp.flag === UNKNOWN) why.lpUnlocked = evidence.lp.reason;
+  } else why.lpUnlocked = 'liquidity positions of ' + pool.kind + ' pools are not fungible LP tokens (not inspected)';
+  return { flags, evidence, why };
 }

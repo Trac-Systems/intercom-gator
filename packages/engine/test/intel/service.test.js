@@ -41,7 +41,7 @@ test('subscription lifecycle, mute filter, deferred spot check and own publicati
   assert.equal(intel.risk.get(asset), null);
   const result = await intel.checkNext();
   assert.equal(result.local.flags.ownerMint, 'unknown');
-  assert.deepEqual(result.comparisons[0], { reporter: other, at, agrees: [], differs: [], unknown: ['ownerMint'] });
+  assert.deepEqual(result.comparisons[0], { reporter: other, at, method: 'peer', agrees: [], differs: [], unknown: ['ownerMint'] });
   assert.equal(net.sent[0][0], 'gator/meta');
   assert.equal(await intel.checkNext(), undefined);
   await intel.stop();

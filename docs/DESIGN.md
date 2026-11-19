@@ -279,6 +279,35 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   hints) and verified only through bundle/public endpoints, never the user's RPCs; remote-triggered risk checks run at
   most once per minute node-wide. Fear & Greed's social input counts only followed or proven authors. `briefing.md`
   carries the untrusted-content header and a marker under each section.
+- Risk check (`evm:selectors+roles+proxy-slots+router-roundtrip+reserves/v2`): every read of one check is pinned to one
+  block and goes through the shared endpoint buckets and profile budget, waiting for a slot (never a burst); one check
+  makes at most 40 dispatches within 90 s (view calls batched through the chain's Multicall3), and a refused, capped or
+  late read is missing evidence, never a negative. Each flag is `true`, `false` or `unknown`; the stored and sent
+  result keeps flags only, local evidence names the reason for every `unknown` and the check's RPC calls. Interface =
+  the dispatcher selectors (`PUSH sel EQ`, viaIR `PUSH sel DUP2 EQ`) of the code that runs: the token's own code
+  (CBOR metadata stripped), the implementation of an immutable forwarder (EIP-1167 and its PUSH0/Solady variants), or
+  the implementation in an EIP-1967 implementation/beacon, EIP-1822 or ZeppelinOS slot.
+  - `upgradeable`: true when a proxy slot holds an implementation or the dispatcher has an upgrade entry point; false
+    when the running code has no DELEGATECALL or is an immutable forwarder; unknown for DELEGATECALL without a known slot.
+  - `ownerMint`, `ownerPause`, `blacklist`: true when a known entry point (mint/issue, pause, blacklist/freeze/bot-list
+    selectors; list in `intel/evm.js`) is present and an owner (`owner()` ≠ 0, heuristic) or an AccessControl role
+    holder can call it; false when the interface is complete, has ≥ 4 of the 5 ERC-20 core selectors and none of the
+    entry points (or the AccessControl role is empty); unknown for an unrecognised or incomplete interface, a
+    renounced owner with the entry point still present, or no owner/role evidence. They describe the current code; an
+    upgradeable token can gain them.
+  - `unsellable`: an atomic router buy-then-sell in one `eth_call` with a state override; true when the sell reverts
+    with a reason or returns nothing, false when it returns proceeds; unknown without a pool with a supported router
+    (Uniswap V2/V3-style routers in the bundle), without override support or when the buy fails.
+  - `lpUnlocked` (V2 pools): LP balances of burn addresses, bundle lockers, the token, its owner and recent LP
+    recipients; true when EOAs hold ≥ 5 % of the LP supply, false when ≥ 95 % is burned or locked, else unknown;
+    concentrated-liquidity positions are not inspected (unknown).
+  - `veryNew`: pool younger than 24 h, from the factory creation event of the discovery transaction, else from pool code
+    at a historical block (needs archive state; unknown without it).
+  - `lowLiquidity`: pool value < $100k from priced reserves (V2: one priced side × 2), a lower bound from one priced
+    side of a concentrated pool (false when it alone reaches $100k), else the engine's measured pool depth. Stablecoin
+    quote tokens count as $1, a wrapped native quote takes the native price.
+  v0.1.0 peers send `/v1` results: accepted as hints but never compared flag by flag with `/v2`; `/v2` messages keep
+  the v1 wire shape and flag names, so v0.1.0 receivers accept them.
 
 - Circulating supply (`supply:*` jobs): per asset the cheapest verifiable method — native ledger or chain RPC with
   documented exclusions (burn, locked, community pool, known custody/bridge balances), then issuer or foundation
