@@ -4,7 +4,7 @@ const layer1 = new Set([
   'aptos', 'avalanche', 'berachain', 'bitcoin', 'bsc', 'cardano', 'cosmos', 'dogecoin', 'ethereum',
   'fantom', 'hyperevm', 'litecoin', 'near', 'solana', 'sonic', 'sui', 'ton', 'tron', 'xrpl',
   'algorand', 'bitcoin-cash', 'bittensor', 'ethereum-classic', 'filecoin', 'hedera', 'hyperliquid',
-  'internet-computer', 'kaspa', 'monero', 'pearl', 'pi', 'polkadot', 'stellar', 'terra-classic', 'zcash', 'zilliqa',
+  'internet-computer', 'kaspa', 'monero', 'pearl', 'pi', 'polkadot', 'stellar', 'terra-classic', 'trac', 'zcash', 'zilliqa',
 ])
 const layer2 = new Set([
   'arbitrum', 'base', 'blast', 'celo', 'linea', 'mantle', 'optimism', 'robinhood', 'scroll', 'unichain', 'whitechain', 'zksync',
