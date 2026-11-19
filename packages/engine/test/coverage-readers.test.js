@@ -6,6 +6,7 @@ import { openStore } from '@gator/store'
 import { Engine, migrations } from '../src/index.js'
 import { seedPlan } from '../src/sources/evm.js'
 import { word } from '../src/sources/evm-abi.js'
+import { channelFor } from '../src/obs/index.js'
 import { RateLimited } from '../src/scheduler/index.js'
 
 const key = n => word(n)
@@ -13,11 +14,14 @@ const address = n => '0x' + word(n).slice(-40)
 const start = Date.UTC(2026, 10, 19)
 function node(t, own = 1, n = 7) {
   const bundle = loadBundle(), store = openStore({ file: ':memory:', migrations, profile: 'small' })
-  t.after(() => store.close())
-  const transport = Object.assign(new EventEmitter(), { publicKey: key(own) })
+  const joined = new Set()
+  const transport = Object.assign(new EventEmitter(), { publicKey: key(own), channels: () => [...joined],
+    join: async id => { joined.add(id); return true }, leave: async id => joined.delete(id), send: () => true,
+    peerCount: () => 0 })
   let now = start
   const engine = new Engine({ store, bundle, transport, profile: 'small', clock: () => now,
-    rpcConfig: { fetch: () => assert.fail('unexpected upstream request') } })
+    backgroundJobs: [], patches: { patchFeed: false }, rpcConfig: { fetch: () => assert.fail('unexpected upstream request') } })
+  t.after(async () => { await engine.stop(); store.close() })
   const standing = store.writer.prepare('INSERT OR REPLACE INTO engine_standing VALUES (?,?,?,1)')
   const seen = store.writer.prepare('INSERT OR REPLACE INTO store_reporters_seen VALUES (?,?)')
   function peer(i, agreements = 3, last = now) {
@@ -179,4 +183,55 @@ test('a solo node can read the verified hint backlog with idle capacity without 
   assert.equal(engine.scheduler.jobs.get('evm:bsc:state').ready(), false)
   await job.run()
   assert.equal(engine.store.getSetting('dex-coverage/idle'), id)
+})
+
+test('shared core proves a signer, one wire tail report reaches rankings and coverage until the hour expires', async t => {
+  const sender = node(t, 2, 1), receiver = node(t, 1, 1), a = sender.engine, b = receiver.engine
+  await a.start()
+  await b.start()
+  const frames = []
+  a.transport.send = (channel, message) => {
+    frames.push([channel, message])
+    b.transport.emit('message', channel, { channel, from: a.transport.publicKey, message })
+    return true
+  }
+  const [core] = pools(a, 1, false)
+  pools(b, 1, false)
+  const { token1 } = b.evm.get('bsc').poolInfo.get('bsc', core.split(':')[2])
+  function register(engine) {
+    const market = engine.registry.pool({ chain: 'bsc', dex: 'pancakeswap-v2', kind: 'v2', pool: address(900),
+      token0: address(901), token1, liquidity: 25_000, firstSeen: start }, {}, engine === b)
+    engine.registry.fixedRanks.set(market.base, 700)
+    engine.registry.assets.get(market.base).rank = 700
+    const fx = engine.registry.register({ kind: 'cex', exchange: 'bitstamp', base: market.quote,
+      quote: 'fiat:USD', id: 'cex:bitstamp:QUOTE-USD' })
+    return { market, fx }
+  }
+  register(a)
+  const { market, fx } = register(b), id = market.id
+  const row = (market, price, volume, at) => [[market, price, volume, null, null, null, at]]
+  for (let round = 0; round < 3; round++) {
+    a.publish(row(core, '2', '100', a.clock()))
+    b.publish(row(core, '2', '100', b.clock()))
+    assert.equal(b.book.isProven(a.transport.publicKey), round === 2)
+    sender.advance(60_001)
+    receiver.advance(60_001)
+  }
+  b.publish(row(fx.id, '1', '10000', b.clock()))
+  a.publish(row(id, '2', '100', a.clock()))
+  assert.equal(frames.at(-1)[0], channelFor(id))
+  assert.deepEqual(Object.keys(frames.at(-1)[1]).sort(), ['at','b','o','t','v'])
+  assert.equal(b.book.coverage(id, 3_600_000), 1)
+  assert.equal(b.asset(market.base).visibility, 'live')
+  assert.equal(b.asset(market.base).trust, 'yellow')
+  assert.ok(b.markets({ chain: 'bsc' }).some(r => r.id === market.base))
+  assert.ok(b.queries.chains().find(c => c.chain === 'bsc').pools > 0)
+  assert.equal(b.focus.coverage(market.base).peers.reporters1h, 1)
+  assert.equal(b.focus.coverage(market.base).local.observations24h, 0)
+  receiver.advance(59 * 60_000)
+  b.publish(row(fx.id, '1', '10000', b.clock()))
+  assert.equal(b.asset(market.base).visibility, 'live')
+  receiver.advance(60_001)
+  assert.equal(b.book.coverage(id, 3_600_000), 0)
+  assert.equal(b.asset(market.base).visibility, 'stale')
 })

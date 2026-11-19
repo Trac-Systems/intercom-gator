@@ -86,9 +86,13 @@ export function marketMedian(market, rows, now) {
   const proven = recent.filter(r => r.proven)
   const weights = capUnproven(recent)
   const priceText = own?.price ?? medianPrice(weights.map(r => ({ value: r.price, weight: r.weight })))
+  // A state snapshot with no locally sampled swaps has a price but no measured turnover.
+  // Use the fresh proven peers that observed activity in that pool, counting each reporter once.
+  const peerTurnover = own && market.kind === 'dex' && own.quoteVol24hUsd == null && Number(own.baseVol24h) === 0
+    ? proven.filter(r => Number(r.baseVol24h) > 0 || Number(r.quoteVol24hUsd) > 0) : []
   const volume = field => {
-    if (own) return own[field] == null ? null : Number(own[field])
-    const measured = recent.filter(r => r[field] != null)
+    if (own && !peerTurnover.length) return own[field] == null ? null : Number(own[field])
+    const measured = (peerTurnover.length ? peerTurnover : recent).filter(r => r[field] != null)
     if (proven.length && !measured.some(r => r.proven)) return null
     return weightedMedian(capUnproven(measured).map(r => ({ value: Number(r[field]), weight: r.weight })))
   }
