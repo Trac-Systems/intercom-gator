@@ -1,9 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { resolve } from 'node:path'
+import { randomBytes } from 'node:crypto'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
-import { createMemoryHub, MemoryTransport } from '@gator/net'
+import createTestnet from 'hyperdht/testnet.js'
+import { createMemoryHub, keyFromSeed, MemoryTransport, SwarmTransport } from '@gator/net'
 import { Engine, migrations } from '../src/index.js'
 import { CATCHUP_JOB, POOL_CHANNEL } from '../src/intel/pool-catchup.js'
 import { RateLimited } from '../src/scheduler/index.js'
@@ -26,9 +29,30 @@ test('signed pool-history traffic stays off the v0.1.0 channels over a shared co
   const hub = createMemoryHub(), bundle = historyBundle(), ledger = poolLedger(bundle, Date.now() - 60_000)
   let now = Date.now()
   const clock = () => now
-  const legacyNet = legacyDir ? await released('net/src/index.js') : { MemoryTransport }
-  const legacy = new legacyNet.MemoryTransport({ hub }), endpoints = []
+  const legacyNet = legacyDir && await released('net/src/index.js')
+  const net = legacyDir ? await createTestnet(3) : null
+  const dir = net && mkdtempSync(join(import.meta.dirname, 'pool-interop-'))
+  const endpoints = []
+  function peer(Swarm = SwarmTransport) {
+    if (!net) return new MemoryTransport({ hub })
+    const wallet = keyFromSeed(randomBytes(32).toString('hex'))
+    return new Swarm({ dataDir: join(dir, wallet.publicKey.toString('hex')), bootstrap: net.bootstrap, wallet })
+  }
+  const legacy = peer(legacyNet?.SwarmTransport)
   let oldEngine
+  t.after(async () => {
+    try {
+      for (const e of endpoints) {
+        await e.stop()
+        e.store.close()
+        await e.transport.close()
+      }
+      if (!oldEngine) await legacy.close()
+    } finally {
+      await net?.destroy()
+      if (dir) rmSync(dir, { recursive: true, force: true })
+    }
+  })
   if (legacyDir) {
     const old = await released('engine/src/index.js')
     const store = openStore({ file: ':memory:', migrations: old.migrations })
@@ -38,18 +62,10 @@ test('signed pool-history traffic stays off the v0.1.0 channels over a shared co
     assert.throws(() => legacyNet.policyFor(POOL_CHANNEL))
     await oldEngine.start()
   } else await legacy.join('gator/new')
-  t.after(async () => {
-    for (const e of endpoints) {
-      await e.stop()
-      e.store.close()
-      await e.transport.close()
-    }
-    if (!oldEngine) await legacy.close()
-  })
   assert.ok(!legacy.channels().includes(POOL_CHANNEL))
   async function modern(seed) {
     const store = openStore({ file: ':memory:', migrations, profile: 'large' })
-    const transport = new MemoryTransport({ hub })
+    const transport = peer()
     const engine = new Engine({ store, transport, bundle, clock, backgroundJobs: [CATCHUP_JOB],
       rpcConfig: { fetch: ledger.fetch, retries: 0 }, patches: { patchFeed: false } })
     endpoints.push(engine)
@@ -77,7 +93,7 @@ test('signed pool-history traffic stays off the v0.1.0 channels over a shared co
     if (seen.length) return true
     sender.transport.send('gator/new', { t: 'listing', v: 1, exchange: 'bitstamp', symbol: 'BTC-USD', firstSeen: now })
   })
-  assert.equal(legacy.peerCount(), 2)
+  await until(() => legacy.peerCount() === 2)
   const prior = oldEngine?.hints.rank(sender.transport.publicKey)
   seen.length = 0
   sender.transport.on('message', (ch, env) => { if (ch === POOL_CHANNEL) wire.push(env) })
