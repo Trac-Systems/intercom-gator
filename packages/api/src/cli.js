@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve, win32 } from 'node:path';
@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { parseArgs } from 'node:util';
 import { keyFromSeed, loadOrCreateKey, SwarmTransport } from '@gator/net';
 import { readKey } from '@gator/net/src/keys.js';
+import { windowsDirectory } from '@gator/net/src/private-file.js';
 import { identityDocument } from '@gator/social';
 import { verifyRelease } from './bundle.js';
 import { daemonPort, httpClient } from './client.js';
@@ -36,8 +37,8 @@ async function doctor(dataDir, port) {
   const result = { node: process.version, nodeSupported: major > 22 || major === 22 && minor >= 13,
     dataDir, directoryMode: null, privateDirectory: false, port: daemonPort(dataDir,port) };
   try {
-    const stat = statSync(dataDir);
-    result.directoryMode = (stat.mode & 0o777).toString(8);
+    const stat = process.platform === 'win32' ? windowsDirectory(dataDir) : lstatSync(dataDir);
+    result.directoryMode = (Number(stat.mode) & 0o777).toString(8);
     result.privateDirectory = stat.isDirectory() && (process.platform === 'win32' || !(stat.mode & 0o077));
   } catch { /* Uninitialized data directory. */ }
   result.listening = await listening(result.port);

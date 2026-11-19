@@ -17,12 +17,6 @@ import { CREDENTIALS, defaultDir, ensureToken, lockDirectory, readJson, writePri
 
 const HOUR = 3_600_000, MINUTE = 60_000;
 
-/** Start one peer, its signed sources, agent files and loopback API.
- * @param {{dataDir?:string, config?:object, bootstrap?:Array, transport?:object|Function, clock?:(()=>number)|{now:()=>number},
- * port?:number, release?:{dir:string,rootKey:string}, fetch?:Function, signals?:boolean}} options */
-/** An unclean exit leaves Intercom's seen-list directory lock. Reclaim only the exact inode this daemon
- * acquired before (recorded in seen-writer.json), under the OS data-directory lock the caller holds. The lock
- * directory holds an `owner` record, so a killed daemon leaves it non-empty. */
 function seenLockRecord(dataDir, platform) {
   const seen = join(dataDir, 'seen'), lock = join(seen, '.writer.lock');
   if (platform === 'win32') {
@@ -35,6 +29,9 @@ function seenLockRecord(dataDir, platform) {
   return { dev: stat.dev, ino: stat.ino, birthtimeMs: stat.birthtimeMs };
 }
 
+/** An unclean exit leaves Intercom's seen-list directory lock. Reclaim only the exact inode this daemon
+ * acquired before (recorded in seen-writer.json), under the OS data-directory lock the caller holds. The lock
+ * directory holds an `owner` record, so a killed daemon leaves it non-empty. */
 export function reclaimSeenLock(dataDir, platform = process.platform) {
   const prior = readJson(join(dataDir, 'seen-writer.json'), null);
   if (!prior) return false;
@@ -53,6 +50,9 @@ export function reclaimSeenLock(dataDir, platform = process.platform) {
 
 const named = (label, fn) => Object.assign(fn, { label });
 
+/** Start one peer, its signed sources, agent files and loopback API.
+ * @param {{dataDir?:string, config?:object, bootstrap?:Array, transport?:object|Function, clock?:(()=>number)|{now:()=>number},
+ * port?:number, release?:{dir:string,rootKey:string}, fetch?:Function, signals?:boolean}} options */
 export async function createGator(options = {}) {
   const dataDir = resolve(options.dataDir ?? defaultDir());
   const sourceClock = options.clock ?? Date.now;

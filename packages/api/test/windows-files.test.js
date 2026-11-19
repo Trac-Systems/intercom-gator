@@ -26,3 +26,27 @@ test('Windows agent, add-on and seed readers use the checked regular file', t =>
     assert.throws(() => readSeedFile(join(linked, 'fixture')), /Cannot read the seed file/);
   } finally { Object.defineProperty(process, 'platform', platform); }
 });
+
+test('Windows doctor reports a junction data directory as unsuitable', async t => {
+  const { main } = await import('../src/cli.js');
+  const { createServer } = await import('node:net');
+  const server = createServer(socket => socket.end());
+  await new Promise((ok, fail) => server.once('error', fail).listen(0, '127.0.0.1', ok));
+  t.after(() => new Promise(ok => server.close(ok)));
+  const root = fs.mkdtempSync(join(tmpdir(), 'gator-doctor-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const linked = join(root, 'linked');
+  fs.mkdirSync(join(root, 'data'));
+  fs.symlinkSync(join(root, 'data'), linked, 'junction');
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform'), exitCode = process.exitCode;
+  Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
+  try {
+    let state;
+    await main(['doctor', '--data', linked, '--port', String(server.address().port)], { log: text => { state = JSON.parse(text); } });
+    assert.equal(state.privateDirectory, false);
+    assert.equal(process.exitCode, 1);
+  } finally {
+    Object.defineProperty(process, 'platform', platform);
+    process.exitCode = exitCode;
+  }
+});

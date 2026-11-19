@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { closeSync, fstatSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { openPrivateRead, windowsDirectory } from '@gator/net/src/private-file.js';
+import { processAlive } from '@gator/social/src/identity-lock.js';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -59,13 +60,9 @@ export function writeConfig(dataDir, config) {
   writePrivate(join(dataDir, 'config.json'), JSON.stringify(config, null, 2) + '\n');
 }
 
-function alive(pid) {
-  try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
-}
-
 const held = new Set();
 /** One running gator-social per data dir. Returns release(); throws if another live process holds it. */
-export function acquireLock(dataDir, { isAlive = alive } = {}) {
+export function acquireLock(dataDir, { isAlive = processAlive } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const file = resolve(dataDir, 'run.lock');
   if (held.has(file)) throw new Error('gator-social is already running for ' + dataDir + ' (this process)');
