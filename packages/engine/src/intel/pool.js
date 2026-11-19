@@ -107,7 +107,7 @@ const callsOf = reader => reader.calls ?? (list => Promise.all(list.map(c => rea
 const pct = (part, whole) => whole > 0n ? Number(part * 10_000n / whole) / 100 : null;
 
 /** V2 LP tokens: measured shares of the LP supply at the pinned block. Burned (zero, 0x…dead) and known lockers count as
- * locked; an externally owned account can withdraw at will. true: EOAs hold >= 5%; false: >= 95% burned or locked;
+ * locked; an externally owned account (also one with an EIP-7702 delegation) can withdraw at will. true: EOAs hold >= 5%; false: >= 95% burned or locked;
  * otherwise the seen balances cannot decide (LP in other contracts, or holders not among the candidates). */
 async function lockStatus(reader, pool, lockers, extra) {
   const lockedAccounts = new Set([ZERO, DEAD, ...addresses(lockers)]);
@@ -127,7 +127,8 @@ async function lockStatus(reader, pool, lockers, extra) {
   others.sort((x, y) => (y[1] > x[1]) - (y[1] < x[1]));
   for (const [i, [holder, balance]] of others.entries()) {
     const code = i < 4 ? await reader.code(holder) : null;
-    if (code === '0x') eoa += balance;
+    // EIP-7702: an EOA with a delegation designator (0xef0100 ‖ address) still signs for itself.
+    if (code === '0x' || /^0xef0100[\da-f]{40}$/i.test(code ?? '')) eoa += balance;
     else if (typeof code === 'string') contracts += balance;
     else unread += balance;
   }

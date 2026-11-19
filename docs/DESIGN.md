@@ -298,14 +298,16 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   - `unsellable`: an atomic router buy-then-sell in one `eth_call` with a state override; true when the sell reverts
     with a reason or returns nothing, false when it returns proceeds; unknown without a pool with a supported router
     (Uniswap V2/V3-style routers in the bundle), without override support or when the buy fails.
-  - `lpUnlocked` (V2 pools): LP balances of burn addresses, bundle lockers, the token, its owner and recent LP
-    recipients; true when EOAs hold ≥ 5 % of the LP supply, false when ≥ 95 % is burned or locked, else unknown;
-    concentrated-liquidity positions are not inspected (unknown).
+  - `lpUnlocked` (V2 pools): LP balances of burn addresses, bundle lockers, the token, its owner, the pool creator
+    (sender of the creation transaction) and recent LP recipients; true when EOAs (EIP-7702-delegated ones included)
+    hold ≥ 5 % of the LP supply, false when ≥ 95 % is burned or locked, else unknown (LP in other contracts, unseen
+    holders, empty pool); concentrated-liquidity positions are not inspected (unknown).
   - `veryNew`: pool younger than 24 h, from the factory creation event of the discovery transaction, else from pool code
     at a historical block (needs archive state; unknown without it).
-  - `lowLiquidity`: pool value < $100k from priced reserves (V2: one priced side × 2), a lower bound from one priced
-    side of a concentrated pool (false when it alone reaches $100k), else the engine's measured pool depth. Stablecoin
-    quote tokens count as $1, a wrapped native quote takes the native price.
+  - `lowLiquidity`: pool value < $100k from priced reserves (V2: one priced side × 2; an empty pool is $0), a lower
+    bound from one priced side of a concentrated pool (false when it alone reaches $100k), else the engine's measured
+    pool depth. Stablecoin quote tokens count as $1, a wrapped native quote takes the native price. A standalone
+    check prefers a pool that holds liquidity (launchpads pre-create empty pairs).
   v0.1.0 peers send `/v1` results: accepted as hints but never compared flag by flag with `/v2`; `/v2` messages keep
   the v1 wire shape and flag names, so v0.1.0 receivers accept them.
 
