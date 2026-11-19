@@ -63,7 +63,8 @@ Packages depend only on each other through the interfaces below.
   `bitcoin`, ...). Tickers are labels. Hyperliquid is two chains with one coin: `hyperliquid` (HyperCore; HYPE is
   `hyperliquid:native`, the identity CEX `HYPE` tickers bind to) and `hyperevm` (EVM 999). HyperEVM gas HYPE is HYPE
   moved from HyperCore (system address `0x2222…2222` holds the unbridged rest), so only `hyperliquid:native` carries
-  supply and the cap counts once.
+  supply and the cap counts once. `tap-protocol` (TAP Protocol, a Bitcoin ordinals metaprotocol whose ledger lives in
+  its indexer; TAP is `tap-protocol:native`) and `trac` (Trac Network; TNK is `trac:native`) are `cex-only` chains.
 - Market id: `cex:<exchangeId>:<BASE>-<QUOTE>` (exchange symbols normalised to upper case) or `dex:<chainId>:<pool>`.
 
 ## 4. Transport interface (`packages/net`)
@@ -199,8 +200,9 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   `evm:<chain>:logs` (creation events only, `eth_getLogs` filtered by the signed factory/PoolManager addresses; never
   stalls: excess lag skips to a recent window and records the gap under `engine-gap/<chain>/<reason>`),
   `evm:<chain>:seed` (deterministic V2 `getPair`, V3/Pancake `getPool` per signed fee tier, Velodrome/Solidly
-  `getPool(a,b,stable)`, Slipstream spacings and the standard no-hook V4 keys for ranked bundle tokens × the chain's main
-  quotes, block-pinned multicalls, $10k depth floor, positive and negative results retried after 6 h),
+  `getPool(a,b,stable)`, Slipstream spacings and the standard no-hook V4 keys for ranked bundle tokens and every signed
+  coin-group deployment on the chain × the chain's main quotes, block-pinned multicalls, $10k depth floor, positive
+  and negative results retried after 6 h),
   `evm:<chain>:trades` (Swap/Sync logs only for a bounded tracked set — 32/128/256 pools per chain by profile, watched
   and held first, then depth/turnover — in address chunks; V4 by pool ID in topic 1; durable per-pool cursors),
   `evm:<chain>:state` (multicall pool state); `sol:<api>`, `meta:<asset>` (links/risk), `candles:<market>`.
@@ -243,7 +245,11 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   including deployments whose own quote has expired. Green wins a timestamp tie, then asset ID breaks the tie.
   A lock-and-mint destination identified as `escrow-backed` contributes a price only when its backing is already
   included at origin. Groups using net issuance per chain deduct the origin escrow before adding the destination
-  float. Independent third-party pegs have separate identities and valuations. Asset rows expose the coin ID
+  float. Independent third-party pegs have separate identities and valuations. Without a circulating figure a group
+  shows its largest member cap that is not escrow-backed (a bridged deployment holds only its share). TAP is coin
+  `tap-protocol-tap`: `tap-protocol:native` (issuance) and the bridged ERC-20
+  `ethereum:0x5e7f6e008c6d9d7ad4c7eb75bd4ce62864cc7454` (escrow-backed, the PaidExtras payment token, §8) with its
+  Uniswap V2 TAP/USDT pool. Asset rows expose the coin ID
   (`coin`) and group cap (`coinMarketCap`) alongside their own price and market cap. Standalone assets use
   their existing ID. Asset rows expose `visibility` as `live`, `stale`,
   `unconfirmed` or `dust`, in order of exclusion by staleness, confirmation and dust. An asset awaiting its first
@@ -301,6 +307,14 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
 - A signed `cex-only` chain has a native identity and an empty endpoint list. CEX labels resolve to the
   signed native asset before a generic token with the same ticker. Explicit venue exceptions and confirmed
   venue-specific splits still apply. These assets can use a keyless supply API independently of market indexing.
+  Explicit venue exceptions are an exchange's optional bundle `symbolMap` (venue label → signed asset ID; the asset
+  must exist). Such markets keep the venue's label in their ID and are never detached by a collision split: Gate
+  `TAPPROTOCOL` and MEXC `TAP` are `tap-protocol:native`, both venues' `TNK` is `trac:native` (identity from each
+  venue's metadata: Gate "Tap Protocol" on chain BTCTAP / "Trac Network" on TRAC, MEXC "TAP Protocol" / "Trac
+  Network"). Bundles that use `symbolMap` cannot be reached by patch from releases whose schema predates it.
+- TAP's supply (`supply:tap-protocol`): the TAP reader's `tap` deployment max less the open mint allowance
+  (`tap-minted-total`, two keyless reads, a total only, local: terms unclear), so its cap is "from total supply".
+  TNK has no public supply source and no cap.
 - ZEC uses mainnet issuance across all monitored pools less deferred rewards, ETC uses native explorer
   issuance, XMR uses mined emission, and HBAR uses the mirror node's released amount. Bitfinex reports post-burn LEO across both ledgers.
   Chainlink and World Liberty Financial report released LINK and WLFI. Quant uses its crowdsale and founder
