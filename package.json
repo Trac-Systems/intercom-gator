@@ -10,6 +10,7 @@
   "bin": { "gator": "bin/gator.js" },
   "scripts": {
     "start": "node bin/gator.js start",
+    "release:pack": "node scripts/release-pack.mjs",
     "test": "node --test \"packages/*/test/**/*.test.js\""
   }
 }
