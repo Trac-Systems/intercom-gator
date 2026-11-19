@@ -472,9 +472,9 @@ function onLive(type, d) {
 /* ---------------- footer ---------------- */
 function renderFoot() {
   const m = $('#mode');
-  if (api.mode === 'demo') {
-    m.innerHTML = 'Sample data – not live' + (api.reason === 'signin' ? ' · <a href="#/settings">Not signed in: ask your agent to open the dashboard, or run <b>gator open</b></a>' : api.reason === 'unreachable' ? ' · local API not reachable' : '');
-  } else m.textContent = 'Live · your node';
+  if (api.mode === 'demo') m.textContent = 'Demo · sample data, not live';
+  else if (api.mode === 'offline') m.textContent = api.reason === 'signin' ? 'Not signed in' : 'Node not reachable';
+  else m.textContent = 'Live · your node';
   const n = ctx.network;
   $('#upd').textContent = n ? 'Updated ' + ago(n.lastUpdate) + (ago(n.lastUpdate) === 'now' ? '' : ' ago') : '';
   const agents = $('#agents');
@@ -483,9 +483,31 @@ function renderFoot() {
 }
 
 /* ---------------- boot ---------------- */
+/* Not signed in / node not answering: say so plainly and keep checking. Never show sample data instead. */
+function showOffline() {
+  const signin = api.reason === 'signin';
+  $('#view').innerHTML = `<div class="empty-state offline" role="alert"><b>${signin ? 'This dashboard is not signed in to your gator node.' : 'Your gator node is not answering.'}</b>${signin
+    ? 'Ask your agent to <i>open the gator dashboard in my browser</i>, or run <code>node bin/gator.js open</code> in your gator folder. No market data is shown until you are signed in.'
+    : 'It may still be starting, or it is not running. Ask your agent to start gator (<code>node bin/gator.js start</code>). No market data is shown until it answers.'}<br><span class="offline-retry">Checking again every 5 seconds…</span></div>`;
+  $('#mode').textContent = signin ? 'Not signed in' : 'Node not reachable';
+  $('#livedot').classList.add('off');
+  const lbl = $('#contrib .lbl'); if (lbl) lbl.textContent = signin ? 'Not signed in' : 'Offline';
+  document.documentElement.dataset.ready = '1';
+  const again = async () => { if (await api.recheck() === 'live') location.reload(); else setTimeout(again, 5000); };
+  setTimeout(again, 5000);
+}
+function showDemoBanner() {
+  const bar = document.createElement('div');
+  bar.className = 'demo-banner'; bar.setAttribute('role', 'status');
+  bar.innerHTML = '<b>Demo</b> · sample data: these tokens, prices and posts are made up. <a href="' + esc(location.pathname + location.hash) + '">Leave demo</a>';
+  document.body.prepend(bar);
+}
+
 async function boot() {
   $$('.bm').forEach((b) => { b.innerHTML = brandSVG(30); });
   await api.probe();
+  if (api.mode === 'offline') { showOffline(); return; }
+  if (api.mode === 'demo') showDemoBanner();
   try {
     const [me, mk, nw, net] = await Promise.all([api.me(), ctx.cached('markets:all', () => api.markets({ tab: 'all' })), ctx.cached('new', () => api.newTokens()), api.network()]);
     ctx.me = me; ctx.watch = new Set(me.watchlist || []);

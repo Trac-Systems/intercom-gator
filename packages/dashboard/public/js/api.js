@@ -1,10 +1,11 @@
-// Data layer. Talks to the local API (DESIGN §7, same origin, session cookie from /auth?t=)
-// and falls back to the bundled sample data when asked (?demo=1) or when the API cannot be
-// reached. Works in Node too (tests inject `fetch`).
+// Data layer. Talks to the local API (DESIGN §7, same origin, session cookie from /auth?t=).
+// Sample data is used ONLY when asked (?demo=1). A browser that is not signed in, or a node that
+// does not answer, is 'offline': every call fails and the shell explains how to connect. Real users
+// must never see invented tokens or prices as if they were live. Works in Node too (tests inject `fetch`).
 
 import { createDemoServer } from './demo-server.js';
 
-/** @typedef {'live'|'demo'} Mode */
+/** @typedef {'live'|'demo'|'offline'} Mode */
 /** @typedef {{ limit?: number, offset?: number }} Paging */
 
 export class ApiError extends Error {
@@ -34,24 +35,30 @@ export function createApi(opts = {}) {
   let probed = !!opts.demo;
 
   /**
-   * Decide live vs demo once. A network error, a timeout, a non-JSON answer or a 404
-   * means "no API here" → demo. A 401 means the API is there but this browser is not
-   * signed in → demo with reason 'signin'.
+   * Decide live vs offline once (demo only when asked). A network error, a timeout, a non-JSON
+   * answer or a 404 means "no API here" → offline 'unreachable'. A 401/403 means the API is there
+   * but this browser is not signed in → offline 'signin'. `recheck()` probes again.
    */
   async function probe() {
     if (probed) return mode;
     probed = true;
-    if (!doFetch) { mode = 'demo'; reason = 'unreachable'; return mode; }
+    if (!doFetch) { mode = 'offline'; reason = 'unreachable'; return mode; }
     try {
       const r = await timed(doFetch(base + '/me', { credentials: 'same-origin', headers: { accept: 'application/json', 'x-gator': '1' } }));
-      if (r.status === 401 || r.status === 403) { mode = 'demo'; reason = 'signin'; return mode; }
+      if (r.status === 401 || r.status === 403) { mode = 'offline'; reason = 'signin'; return mode; }
       const type = r.headers?.get?.('content-type') || '';
-      if (!r.ok || !type.includes('json')) { mode = 'demo'; reason = 'unreachable'; return mode; }
+      if (!r.ok || !type.includes('json')) { mode = 'offline'; reason = 'unreachable'; return mode; }
       mode = 'live'; reason = null;
     } catch {
-      mode = 'demo'; reason = 'unreachable';
+      mode = 'offline'; reason = 'unreachable';
     }
     return mode;
+  }
+  /** Probe again (offline only); resolves to the new mode. */
+  async function recheck() {
+    if (mode === 'demo') return mode;
+    probed = false;
+    return probe();
   }
 
   /** @template T @param {Promise<T>} p @param {number} [ms] @returns {Promise<T>} */
@@ -69,6 +76,7 @@ export function createApi(opts = {}) {
     await probe();
     const q = {};
     for (const [k, v] of Object.entries(query || {})) if (v != null && v !== '') q[k] = String(v);
+    if (mode === 'offline') throw new ApiError(reason === 'signin' ? 401 : 0, reason === 'signin' ? 'not signed in' : 'node not reachable');
     if (mode === 'demo') {
       const srv = ensureDemo();
       try {
@@ -104,6 +112,7 @@ export function createApi(opts = {}) {
     get mode() { return mode; },
     get reason() { return reason; },
     probe,
+    recheck,
     // market data
     global: () => get('/global'),
     network: () => get('/network'),
@@ -161,6 +170,7 @@ export function createApi(opts = {}) {
      * @returns {() => void} close
      */
     stream(on) {
+      if (mode === 'offline') return () => {};
       if (mode === 'demo') {
         if (opts.still) return () => {};
         const srv = ensureDemo();
