@@ -101,3 +101,21 @@ test('evicting seen rows leaves the current inbound author rate charge intact', 
   reply('Third reply');
   assert.equal(rows()[0].text, 'Third reply');
 });
+
+test('a steady target below the profile ceiling leaves social history alone; the ceiling still relieves it', async t => {
+  const { hub, net, store, start } = environment(t);
+  const social = await start();
+  const me = net.publicKey, followed = hub.peer(), other = hub.peer();
+  await social.follow(followed.publicKey);
+  for (const sender of [followed, other]) {
+    sender.deliver(sender.envelope('soc/r/' + me, { t: 'reply', v: 1, text: 'hello', parent: { key: me, id: 'one' } }));
+    hub.now++;
+  }
+  const others = () => store.writer.prepare('SELECT count(*) AS n FROM posts WHERE key<>?').get(me).n;
+  assert.equal(others(), 2);
+  // v0.1.0 ran this evictor against 295 MB on every maintenance pass and kept only the user's own rows.
+  store.transaction(db => fitBudget(db, 1, hub.now, 256, Number.MAX_SAFE_INTEGER));
+  assert.equal(others(), 2);
+  store.transaction(db => fitBudget(db, 1, hub.now));
+  assert.equal(others(), 0);
+});
