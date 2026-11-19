@@ -1,0 +1,140 @@
+[
+  {
+    "op": "add",
+    "path": "/chains/-",
+    "value": {
+      "id": "tap-protocol",
+      "name": "TAP Protocol",
+      "family": "cex-only",
+      "chainId": null,
+      "native": {
+        "symbol": "TAP",
+        "decimals": 18
+      },
+      "blockTimeSeconds": null,
+      "explorer": "https://tapscope.io",
+      "multicall3": null,
+      "endpoints": []
+    }
+  },
+  {
+    "op": "add",
+    "path": "/chains/-",
+    "value": {
+      "id": "trac",
+      "name": "Trac Network",
+      "family": "cex-only",
+      "chainId": null,
+      "native": {
+        "symbol": "TNK",
+        "decimals": 18
+      },
+      "blockTimeSeconds": null,
+      "explorer": "https://explorer.trac.network",
+      "multicall3": null,
+      "endpoints": []
+    }
+  },
+  {
+    "op": "add",
+    "path": "/tokens/tokens/-",
+    "value": {
+      "id": "tap-protocol:native",
+      "symbol": "TAP",
+      "name": "TAP Protocol",
+      "decimals": 18,
+      "source": "protocol-native",
+      "links": [],
+      "explorer": "https://tapscope.io",
+      "category": "infrastructure",
+      "categorySource": "gator-curated",
+      "categoryReason": "TAP Protocol is a Bitcoin ordinals metaprotocol for issuing and moving tokens; TAP is its first token."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/tokens/tokens/-",
+    "value": {
+      "id": "trac:native",
+      "symbol": "TNK",
+      "name": "Trac Network",
+      "decimals": 18,
+      "source": "protocol-native",
+      "links": [],
+      "explorer": "https://explorer.trac.network",
+      "category": "layer-1",
+      "categorySource": "gator-rules"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/tokens/tokens/-",
+    "value": {
+      "id": "ethereum:0x5e7f6e008c6d9d7ad4c7eb75bd4ce62864cc7454",
+      "symbol": "TAP",
+      "name": "TAP Protocol (Ethereum)",
+      "decimals": 18,
+      "source": "chain-explorer",
+      "links": [],
+      "explorer": "https://etherscan.io/token/0x5e7f6e008c6d9d7ad4c7eb75bd4ce62864cc7454",
+      "docs": "https://bridge.tapscope.io",
+      "category": "infrastructure",
+      "categorySource": "gator-curated",
+      "categoryReason": "TAP Protocol is a Bitcoin ordinals metaprotocol for issuing and moving tokens; TAP is its first token."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/apis/-",
+    "value": {
+      "id": "tap-reader-deployment",
+      "name": "TAP Protocol reader: tap deployment",
+      "base": "https://tap-reader-tw.tap-hosting.xyz",
+      "path": "/getDeployment/tap",
+      "requestsPerMinute": null,
+      "terms": {
+        "url": "https://tapscope.io",
+        "redistribution": "unclear",
+        "note": "TAP Protocol indexer used by the TapScope bridge; tick, decimals and max of the tap deployment. No published API terms or onward data grant. Local only."
+      },
+      "verified": {
+        "date": "2026-11-19",
+        "successful": [
+          {
+            "method": "GET",
+            "date": "2026-11-19",
+            "url": "https://tap-reader-tw.tap-hosting.xyz/getDeployment/tap"
+          }
+        ]
+      },
+      "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+    }
+  },
+  {
+    "op": "add",
+    "path": "/apis/-",
+    "value": {
+      "id": "tap-reader-mint-left",
+      "name": "TAP Protocol reader: tap mint allowance left",
+      "base": "https://tap-reader-tw.tap-hosting.xyz",
+      "path": "/getMintTokensLeft/tap",
+      "requestsPerMinute": null,
+      "terms": {
+        "url": "https://tapscope.io",
+        "redistribution": "unclear",
+        "note": "Unminted remainder of the tap deployment (base units); minted total = max - remainder. No published API terms or onward data grant. Local only."
+      },
+      "verified": {
+        "date": "2026-11-19",
+        "successful": [
+          {
+            "method": "GET",
+            "date": "2026-11-19",
+            "url": "https://tap-reader-tw.tap-hosting.xyz/getMintTokensLeft/tap"
+          }
+        ]
+      },
+      "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+    }
+  }
+]

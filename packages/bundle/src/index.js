@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { validateBundle } from './schema.js';
 
 export { categoryLabels, validateBundle } from './schema.js';
+export { EXTENSIONS_FILE, applyReleaseExtensions, loadReleaseExtensions, validateReleaseExtensions } from './extensions.js';
 const datasets = ['exchanges', 'chains', 'dex', 'tokens', 'apis'];
 const currentDatasets = [...datasets, 'paidExtras'];
 const defaultDir = fileURLToPath(new URL('../data/', import.meta.url));

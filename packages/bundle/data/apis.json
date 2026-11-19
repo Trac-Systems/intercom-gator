@@ -1289,51 +1289,5 @@
       ]
     },
     "limitNote": "Six JSON-RPC calls every five minutes."
-  },
-  {
-    "id": "tap-reader-deployment",
-    "name": "TAP Protocol reader: tap deployment",
-    "base": "https://tap-reader-tw.tap-hosting.xyz",
-    "path": "/getDeployment/tap",
-    "requestsPerMinute": null,
-    "terms": {
-      "url": "https://tapscope.io",
-      "redistribution": "unclear",
-      "note": "TAP Protocol indexer used by the TapScope bridge; tick, decimals and max of the tap deployment. No published API terms or onward data grant. Local only."
-    },
-    "verified": {
-      "date": "2026-11-19",
-      "successful": [
-        {
-          "method": "GET",
-          "date": "2026-11-19",
-          "url": "https://tap-reader-tw.tap-hosting.xyz/getDeployment/tap"
-        }
-      ]
-    },
-    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
-  },
-  {
-    "id": "tap-reader-mint-left",
-    "name": "TAP Protocol reader: tap mint allowance left",
-    "base": "https://tap-reader-tw.tap-hosting.xyz",
-    "path": "/getMintTokensLeft/tap",
-    "requestsPerMinute": null,
-    "terms": {
-      "url": "https://tapscope.io",
-      "redistribution": "unclear",
-      "note": "Unminted remainder of the tap deployment (base units); minted total = max - remainder. No published API terms or onward data grant. Local only."
-    },
-    "verified": {
-      "date": "2026-11-19",
-      "successful": [
-        {
-          "method": "GET",
-          "date": "2026-11-19",
-          "url": "https://tap-reader-tw.tap-hosting.xyz/getMintTokensLeft/tap"
-        }
-      ]
-    },
-    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
   }
 ]

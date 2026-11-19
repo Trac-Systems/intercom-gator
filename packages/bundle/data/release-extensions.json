@@ -1,0 +1,24 @@
+{
+  "v": 1,
+  "note": "Release extension, not part of the signed bundle digest. Data older release schemas reject: venue labels that differ from a coin's ticker and coin groups that only this release's code values correctly. Entries naming assets the signed bundle and root patches do not define are skipped.",
+  "symbolMap": {
+    "gate": {
+      "TAPPROTOCOL": "tap-protocol:native",
+      "TNK": "trac:native"
+    },
+    "mexc": {
+      "TAP": "tap-protocol:native",
+      "TNK": "trac:native"
+    }
+  },
+  "coinGroups": [
+    {
+      "id": "tap-protocol-tap",
+      "source": "https://bridge.tapscope.io",
+      "members": {
+        "tap-protocol:native": "issuance",
+        "ethereum:0x5e7f6e008c6d9d7ad4c7eb75bd4ce62864cc7454": "escrow-backed"
+      }
+    }
+  ]
+}

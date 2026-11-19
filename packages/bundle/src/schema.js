@@ -159,17 +159,6 @@ const candles = object({
 });
 const metric = object({ method: httpMethod, url: templateUrl, body: jsonBody, field: attr });
 const derivative = nullable((v, p) => httpRequest(v, p, metric));
-// Explicit venue labels: the venue's own ticker for a signed identity (it differs from the symbol or collides with
-// another project). Labels use the engine's market-label form; validateBundle checks every target asset exists.
-const venueLabel = pattern(/^[A-Z0-9][A-Z0-9._]{0,31}$/, 'invalid venue label');
-function symbolMap(v, p) {
-  requireValue(v !== null && typeof v === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(v)) &&
-    Object.keys(v).length > 0, p, 'expected a nonempty label-to-asset map');
-  for (const [label, asset] of Object.entries(v)) {
-    venueLabel(label, p + '.' + label);
-    text(asset, p + '.' + label);
-  }
-}
 const exchange = object({
   id, name: text, kind: choice('both', 'spot', 'derivatives'), restBase: https, docs: https,
   tickers, symbols, candles: (v, p) => httpRequest(v, p, candles),
@@ -181,7 +170,7 @@ const exchange = object({
     tickerWeight: nullable(positive), note: text }),
   derivatives: nullable(object({ fundingRate: derivative, openInterest: derivative })),
   terms, verified, note: nullable(text),
-}, { symbolMap });
+});
 const endpoint = object({
   url: https, wss: nullable(url('wss')), protocol: id, limits: nullable(text), probe: string,
   getLogs: object({ allowed: nullable(bool), maxRange: nullable(positive) }),
@@ -410,8 +399,6 @@ export function validateBundle(bundle) {
   for (const s of bundle.dex.solana) requireValue(apiIds.has(s.api), 'dex.solana.' + s.name, 'unknown pool API');
   for (const e of bundle.exchanges) {
     requireValue((e.kind === 'spot') === (e.derivatives === null), 'exchanges.' + e.id, 'derivatives and kind disagree');
-    for (const [label, asset] of Object.entries(e.symbolMap ?? {}))
-      requireValue(assets.has(asset), 'exchanges.' + e.id + '.symbolMap.' + label, 'unknown asset ' + asset);
   }
   return bundle;
 }

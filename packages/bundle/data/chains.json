@@ -2706,20 +2706,6 @@
     "endpoints": []
   },
   {
-    "id": "tap-protocol",
-    "name": "TAP Protocol",
-    "family": "cex-only",
-    "chainId": null,
-    "native": {
-      "symbol": "TAP",
-      "decimals": 18
-    },
-    "blockTimeSeconds": null,
-    "explorer": "https://tapscope.io",
-    "multicall3": null,
-    "endpoints": []
-  },
-  {
     "id": "terra-classic",
     "name": "Terra Classic",
     "family": "cex-only",
@@ -2730,20 +2716,6 @@
     },
     "blockTimeSeconds": null,
     "explorer": "https://finder.terra.money/classic",
-    "multicall3": null,
-    "endpoints": []
-  },
-  {
-    "id": "trac",
-    "name": "Trac Network",
-    "family": "cex-only",
-    "chainId": null,
-    "native": {
-      "symbol": "TNK",
-      "decimals": 18
-    },
-    "blockTimeSeconds": null,
-    "explorer": "https://explorer.trac.network",
     "multicall3": null,
     "endpoints": []
   },

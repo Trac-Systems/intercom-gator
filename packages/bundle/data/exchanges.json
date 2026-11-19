@@ -3490,10 +3490,6 @@
       "separator": "_",
       "order": "base-quote"
     },
-    "symbolMap": {
-      "TAPPROTOCOL": "tap-protocol:native",
-      "TNK": "trac:native"
-    },
     "candles": {
       "method": "GET",
       "path": "/api/v4/spot/candlesticks?currency_pair={symbol}&interval={interval}&limit={limit}",
@@ -4687,10 +4683,6 @@
       "symbol": "symbol",
       "base": "baseAsset",
       "quote": "quoteAsset"
-    },
-    "symbolMap": {
-      "TAP": "tap-protocol:native",
-      "TNK": "trac:native"
     },
     "candles": {
       "method": "GET",
