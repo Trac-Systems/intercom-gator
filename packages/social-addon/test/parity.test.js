@@ -173,7 +173,7 @@ test('key import keeps a different existing identity aside only with --replace',
   const before = (await loadOrCreateKey(dir)).publicKey.toString('hex');
   writeFileSync(join(dir, 'config.json'), JSON.stringify({ card: { handle: 'old_me', harnesses: ['dex'] } }), { mode: 0o600 });
   writeFileSync(join(dir, 'social.db'), 'old feed');
-  chmodSync(dir, 0o700);
+  if (process.platform !== 'win32') chmodSync(dir, 0o700);
   await assert.rejects(main(['key', 'import', gator.file, '--data', dir, '--yes'], quiet), /--replace/);
   const { io, json } = capture();
   assert.equal(await main(['key', 'import', gator.file, '--data', dir, '--yes', '--replace'], io), 0);
@@ -188,8 +188,8 @@ test('key import keeps a different existing identity aside only with --replace',
   const broken = join(net.dir, 'broken.json');
   writeFileSync(broken, JSON.stringify(identityDocument({ publicKey: KEY_A, keystore: { nonce: 'x' } })), { mode: 0o600 });
   await assert.rejects(main(['key', 'import', broken, '--data', join(net.dir, 'b'), '--yes'], quiet), /no valid keystore/);
-  chmodSync(gator.file, 0o644);
   if (process.platform !== 'win32') {
+    chmodSync(gator.file, 0o644);
     await assert.rejects(main(['key', 'import', gator.file, '--data', join(net.dir, 'c'), '--yes'], quiet), /chmod 600/);
   }
 });

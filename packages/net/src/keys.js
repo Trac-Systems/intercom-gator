@@ -150,6 +150,20 @@ function swarmPair(json) {
   }
 }
 
+function readSwarmKey(file) {
+  let json = readKey(file, 'swarm');
+  // On volumes without hard links, a concurrent reader can see the empty
+  // exclusive-create file before the winning process completes its first write.
+  if (!json) {
+    const wait = new Int32Array(new SharedArrayBuffer(4));
+    for (let retry = 0; !json && retry < 10; retry++) {
+      Atomics.wait(wait, 0, 0, 10);
+      json = readKey(file, 'swarm');
+    }
+  }
+  return swarmPair(json);
+}
+
 /** Load or create the Hyperswarm (Noise) key pair in dataDir/keys/swarm.json (0600, plain JSON like
  * `{publicKey, secretKey}` in hex). It is deliberately not the signing identity, so that the key this node
  * announces and connects with on the DHT does not name its soc/u/<identity> channel. Synchronous; no KDF.
@@ -160,7 +174,7 @@ export function loadOrCreateSwarmKeyPair(dataDir) {
   const file = join(dir, 'swarm.json');
   const parent = prepareKeys(dataDir);
   try {
-    return swarmPair(readKey(file, 'swarm'));
+    return readSwarmKey(file);
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
@@ -174,8 +188,10 @@ export function loadOrCreateSwarmKeyPair(dataDir) {
     linkSync(temp, file);
   } catch (error) {
     if (error.code !== 'EEXIST') {
-      // Filesystems without hard links: exclusive create.
-      if (!['EPERM', 'ENOTSUP', 'ENOSYS', 'EXDEV'].includes(error.code)) throw error;
+      // libuv also maps Windows ERROR_INVALID_FUNCTION to EISDIR (e.g. on
+      // volumes without hard links). A sharing violation can report EBUSY.
+      const windowsFallback = process.platform === 'win32' && ['EISDIR', 'EBUSY'].includes(error.code);
+      if (!windowsFallback && !['EPERM', 'ENOTSUP', 'ENOSYS', 'EXDEV'].includes(error.code)) throw error;
       try {
         writeNewKey(file, contents, parent);
       } catch (openError) {
@@ -185,5 +201,5 @@ export function loadOrCreateSwarmKeyPair(dataDir) {
   } finally {
     unlinkSync(temp);
   }
-  return swarmPair(readKey(file, 'swarm'));
+  return readSwarmKey(file);
 }
