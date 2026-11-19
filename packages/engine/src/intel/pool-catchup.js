@@ -8,6 +8,7 @@ const PAGE = 8, CAP = 5000, PEERS = 3, BODY_BYTES = 7168
 const SESSION = 'engine:pool-catchup', ONLINE = 'engine:pool-catchup:last-online'
 const bytes = message => Buffer.byteLength(JSON.stringify(message))
 const idOk = id => typeof id === 'string' && /^[a-f0-9]{24}$/.test(id)
+/** @param {{at:number, chain:string, pool:string}} row @returns {[number,string,string]} */
 const cursorOf = row => [row.at, row.chain, row.pool]
 const cursorOk = c => Array.isArray(c) && c.length === 3 && Number.isSafeInteger(c[0]) && c[0] >= 0 &&
   typeof c[1] === 'string' && /^[a-z0-9_-]{1,32}$/.test(c[1]) && typeof c[2] === 'string' &&
@@ -22,7 +23,10 @@ export const PAGE_SQL = `SELECT h.at,p.chain,p.pool,p.dex,p.kind,p.token0,p.toke
   WHERE h.verified=1 AND h.at>=? AND (h.at,h.chain,h.pool)<(?,?,?)
   ORDER BY h.at DESC,h.chain DESC,h.pool DESC LIMIT ?`
 
+/** One signed history exchange per engine. A single outstanding page keeps its signer
+ * and cursor across budget deferrals. All transport callbacks are synchronous and do no RPC. */
 export class PoolCatchup {
+  /** @param {import('../index.js').Engine} engine */
   constructor(engine) {
     this.engine = engine
     this.active = false
@@ -39,7 +43,8 @@ export class PoolCatchup {
     this.served = new Map()
     this.nextRead = this.nextServe = this.nextOffer = this.nextLegacy = 0
     engine.scheduler.add({ id: CATCHUP_JOB, idleOnly: true, interval: 500,
-      ready: () => this.active && !this.busy && (this.state.page !== null || !!this.oldRow || engine.names.historyDue()),
+      ready: () => this.active && !this.busy && engine.clock() >= this.nextRead &&
+        (this.state.page !== null || !!this.oldRow || engine.names.historyDue()),
       run: () => this.run() })
   }
 
@@ -74,6 +79,7 @@ export class PoolCatchup {
     const { store } = this.engine
     this.state = store.getSetting(SESSION) ?? fresh()
     this.online = store.getSetting(ONLINE) ?? 0
+    this.connectedAt = null
     this.lastOffer = new Map()
     this.active = true
     this.timer = setInterval(() => this.tick(), 2000)
@@ -89,10 +95,20 @@ export class PoolCatchup {
   save() { this.engine.store.setSetting(SESSION, this.state) }
   send(t, fields = {}) { return this.engine.transport.send(POOL_CHANNEL, { t, v: 1, ...fields }) }
 
+  unusedTurn() {
+    const { scheduler, budget, clock } = this.engine
+    const job = scheduler.jobs.get(CATCHUP_JOB)
+    if (!this.active || (scheduler.backgroundJobs && !scheduler.backgroundJobs.has(CATCHUP_JOB)) ||
+        job.next > clock() || !job.ready() || budget.used >= budget.limit / 2) return
+    return scheduler.execute(job, job.run)
+  }
+
   tick() {
     const { clock, transport, store, book, hints } = this.engine
-    if (!this.active || !transport.peerCount?.()) return
+    if (!this.active) return
+    if (!transport.peerCount?.()) { this.connectedAt = null; return }
     const now = clock()
+    this.connectedAt ??= now
     if ((this.online && now - this.online >= OFFLINE) ||
         (!this.state.done && this.state.until !== null && now - this.state.until >= WEEK)) {
       this.state = fresh()
@@ -124,7 +140,8 @@ export class PoolCatchup {
     if (!peers.length) {
       if (state.peers.some(p => p.end) && state.peers.every(p => p.end ||
           (!this.lastOffer.has(p.key) && now - p.requested >= 2 * MINUTE)) &&
-          (state.peers.length === PEERS || now - state.until >= 2 * MINUTE)) {
+          ((state.peers.length === PEERS && state.peers.every(p => p.end)) ||
+            now - Math.max(this.connectedAt, state.until) >= 2 * MINUTE)) {
         state.done = true
         this.save()
       }
@@ -221,12 +238,14 @@ export class PoolCatchup {
   }
 
   skipKnown() {
-    const { registry, hints, book } = this.engine
+    const { hints, book, evm, clock } = this.engine
     const state = this.state, page = state.page
     while (page.offset < page.rows.length) {
       const row = page.rows[page.offset]
-      if (!book.muted(page.key) && this.engine.evm.has(row.chain) &&
-          !registry.markets.has('dex:' + row.chain + ':' + row.pool) && hints.candidate(row, page.key)) return
+      if (row.at >= clock() - WEEK && !book.muted(page.key) && evm.has(row.chain)) {
+        const hint = hints.candidate(row, page.key)
+        if (hint) return hint
+      }
       page.offset++
     }
     const peer = state.peers.find(p => p.key === page.key)
@@ -272,7 +291,7 @@ export class PoolCatchup {
       finally { this.busy = false }
       return
     }
-    if (this.state.page) this.skipKnown()
+    const hint = this.state.page && this.skipKnown()
     const page = this.state.page, row = page?.rows[page.offset] ?? this.oldRow
     if (!row) return
     const { hints, evm, clock } = this.engine
@@ -281,9 +300,8 @@ export class PoolCatchup {
     this.busy = true
     try {
       if (page) {
-        const hint = hints.candidate(row, page.key)
         const pool = await evm.get(row.chain).verifyPoolHint(hint, rpc, work.cache, {
-          since: this.state.until - WEEK, wanted: () => this.active && this.state.page === page && !this.engine.book.muted(page.key),
+          since: clock() - WEEK, wanted: () => this.active && this.state.page === page && !this.engine.book.muted(page.key),
         })
         if (this.state.page !== page || !this.active) return
         if (pool === false) hints.penalize(page.key)

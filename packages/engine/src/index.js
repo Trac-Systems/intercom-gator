@@ -432,11 +432,17 @@ export class Engine extends EventEmitter {
       () => {
         const slots = CONCURRENCY[this.profile] ?? CONCURRENCY.normal
         if (this.active && this.inflight.size < slots) {
+          const dispatches = this.budget.dispatches
           const run = this.scheduler
             .runOne({ allowIdle: this.inflight.size < slots - 1 })
             .then((id) => {
               // Historical identities carry no new price observations.
-              if (id && id !== CATCHUP_JOB) this.requestRefresh()
+              if (!id || id === CATCHUP_JOB) return
+              this.requestRefresh()
+              // A full catalog can have a due maintenance job on every tick. Reuse an
+              // unspent turn only after it finishes and another slot is free for prices.
+              if (this.active && this.inflight.size < slots && dispatches === this.budget.dispatches)
+                return this.catchup.unusedTurn()
             })
             .catch((err) => {
               if (this.active && !(err instanceof RateLimited))

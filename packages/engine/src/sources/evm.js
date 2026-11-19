@@ -523,7 +523,7 @@ export class EvmSource {
     if (!pool) return null
     if (pool.token0 !== hint.token0 || pool.token1 !== hint.token1 ||
         pool.dex !== hint.dex || pool.kind !== hint.kind) return false
-    const creation = events.some(e => this.matchesCreation(e, pool, header.hash))
+    const creation = receipt.status === '0x1' && events.some(e => this.matchesCreation(e, pool, header.hash))
     if (history && !creation) return false
     const decimals = await this.readDecimals([pool], block, read)
     // A live receipt or independent scan can finish during these public reads.
@@ -584,6 +584,7 @@ export class EvmSource {
     const pools = await this.resolvePools(valid, block, at, read)
     const creations = new Set()
     for (const entry of valid) {
+      if (entry.swap.type !== 'pool') continue
       const pool = pools.get(entry.swap.pool)
       if (pool && this.matchesCreation(entry, pool, header.hash)) creations.add(pool.pool)
     }

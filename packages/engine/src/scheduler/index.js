@@ -55,6 +55,7 @@ export class RequestBudget {
     this.limit = this.ceiling
     this.setLimit(requested)
     this.times = []
+    this.dispatches = 0
   }
   setLimit(limit) {
     if (Number.isFinite(limit)) this.limit = Math.max(1, Math.min(this.ceiling, Math.floor(limit)))
@@ -71,6 +72,7 @@ export class RequestBudget {
   take() {
     if (this.used >= this.limit) throw new RateLimited(this.times[0] + 60_000)
     this.times.push(this.clock())
+    this.dispatches++
     const account = this.#accounting.getStore()
     if (account) account.requests++
   }
