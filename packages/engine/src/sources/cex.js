@@ -161,6 +161,7 @@ export async function fetchTickers({ venue, http, registry, clock, publish, disc
         if (!validRow(observation, now)) continue
         changes.set(market.id, null)
       }
+      if (old || (previous && now - previous.at > 3_600_000)) venue.contracts?.resumed.add(market.id)
       // A local FX rate may include restricted exchange data. Convert only inside the book.
       if (volume == null && quote != null) localQuoteVolumes.set(observation, quote)
       rows.push(observation)
@@ -176,6 +177,7 @@ export async function fetchTickers({ venue, http, registry, clock, publish, disc
     if (!venue.cursor) registry.store.setSetting(baselineKey, true)
   })
   updateHalts(registry, changes)
+  venue.contracts?.sync()
   if (venue.id === 'deribit') venue.currency = venue.currency === 'ETH' ? 'BTC' : 'ETH'
   for (const listing of listings) discover(listing)
   publish(rows, localQuoteVolumes)

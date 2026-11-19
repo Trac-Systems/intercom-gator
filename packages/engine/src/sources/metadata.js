@@ -267,6 +267,11 @@ export function registerNamesJob(engine) {
   // Historical labels share the durable batch/validation path. Only the idle catch-up job
   // runs these public reads, and locally resolved historical names stay out of the live outbox.
   return { enqueue, display,
+    // Reuse an independent on-chain read without issuing a second names batch or enqueuing a venue-derived announcement.
+    recordVerified(asset, row) {
+      enqueue(asset.id, true, true)
+      save([asset], [row])
+    },
     historyDue: () => clock() >= nextHistory && !!nextRoute(history),
     async readHistory(client) {
       const route = nextRoute(history)

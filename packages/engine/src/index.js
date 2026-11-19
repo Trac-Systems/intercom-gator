@@ -12,6 +12,7 @@ import { CATCHUP_JOB, PoolCatchup, POOL_CHANNEL } from './intel/pool-catchup.js'
 import { HttpSources } from './sources/http.js'
 import { derivativeJobs } from './sources/derivatives.js'
 import { fetchTickers, loadNextSymbol } from './sources/cex.js'
+import { registerVenueContracts } from './sources/venue-contracts/index.js'
 import { EvmSource } from './sources/evm.js'
 import { checkSolanaPrice, fetchSolana } from './sources/solana.js'
 import { registerNamesJob } from './sources/metadata.js'
@@ -276,6 +277,7 @@ export class Engine extends EventEmitter {
       }
     }
     this.names = registerNamesJob(this)
+    registerVenueContracts(this)
     this.supply = registerSupplyJobs(this)
     this.subnets = registerSubnets(this)
     this.historySeed = registerHistorySeed(this)

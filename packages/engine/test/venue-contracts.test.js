@@ -1,0 +1,177 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { EventEmitter } from 'node:events'
+import { loadBundle } from '@gator/bundle'
+import { openStore } from '@gator/store'
+import { Engine, migrations } from '../src/index.js'
+import { chooseContract, checkPrice } from '../src/sources/venue-contracts/evidence.js'
+import { word } from '../src/sources/evm-abi.js'
+
+const A = '0x' + '12'.repeat(20), B = '0x' + '34'.repeat(20)
+const ID = 'ethereum:' + A, NEW = 'ethereum:' + B
+const DAY = 86_400_000
+const currency = (label, address, network = 'ETH') => ({ currency: label, chains: [{ name: network, addr: address }] })
+const tick = (label, price = 2, quote = 'USD') => ({ currency_pair: label + '_' + quote, last: String(price),
+  base_volume: '100', quote_volume: '200', highest_bid: String(price * 0.99), lowest_ask: String(price * 1.01) })
+
+class Transport extends EventEmitter {
+  publicKey = 'a'.repeat(64)
+  sent = []
+  async join() { return true }
+  async leave() { return true }
+  channels() { return [] }
+  send(ch, message) { this.sent.push([ch, message]); return true }
+}
+
+async function setup(t, store) {
+  let now = 1_800_000_000_000
+  const http = { directory: [currency('LOCALX', A)], tickers: [tick('LOCALX')], calls: [] }
+  const fetch = async (url, init) => {
+    http.calls.push({ url, method: init.method ?? 'GET' })
+    if (url.endsWith('/spot/currencies')) return Response.json(http.directory)
+    if (url.endsWith('/spot/tickers')) return Response.json(http.tickers)
+    throw new Error('Unexpected HTTP read ' + url)
+  }
+  const own = !store
+  store ??= openStore({ file: ':memory:', migrations, profile: 'small' })
+  const engine = new Engine({ bundle: loadBundle(), store, transport: new Transport(), clock: () => now,
+    backgroundJobs: [], rpcConfig: { fetch, retries: 0 }, patches: { patchFeed: false } })
+  await engine.start()
+  clearTimeout(engine.timer)
+  t.after(async () => { await engine.stop(); if (own) store.close() })
+  const { registry } = engine, venue = registry.venues.get('gate')
+  const run = async suffix => {
+    now += 15_000
+    return engine.scheduler.jobs.get('cex:gate' + suffix).run()
+  }
+  return { engine, store, http, registry, venue, now: () => now, advance: n => { now += n },
+    directory: () => run(':contracts'), poll: () => run(''), verify: () => run(':verify-contracts'),
+    base: label => registry.markets.get('cex:gate:' + label + '-USD')?.base }
+}
+
+test('a new listing binds both market legs only after public ERC-20 verification and retains the wire market ID', async t => {
+  const f = await setup(t), { registry, engine, http, store } = f
+  await f.poll()
+  await f.directory()
+  assert.equal(f.base('LOCALX'), 'unresolved:gate:LOCALX')
+  assert.equal(registry.assets.has(ID), false)
+  // Single-call transport fallback on a chain with no declared multicall. Check the exact selectors and target.
+  registry.chains.get('ethereum').multicall = null
+  engine.rpc.publicOnly = { batch: async (chain, calls) => {
+    assert.equal(chain, 'ethereum')
+    assert.deepEqual(calls.map(x => x.params[0].data.slice(0, 10)),
+      ['0x06fdde03', '0x95d89b41', '0x313ce567', '0x18160ddd', '0xdd62ed3e'])
+    assert.ok(calls.every(x => x.method === 'eth_call' && x.params[0].to === A))
+    const str = s => '0x' + Buffer.from(s).toString('hex').padEnd(64, '0')
+    return [str('Local Token'), str('CHAINX'), '0x' + word(6), '0x' + word(123_000_000), '0x' + word(0)]
+  } }
+  await f.verify()
+  assert.equal(f.base('LOCALX'), ID)
+  assert.deepEqual([engine.asset(ID).name, engine.asset(ID).symbol, engine.asset(ID).decimals],
+    ['Local Token', 'CHAINX', 6])
+  assert.equal(engine.asset(ID).nameSource, 'on-chain')
+  // A previous price under this reused market ID cannot be assigned to the replacement contract.
+  assert.equal(store.writer.prepare('SELECT COUNT(*) n FROM engine_latest WHERE market=?').get('cex:gate:LOCALX-USD').n, 0)
+  http.tickers = [tick('LOCALX'), tick('ETH', 2000, 'LOCALX')]
+  await f.poll()
+  assert.equal(registry.markets.get('cex:gate:ETH-LOCALX').quote, ID)
+  assert.equal(registry.resolve(registry.venues.get('kucoin'), 'LOCALX'), 'unresolved:kucoin:LOCALX')
+  assert.equal(registry.resolve(registry.venues.get('kucoin'), 'CHAINX'), 'unresolved:kucoin:CHAINX')
+  assert.ok(engine.transport.sent.some(([, m]) => m.t === 'obs' && m.b === engine.obs.digest &&
+    m.o.some(r => r[0] === 'cex:gate:LOCALX-USD' && r.length === 7)))
+  assert.ok(!JSON.stringify(engine.transport.sent).includes(A))
+  assert.equal(http.calls.filter(c => c.url.endsWith('/spot/currencies')).length, 1)
+})
+
+test('same ticker selects separate contracts at separate venues and an existing split cannot reclaim its rejected asset', async t => {
+  const f = await setup(t), { registry } = f
+  registry.registerToken('ethereum', A, { symbol: 'COINCIDE', decimals: 9 })
+  registry.registerToken('ethereum', B, { symbol: 'COINCIDE', decimals: 9 })
+  const gate = f.venue, kucoin = registry.venues.get('kucoin')
+  f.http.tickers = [tick('COINCIDE')]; f.http.directory = [currency('COINCIDE', A)]
+  await f.poll(); await f.directory()
+  const m = registry.cex('kucoin', 'COINCIDE', 'USD')
+  kucoin.lastTickers = new Map([[m.id, { at: f.now(), price: 2 }]])
+  f.engine.http.getPublic = async () => ({ code: '200000', data: [
+    { currency: 'COINCIDE', chains: [{ chainId: 'eth', contractAddress: B }] }] })
+  await f.engine.scheduler.jobs.get('cex:kucoin:contracts').run()
+  assert.equal(registry.resolve(gate, 'COINCIDE'), ID)
+  assert.equal(registry.resolve(kucoin, 'COINCIDE'), NEW)
+  registry.splits.set('gate:COINCIDE', { asset: NEW })
+  assert.equal(registry.resolve(gate, 'COINCIDE'), ID)
+  registry.splits.set('gate:COINCIDE', { asset: ID })
+  assert.equal(registry.resolve(gate, 'COINCIDE'), 'unresolved:gate:COINCIDE')
+})
+
+test('unknown network and wrong-chain/no-code responses never register a listing', async t => {
+  const f = await setup(t)
+  f.registry.registerToken('ethereum', A, { symbol: 'KNOWN', decimals: 18 })
+  f.http.tickers = [tick('LOCALX'),tick('NEWSYM')]
+  f.http.directory = [currency('LOCALX', A, 'ETHEREUM-LOOKALIKE'), currency('NEWSYM', A, 'BASE')]
+  await f.directory(); await f.poll()
+  f.registry.chains.get('base').multicall = null
+  f.engine.rpc.publicOnly = { batch: async chain => { assert.equal(chain, 'base'); return Array(5).fill('0x') } }
+  await f.verify()
+  assert.equal(f.base('LOCALX'), 'unresolved:gate:LOCALX')
+  assert.equal(f.base('NEWSYM'), 'unresolved:gate:NEWSYM')
+  assert.equal(f.registry.assets.has('base:' + A), false)
+  assert.equal(f.venue.contracts.pending.size, 0)
+})
+
+test('a fresh independent DEX price vetoes a >3x disagreement, logs locally and allows an exact 3x boundary', async t => {
+  const f = await setup(t)
+  f.registry.registerToken('ethereum', A, { symbol: 'LOCALX', decimals: 18 })
+  f.store.writer.prepare('INSERT INTO engine_references VALUES (?,?,?,?)').run(ID, 'dexscreener', 7, f.now())
+  await f.poll(); await f.directory()
+  assert.equal(f.base('LOCALX'), 'unresolved:gate:LOCALX')
+  assert.equal(f.store.getSetting('engine-cex-contract-refusals/gate')[0].asset, ID)
+  f.http.tickers = [tick('LOCALX', 21)]
+  await f.poll()
+  assert.equal(f.base('LOCALX'), ID)
+  f.http.tickers = [tick('LOCALX', 21.001)]
+  await f.poll()
+  assert.equal(f.base('LOCALX'), 'unresolved:gate:LOCALX')
+})
+
+test('delist, halt, relist and restart require fresh venue evidence and detach the old contract', async t => {
+  const f = await setup(t)
+  for (const address of [A, B]) f.registry.registerToken('ethereum', address, { symbol: 'LOCALX', decimals: 18 })
+  await f.poll(); await f.directory()
+  assert.equal(f.base('LOCALX'), ID)
+  f.http.tickers = [{ ...tick('LOCALX'), highest_bid: '0', lowest_ask: '0' }]
+  await f.poll()
+  assert.ok(f.registry.halted.has('cex:gate:LOCALX-USD'))
+  assert.equal(f.base('LOCALX'), 'unresolved:gate:LOCALX')
+  f.http.tickers = [tick('LOCALX')]
+  await f.poll()
+  assert.equal(f.base('LOCALX'), 'unresolved:gate:LOCALX')
+  f.http.directory = [{ ...currency('LOCALX', A), delisted: true }]
+  await f.directory()
+  assert.equal(f.base('LOCALX'), 'unresolved:gate:LOCALX')
+  f.advance(DAY)
+  f.http.directory = [currency('LOCALX', B)]
+  await f.poll(); await f.directory()
+  assert.equal(f.base('LOCALX'), NEW)
+  assert.equal(f.store.writer.prepare('SELECT * FROM asset_markets WHERE asset=? AND market=?').get(ID, 'cex:gate:LOCALX-USD'), undefined)
+  await f.engine.stop()
+  const again = await setup(t, f.store)
+  assert.equal(again.base('LOCALX'), 'unresolved:gate:LOCALX')
+  again.http.directory = [currency('LOCALX', B)]
+  await again.directory(); await again.poll()
+  assert.equal(again.base('LOCALX'), NEW)
+  await again.engine.stop()
+})
+
+test('multiple deployments need a signed group or a unique known pool-depth winner', () => {
+  const tokens = new Map([[ID, { coin: 'one', coinSupply: 'escrow-backed' }], [NEW, { coin: 'one', coinSupply: 'issuance' }]])
+  const both = [ID, NEW], assets = new Set(both)
+  assert.equal(chooseContract(both, tokens, assets, new Map()), NEW)
+  tokens.get(NEW).coin = 'two'
+  assert.equal(chooseContract(both, tokens, assets, new Map([[ID, 200]])), null)
+  tokens.clear()
+  assert.equal(chooseContract(both, tokens, assets, new Map()), null)
+  assert.equal(chooseContract(both, tokens, assets, new Map([[ID, 20], [NEW, 20]])), null)
+  assert.equal(chooseContract(both, tokens, assets, new Map([[ID, 20], [NEW, 21]])), NEW)
+  assert.equal(checkPrice([{ quote: ID, price: 4, weight: 1 }], [{ quote: ID, price: 1 }], { snapshots: new Map() }, 0),
+    'price differs by more than 3x')
+})

@@ -12,17 +12,18 @@ test('directories use the address of the named chain, preserve label scope and r
   const parse = (...rows) => currencyContracts(gate, rows, chains).get('MIX')
   assert.deepEqual(parse(currency(row('ETH', eth.toUpperCase().replace('0X', '0x')), row('BASEEVM', base))),
     ['base:' + base, 'ethereum:' + eth])
-  for (const rows of [
-    [currency(row('ETH', eth), row('ERC20', base))],
-    [currency(row('ETH', eth)), currency(row('ETH', base)), currency(row('ETH', eth))],
-    [currency(row('ARBITRUM NOVA', eth), row('fake ETH', eth), row('ETH', '0x' + '0'.repeat(40)))],
-    [{ ...currency(row('ETH', eth)), delisted: true }],
-  ]) assert.deepEqual(parse(...rows), [])
+  assert.equal(parse(currency(row('ETH', eth), row('ERC20', base))), null)
+  assert.equal(parse(currency(row('ETH', eth)), currency(row('ETH', base)), currency(row('ETH', eth))), null)
+  assert.equal(parse(currency(row('ETH', eth)), { ...currency(row('ETH', eth)), currency: 'OTHER' }), null)
+  assert.equal(parse(currency(row('ARBITRUM NOVA', eth), row('fake ETH', eth))), null)
+  assert.deepEqual(parse(currency(row('ETH', '0x' + '0'.repeat(40)))), [])
+  assert.deepEqual(parse({ ...currency(row('ETH', eth)), delisted: true }), [])
   assert.throws(() => currencyContracts(gate, { message: 'temporarily unavailable' }, chains))
 })
 
 test('bulk venue schemas read contract fields only, including the HyperEVM link and keyed currency objects', () => {
   const cases = [
+    ['binance', { code: '000000', data: [{ coin: 'X', networkList: [{ network: 'ETH', contractAddress: eth }] }] }, 'ethereum'],
     ['bitget', { code: '00000', data: [{ coin: 'X', chains: [{ chain: 'ArbitrumOne', contractAddress: eth }] }] }, 'arbitrum'],
     ['kucoin', { code: '200000', data: [{ currency: 'X', chains: [{ chainId: 'eth', contractAddress: eth }] }] }, 'ethereum'],
     ['weex', [{ coin: 'X', networkList: [{ network: 'ETH', contractAddress: eth }] }], 'ethereum'],

@@ -168,7 +168,18 @@ export class Registry {
     this.indexAsset(token)
     return token
   }
+  canBindContract(venue, label, fallback) {
+    if (!fallback || fallback.startsWith('fiat:') || this.curated.get(venue.id)?.has(label)) return false
+    return fallback.startsWith('unresolved:') || (!venue.symbolMap?.[label] && !fallback.endsWith(':native'))
+  }
   resolve(venue, label) {
+    const fallback = this.resolveDefault(venue, label)
+    if (!venue.contracts?.bindings.has(label) || !this.canBindContract(venue, label, fallback)) return fallback
+    const id = venue.contracts.bindings.get(label), split = this.splits.get(venue.id + ':' + label)
+    if (id && (split?.asset !== id || split.reviewing)) return id
+    return 'unresolved:' + venue.id + ':' + label
+  }
+  resolveDefault(venue, label) {
     if (
       [
         'USD',
@@ -227,8 +238,12 @@ export class Registry {
       baseLabel === quoteLabel
     )
       return null
-    const base = this.resolve(venue, baseLabel),
-      quote = this.resolve(venue, quoteLabel)
+    let base = this.resolve(venue, baseLabel), quote = this.resolve(venue, quoteLabel)
+    // Two labels that the venue trades against one another cannot both denote the same contract.
+    if (base && base === quote) {
+      if (venue.contracts?.bindings.get(baseLabel) === base) base = 'unresolved:' + venueId + ':' + baseLabel
+      if (venue.contracts?.bindings.get(quoteLabel) === quote) quote = 'unresolved:' + venueId + ':' + quoteLabel
+    }
     if (!base || !quote || base === quote || base === 'fiat:USD') return null
     return this.register({
       id: 'cex:' + venueId + ':' + baseLabel + '-' + quoteLabel,
