@@ -180,10 +180,12 @@ export function createIntel(options) {
       wanted.forEach((channel, i) => { if (results[i].status === 'fulfilled' && results[i].value !== false) joined.push(channel); });
       const failed = results.findIndex(r => r.status === 'rejected' || r.value === false);
       if (failed >= 0) throw results[failed].reason ?? new Error('Could not join ' + wanted[failed]);
-      options.engine?.registerJob({ id: 'meta:intel', ready: () => active && (queued.size > 0 || !!remoteAsset), run() {
-        const task = checkNext().finally(() => inflight.delete(task));
+      // A background check waits for its reads in the shared endpoint buckets (up to 90 s). It runs beside the
+      // scheduler, one at a time, so it never holds one of the profile's job slots (two on small nodes) meanwhile.
+      let checking = null;
+      options.engine?.registerJob({ id: 'meta:intel', ready: () => active && !checking && (queued.size > 0 || !!remoteAsset), run() {
+        const task = checking = checkNext().catch(onError).finally(() => { inflight.delete(task); checking = null; });
         inflight.add(task);
-        return task;
       } });
       // Network work (paid-extras reads, the first briefing and Fear & Greed backfill) runs in the background:
       // awaiting it here held the dashboard closed for minutes on every start.
