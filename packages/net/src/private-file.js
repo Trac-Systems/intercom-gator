@@ -36,9 +36,15 @@ export function windowsDirectory(dir) {
 
 /** Create missing directories beneath a checked parent, tolerating a concurrent creator. */
 export function ensureWindowsDirectory(dir) {
-  try { return windowsDirectory(dir); }
+  let stat = null;
+  try { stat = windowsLstat(dir); }
   catch (error) {
     if (error.code !== 'ENOENT' || dir === dirname(dir)) throw error;
+  }
+  if (stat) {
+    // Like mkdir on POSIX, a non-directory in the way is EEXIST.
+    if (!stat.isDirectory()) throw Object.assign(new Error('EEXIST: not a directory: ' + dir), { code: 'EEXIST' });
+    return stat;
   }
   const parent = dirname(dir), before = ensureWindowsDirectory(parent);
   try { fs.mkdirSync(dir, { mode: 0o700 }); }
