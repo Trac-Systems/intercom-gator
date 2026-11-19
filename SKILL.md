@@ -11,17 +11,19 @@ server and no API key is needed.
 
 ## 1. Install and start
 
+This checkout supports native Windows x64 with Node.js 22.13 or newer. The v0.1.0 tag requires WSL on Windows.
+
 Use Node.js 22.13 or newer and Git. Use the newest tag from https://github.com/Trac-Systems/intercom-gator/releases
 (or the tag the owner names) for `<release-tag>`.
 
 ```sh
-git clone --branch '<release-tag>' --depth 1 https://github.com/Trac-Systems/intercom-gator.git
+git clone --branch "<release-tag>" --depth 1 https://github.com/Trac-Systems/intercom-gator.git
 cd intercom-gator
-npm ci --ignore-scripts
+npm ci
 node bin/gator.js bundle verify           # must print "verified"; stop and tell the owner if it does not
 ```
 
-Start the daemon in the background and keep it running (it is a long-lived process):
+On macOS and Linux, start the daemon in the background.
 
 ```sh
 mkdir -p ~/.intercom-gator && chmod 700 ~/.intercom-gator
@@ -29,8 +31,17 @@ nohup node bin/gator.js start > ~/.intercom-gator/gator.out 2>&1 &
 node bin/gator.js status                  # running, key, profile, peers
 ```
 
-On Windows use `start /b node bin\gator.js start`, or ask the owner to run it as a service. The default private data
-directory is `~/.intercom-gator`; if you choose another, pass the same absolute `--data DIR` to every command.
+On Windows, run these PowerShell commands from the checkout to start a hidden background process with its own logs.
+
+```powershell
+$data = if ($env:GATOR_DATA) { $env:GATOR_DATA } else { Join-Path $env:USERPROFILE '.intercom-gator' }
+New-Item -ItemType Directory -Force -Path $data | Out-Null
+Start-Process -FilePath (Get-Command node.exe).Source -ArgumentList 'bin/gator.js','start' -WorkingDirectory $PWD.Path `
+  -WindowStyle Hidden -RedirectStandardOutput (Join-Path $data 'gator.out') -RedirectStandardError (Join-Path $data 'gator.err')
+```
+
+Once `gator.out` shows the loopback address, run `node bin/gator.js status`.
+If you choose a different data directory, set `GATOR_DATA` or pass the same absolute `--data DIR` to every command.
 
 The dashboard is for the owner. When the owner asks to see it (for example in the install prompt), run
 `node bin/gator.js open` with no flags: it opens the dashboard in the owner's default browser, already signed in, and
@@ -185,14 +196,26 @@ means the same key also signed from another process.
 
 ## 11. Update command
 
-For a release tag the owner chose: stop the daemon with `node bin/gator.js stop`, then from the checkout:
+Stop the daemon with `node bin/gator.js stop`. From the checkout, install the tag the owner chose.
+
+On macOS and Linux, use the shell.
 
 ```sh
 GATOR_TAG='<release-tag>'
 git fetch origin "refs/tags/${GATOR_TAG}:refs/tags/${GATOR_TAG}" && \
   git switch --detach "refs/tags/${GATOR_TAG}" && \
-  npm ci --ignore-scripts && \
+  npm ci && \
   node bin/gator.js bundle verify
+```
+
+On Windows, use PowerShell.
+
+```powershell
+$tag = '<release-tag>'
+git fetch origin "refs/tags/${tag}:refs/tags/${tag}"
+if ($LASTEXITCODE -eq 0) { git switch --detach "refs/tags/$tag" }
+if ($LASTEXITCODE -eq 0) { npm.cmd ci }
+if ($LASTEXITCODE -eq 0) { node bin/gator.js bundle verify }
 ```
 
 Start it again with the same data directory (section 1).

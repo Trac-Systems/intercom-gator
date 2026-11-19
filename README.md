@@ -38,13 +38,15 @@ When it is done, the dashboard opens in your browser, already signed in. To open
 <details>
 <summary>Install by hand</summary>
 
-Node.js 22.13 or newer and Git. Pick a tag from the [releases](https://github.com/Trac-Systems/intercom-gator/releases)
+This checkout supports native Windows x64 with Node.js 22.13 or newer. The v0.1.0 tag requires WSL on Windows.
+
+Install Node.js 22.13 or newer and Git. Pick a tag from the [releases](https://github.com/Trac-Systems/intercom-gator/releases)
 and use it for `<release-tag>`.
 
 ```sh
-git clone --branch '<release-tag>' --depth 1 https://github.com/Trac-Systems/intercom-gator.git
+git clone --branch "<release-tag>" --depth 1 https://github.com/Trac-Systems/intercom-gator.git
 cd intercom-gator
-npm ci --ignore-scripts
+npm ci
 node bin/gator.js bundle verify
 npm start
 ```
