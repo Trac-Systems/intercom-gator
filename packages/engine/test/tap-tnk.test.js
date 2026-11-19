@@ -8,6 +8,7 @@ import { Engine, migrations } from '../src/index.js'
 import { createRouter } from '../../api/src/routes.js'
 import { tickerRecords } from '../src/sources/bundle-adapter.js'
 import { seedPlan } from '../src/sources/evm.js'
+import { tapMintedTotal } from '../src/sources/supply-feeds.js'
 
 // TAP Protocol (Bitcoin ordinals metaprotocol, tick "tap") and Trac Network (TNK) are CEX-only natives. TAP also
 // trades as the bridged ERC-20 that PaidExtras charges in, in the Uniswap V2 TAP/USDT pool below.
@@ -24,15 +25,16 @@ class Transport extends EventEmitter {
   channels() { return [...this.topics.keys()] }
   async join(channel, policy) { this.topics.set(channel, policy); return true }
   async leave(channel) { return this.topics.delete(channel) }
-  send() { return true }
+  sent = []
+  send(channel, message) { this.sent.push([channel, message]); return true }
 }
 
-async function engineFor(t, bundle, profile = 'small') {
+async function engineFor(t, bundle, profile = 'small', { backgroundJobs = [], fetch } = {}) {
   const store = openStore({ file: ':memory:', profile, migrations: [...migrations, ...socialMigrations] })
   let now = start
-  const engine = new Engine({ bundle, transport: new Transport(), store, clock: () => now, backgroundJobs: [], random: () => 0.5,
-    rpcConfig: { bundleDigest: '0'.repeat(64), fetch: () => assert.fail('Unexpected HTTP read'), timeout: 500, retries: 0,
-      requestsPerMinute: 60 } })
+  const engine = new Engine({ bundle, transport: new Transport(), store, clock: () => now, backgroundJobs, random: () => 0.5,
+    rpcConfig: { bundleDigest: '0'.repeat(64), fetch: fetch ?? (() => assert.fail('Unexpected HTTP read')), timeout: 500,
+      retries: 0, requestsPerMinute: 60 } })
   await engine.start()
   clearTimeout(engine.timer)
   t.after(async () => { await engine.stop(); store.close() })
@@ -93,12 +95,12 @@ test('the existing Gate and MEXC ticker mappings read price, 24 h volume and the
 })
 
 /** Gate + MEXC for TAP and TNK, Bitstamp for USDT/USD; tokens: the new ones and the Tether group. */
-async function venues(t) {
+async function venues(t, options) {
   const bundle = structuredClone(loadBundle())
   bundle.exchanges = bundle.exchanges.filter(e => ['gate', 'mexc', 'bitstamp'].includes(e.id))
   bundle.tokens.tokens = bundle.tokens.tokens.filter(token => token.coin === 'tether-usdt' ||
     [tap, tnk, tapErc20].includes(token.id))
-  const f = await engineFor(t, bundle)
+  const f = await engineFor(t, bundle, 'small', options)
   const { engine } = f
   const read = (venue, base, quote, price, volume) => {
     const market = engine.registry.cex(venue, base, quote)
@@ -136,6 +138,10 @@ test('two own venue reads make TAP and TNK green; the TAP page lists both venues
   const page = await request('GET', '/assets/' + tap)
   assert.equal(page.coin, 'tap-protocol-tap')
   assert.equal(page.coinGroup.members, 2)
+  assert.deepEqual(page.contracts.map(c => [c.id, c.chainName, c.role, c.explorer]), [
+    [tap, 'TAP Protocol', 'native', 'https://tapscope.io'],
+    [tapErc20, 'Ethereum', 'bridged', 'https://etherscan.io/token/0x5e7f6e008c6d9d7ad4c7eb75bd4ce62864cc7454'],
+  ])
   const ids = page.markets.map(m => m.id ?? m.market)
   for (const id of ['cex:gate:TAPPROTOCOL-USDT', 'cex:mexc:TAP-USDT', 'dex:ethereum:' + pool]) assert.ok(ids.includes(id), id)
   // The markets list shows the coin once.
@@ -174,4 +180,52 @@ test('the Ethereum seeder always probes the bridged TAP, beyond the small profil
   assert.ok(plan.pairs.some(([a, b]) => a === address && b === usdt), 'TAP/USDT pair probed')
   const v2 = plan.methods.find(m => m.d.address === '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f')
   assert.ok(v2, 'Uniswap V2 factory probed')
+})
+
+// The TAP reader's tap deployment and mint remainder, 2026-11-19 ~21:10 UTC.
+const deployment = { result: { tick: 'tap', max: '21000000000000000000000000', lim: '21000000000000000000000000', dec: 18,
+  blck: 801996, tx: 'cbc1900b8b0f02fdf481137c587896781a721a35369d4eae47c7445622ecb671', vo: 0, val: '546',
+  ins: 'cbc1900b8b0f02fdf481137c587896781a721a35369d4eae47c7445622ecb671i0', num: 21953432, ts: 1691356378 } }
+
+test('the TAP reader gives the minted total and rejects another tick, other decimals or an open mint', () => {
+  assert.deepEqual(tapMintedTotal(deployment, { result: '0' }, start),
+    { total: '21000000', at: start, method: 'tap-minted-total', source: 'tap-reader-deployment' })
+  assert.equal(tapMintedTotal(deployment, { result: '1000000000000000000000000' }, start).total, '20000000')
+  for (const [d, left] of [
+    [{ result: { ...deployment.result, tick: 'tap2' } }, '0'], [{ result: { ...deployment.result, dec: 8 } }, '0'],
+    [deployment, deployment.result.max], [deployment, '-1'], [{ result: { ...deployment.result, max: 21e24 } }, '0'],
+  ]) assert.throws(() => tapMintedTotal(d, { result: left }, start))
+})
+
+test('the TAP Protocol supply job sets a local total and the coin lists a cap from total supply', async t => {
+  const urls = []
+  const fetch = async url => {
+    urls.push(String(url))
+    if (String(url) === 'https://tap-reader-tw.tap-hosting.xyz/getDeployment/tap') return Response.json(deployment)
+    if (String(url) === 'https://tap-reader-tw.tap-hosting.xyz/getMintTokensLeft/tap') return Response.json({ result: '0' })
+    assert.fail('Unexpected HTTP read ' + url)
+  }
+  const { engine, read, request, advance } = await venues(t, { backgroundJobs: ['supply:tap-protocol'], fetch })
+  const job = engine.scheduler.jobs.get('supply:tap-protocol')
+  assert.ok(job)
+  // Both reads share one host budget; a deferred second read resumes without repeating the first.
+  for (let i = 0; i < 20 && engine.registry.assets.get(tap).totalSupply == null; i++) {
+    try { await job.run() } catch (error) { if (error.message !== 'Request budget unavailable') throw error }
+    advance(10_000)
+  }
+  assert.deepEqual(urls, ['https://tap-reader-tw.tap-hosting.xyz/getDeployment/tap',
+    'https://tap-reader-tw.tap-hosting.xyz/getMintTokensLeft/tap'])
+  assert.equal(engine.registry.assets.get(tap).totalSupply, 21e6)
+  assert.equal(engine.registry.assets.get(tap).supply ?? null, null)
+  // Unclear terms keep the reading local: nothing goes out on gator/meta.
+  assert.deepEqual(engine.transport.sent.filter(([channel]) => channel === 'gator/meta'), [])
+  read('gate', 'TAPPROTOCOL', 'USDT', 0.04393, 79097)
+  read('mexc', 'TAP', 'USDT', 0.0438, 126890.81)
+  const list = await request('GET', '/markets', { include: 'hidden' })
+  const row = list.items.find(r => r.coin === 'tap-protocol-tap')
+  const price = engine.book.snapshots.get(tap).price
+  assert.ok(Math.abs(row.marketCap - 21e6 * price) < 1, JSON.stringify(row))
+  const page = await request('GET', '/assets/' + tap)
+  assert.equal(page.capBasis, 'total')
+  assert.ok(Math.abs(page.marketCap - 21e6 * price) < 1)
 })

@@ -1,5 +1,5 @@
 import { DAY } from './supply-api.js'
-import { emissionAtHeight } from './supply-emission.js'
+import { emissionAtHeight, units } from './supply-emission.js'
 import { HYPE_TOKEN_DETAILS } from './supply-hyperliquid.js'
 
 const quantity = (value, places) => typeof value === 'string' && new RegExp(`^\\d{1,15}(\\.\\d{1,${places}})?$`).test(value)
@@ -42,6 +42,20 @@ export function bitcoinCashStats(data) {
   if (data?.context?.code !== 200 || !Number.isSafeInteger(block) || block < 478_559) throw new Error('Invalid BCH height')
   const value = emissionAtHeight('bitcoin-cash', block)
   return { value, total: value, block, method: 'scheduled-emission', estimate: true, source: 'bitcoin-cash-stats' }
+}
+
+/**
+ * TAP Protocol keeps its ledger in the TAP reader (an indexer of Bitcoin inscriptions). TAP's minted total is the `tap`
+ * deployment's max less the mint allowance still open, in 18-decimal base units. No public source separates locked
+ * or team balances, so this is a total only (a cap labelled "from total supply").
+ */
+export function tapMintedTotal(deployment, mintLeft, now) {
+  const d = deployment?.result, left = mintLeft?.result
+  const amount = v => typeof v === 'string' && /^\d{1,40}$/.test(v)
+  if (d?.tick !== 'tap' || d.dec !== 18 || !amount(d.max) || !amount(left) || BigInt(left) >= BigInt(d.max))
+    throw new Error('Invalid TAP deployment')
+  return { total: units(BigInt(d.max) - BigInt(left), 18), at: now, method: 'tap-minted-total',
+    source: 'tap-reader-deployment' }
 }
 
 /** API-only native feeds. Each activates once its asset exists in the signed bundle. */
