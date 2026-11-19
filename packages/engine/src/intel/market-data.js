@@ -119,12 +119,12 @@ export function engineData(engine) {
   const { store, bundle, registry } = engine;
   // The asset's markets through indexes only (asset_markets for the base side, markets(quote) for the quote side);
   // `base=? OR quote=?` on markets scanned the whole table for every listed discovery (/new took 10-25 s).
-  const assetMarkets = 'SELECT market FROM asset_markets WHERE asset=?1 UNION SELECT id FROM markets WHERE quote=?1';
+  const assetMarkets = 'SELECT market FROM asset_markets WHERE asset=:asset UNION SELECT id FROM markets WHERE quote=:asset';
   const pools = store.reader.prepare(`SELECT p.* FROM (${assetMarkets}) x JOIN markets m ON m.id=x.market AND m.kind='dex'
     JOIN pools p ON p.chain=m.chain AND p.pool=substr(m.id, length(m.chain)+6)
     ORDER BY p.liquidity DESC NULLS LAST, p.firstSeen DESC LIMIT 1`);
   const trades = store.reader.prepare(`SELECT count(*) AS n FROM engine_trades
-    WHERE market IN (${assetMarkets}) AND at>=?2 AND at<?3`);
+    WHERE market IN (${assetMarkets}) AND at>=:from AND at<:to`);
   const dailyGlobals = store.reader.prepare('SELECT * FROM intel_market_days WHERE at>=? AND at<?');
   const globalWrite = store.writer.prepare(`INSERT INTO intel_market_days(at,observedAt,volumeUsd,btcDominance) VALUES (?,?,?,?)
     ON CONFLICT(at) DO UPDATE SET observedAt=excluded.observedAt,
@@ -133,7 +133,7 @@ export function engineData(engine) {
   const quoted = new Set((bundle.dex?.evm ?? []).flatMap(d => (d.quoteTokens ?? []).map(q => d.chain + ':' + q.address.toLowerCase())));
   const fillPrices = dailyPrices(engine);
   function poolFor(asset) {
-    return pools.get(asset);
+    return pools.get({ asset });
   }
   return {
     rpc: engine.rpc, bundle, store, transport: engine.transport, now: engine.clock,
@@ -165,7 +165,7 @@ export function engineData(engine) {
     },
     metricsFor(asset) {
       const time = engine.clock(), row = poolFor(asset);
-      return { liquidityUsd: row?.liquidity, trades: trades.get(asset, time - DAY, time + 1).n };
+      return { liquidityUsd: row?.liquidity, trades: trades.get({ asset, from: time - DAY, to: time + 1 }).n };
     },
     sampleGlobal(at) {
       const { volume24h, btcDominance } = engine.global();

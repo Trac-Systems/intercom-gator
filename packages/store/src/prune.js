@@ -41,9 +41,9 @@ function rawQueries(db) {
     .filter(([name]) => tables.has(name));
   const guards = refs => refs.map(([name,key]) => `AND NOT EXISTS (SELECT 1 FROM ${name} WHERE ${key}=o.id)`).join(' ');
   const candidates = db.prepare(`SELECT o.id,coalesce(o.lastTs,o.srcTs) AS until FROM obs o
-    WHERE o.srcTs<?1 AND coalesce(o.lastTs,o.srcTs)<?1 ${guards(references)} ORDER BY o.srcTs LIMIT ?2`);
+    WHERE o.srcTs<:before AND coalesce(o.lastTs,o.srcTs)<:before ${guards(references)} ORDER BY o.srcTs LIMIT :limit`);
   const erase = db.prepare('DELETE FROM obs WHERE id=?');
-  const floor = db.prepare('UPDATE store_retention SET obsFrom=?1 WHERE obsFrom<?1');
+  const floor = db.prepare('UPDATE store_retention SET obsFrom=:cutoff WHERE obsFrom<:cutoff');
   const tails = db.prepare(`SELECT o.id,o.lastTs AS until FROM obs o WHERE o.lastTs<? AND o.ordinal>0
     ${guards(references.filter(([name]) => name !== 'engine_latest'))} ORDER BY o.srcTs LIMIT ?`);
   const cut = db.prepare('UPDATE obs SET srcTs=lastTs,lastTs=NULL,ticks=NULL,ordinal=0 WHERE id=?');
@@ -56,7 +56,7 @@ function rawQueries(db) {
 
 function removeRaw(db, before, limit, preserveFrom) {
   const { candidates, erase } = rawQueries(db);
-  const rows = candidates.all(before, limit);
+  const rows = candidates.all({ before, limit });
   if (preserveFrom !== undefined) comparisonHistory(db).preserve(rows, preserveFrom);
   for (const { id } of rows) erase.run(id);
   return rows.length;
@@ -84,7 +84,7 @@ function relieveRaw(db, target, now, limit) {
 
 function expireObservations(db, now, limit) {
   const cutoff = Math.max(0, now - RAW_AGE);
-  rawQueries(db).floor.run(cutoff);
+  rawQueries(db).floor.run({ cutoff });
   comparisonHistory(db).expire(Math.max(0, cutoff - 30_000));
   return removeRaw(db, Math.max(0, cutoff - 30_000), limit);
 }

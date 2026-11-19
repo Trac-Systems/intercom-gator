@@ -29,8 +29,8 @@ export function observationAccessors({ writer, reader, transaction }) {
   });
   const { pack } = archiveWriter(writer), read = archiveReader(reader), readPending = archiveReader(writer);
   const latest = writer.prepare(`SELECT ${header},coalesce(length(ticks),0)+coalesce(archiveLength,0) AS bytes FROM obs ${slices}
-    WHERE market=?1 AND reporter=?2 AND obs.srcTs >=
-      (SELECT max(srcTs) FROM obs WHERE market=?1 AND reporter=?2)-${OBS_SPAN_MS}
+    WHERE market=:market AND reporter=:reporter AND obs.srcTs >=
+      (SELECT max(srcTs) FROM obs WHERE market=:market AND reporter=:reporter)-${OBS_SPAN_MS}
     ORDER BY coalesce(lastTs,obs.srcTs) DESC LIMIT 1`);
   const insert = writer.prepare(`INSERT INTO obs(market,reporter,srcTs,at,price,bid,ask,priceUsd,baseVol24h,quoteVol24hUsd,seq)
     VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
@@ -38,8 +38,8 @@ export function observationAccessors({ writer, reader, transaction }) {
     priceUsd=?,baseVol24h=?,quoteVol24hUsd=?,seq=?,ticks=CAST(? || coalesce(ticks,x'') AS BLOB) WHERE id=?`);
   // Older partial engine schemas also open through the store during a staged upgrade.
   const hasChecks = writer.prepare("SELECT 1 FROM pragma_table_info('engine_checks') WHERE name='hits'").get();
-  const checked = hasChecks && reader.prepare(`SELECT hits FROM engine_checks WHERE obsId=?1
-    UNION ALL SELECT hits FROM engine_spot_checks WHERE localId=?1`);
+  const checked = hasChecks && reader.prepare(`SELECT hits FROM engine_checks WHERE obsId=:id
+    UNION ALL SELECT hits FROM engine_spot_checks WHERE localId=:id`);
   const spans = writer.prepare(`SELECT ${header},ticks FROM obs ${slices} WHERE market=? AND reporter=?
     AND obs.srcTs BETWEEN ? AND ? AND coalesce(lastTs,obs.srcTs)>=?`);
   const checkedSpans = hasChecks && reader.prepare(`SELECT ${header},ticks,c.hits FROM obs ${slices} JOIN engine_checks c ON c.obsId=obs.id
@@ -108,7 +108,7 @@ export function observationAccessors({ writer, reader, transaction }) {
           if (integer(srcTs, 'srcTs') < obsFrom) continue;
           const row = { market, reporter, srcTs, at: integer(input.at ?? now, 'at'), seq: seq + 1, ordinal: 0 };
           for (const key of fields) row[key] = key !== 'price' && input[key] == null ? null : decimal(input[key], key);
-          const old = latest.get(market, reporter);
+          const old = latest.get({ market, reporter });
           if (old?.srcTs === srcTs) continue;
           if ((srcTs < (old?.srcTs ?? 0) || srcTs <= archivedThrough) && nearestObservation(market, reporter, srcTs, 0)) continue;
           let delta;
@@ -139,7 +139,7 @@ export function observationAccessors({ writer, reader, transaction }) {
       const [from, to] = timeRange(options), [limit, offset] = page(options);
       const found = new Map(), cache = new Map();
       for (const { ticks, ...head } of raw.iterate(market, from - OBS_SPAN_MS, to, from)) {
-        const comparisons = checked?.all(head.id) ?? [];
+        const comparisons = checked?.all({ id: head.id }) ?? [];
         let newer;
         for (const row of receipts(head, ticks, read, cache)) {
           if (row.srcTs < from) break;

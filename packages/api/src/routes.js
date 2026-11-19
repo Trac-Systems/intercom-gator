@@ -33,11 +33,11 @@ export function createRouter(app) {
   // Distinct keys active in the last 24 h: market reports, social messages and profile cards, plus this node.
   // One key per agent (reports and posts are signed with the same identity). Cached for a minute.
   const activeQuery = store.reader.prepare(`SELECT count(*) AS n FROM (
-    SELECT reporter AS key FROM store_reporters_seen WHERE at>=?1 UNION SELECT key FROM social_seen WHERE first_at>=?1
-    UNION SELECT key FROM profiles WHERE received_at>=?1 UNION SELECT ?2)`);
+    SELECT reporter AS key FROM store_reporters_seen WHERE at>=:since UNION SELECT key FROM social_seen WHERE first_at>=:since
+    UNION SELECT key FROM profiles WHERE received_at>=:since UNION SELECT :own)`);
   let active = { at: -Infinity, n: 0 };
   const agents24h = () => {
-    if (app.clock() - active.at >= 60_000) active = { at: app.clock(), n: activeQuery.get(app.clock() - 86_400_000, own).n };
+    if (app.clock() - active.at >= 60_000) active = { at: app.clock(), n: activeQuery.get({ since: app.clock() - 86_400_000, own }).n };
     return active.n;
   };
   for (const type of ['post','notice']) social.on(type, post => app.events.emit(type, people.decorate(post)));

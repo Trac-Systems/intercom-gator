@@ -50,11 +50,11 @@ export function marketAccessors({ writer, reader, transaction }) {
   ) STRICT, WITHOUT ROWID`);
   let clock = Date.now, tracking = false;
   const register = writer.prepare('INSERT OR IGNORE INTO store_market_list(asset,firstSeen) VALUES (?,?)');
-  const activity = writer.prepare(`INSERT INTO store_market_list(asset,firstSeen,lastObserved) VALUES (?1,?2,?2)
+  const activity = writer.prepare(`INSERT INTO store_market_list(asset,firstSeen,lastObserved) VALUES (:asset,:at,:at)
     ON CONFLICT(asset) DO UPDATE SET lastObserved=excluded.lastObserved,forgotten=0
     WHERE lastObserved IS NULL OR excluded.lastObserved>lastObserved`);
   const saveVisibility = writer.prepare(`INSERT INTO store_market_list(asset,firstSeen,lastObserved,visibility,staleSince)
-    VALUES (?1,?2,?2,?3,?4) ON CONFLICT(asset) DO UPDATE SET lastObserved=max(coalesce(lastObserved,0),excluded.lastObserved),
+    VALUES (:asset,:at,:at,:visibility,:staleSince) ON CONFLICT(asset) DO UPDATE SET lastObserved=max(coalesce(lastObserved,0),excluded.lastObserved),
     forgotten=CASE WHEN excluded.lastObserved>coalesce(lastObserved,0) THEN 0 ELSE forgotten END,
     visibility=excluded.visibility,staleSince=excluded.staleSince`);
   const hasMoveAlerts = writer.prepare("SELECT 1 FROM sqlite_schema WHERE name='api_move_alerts'").get();
@@ -178,7 +178,7 @@ export function marketAccessors({ writer, reader, transaction }) {
         saveCutoff.run(String(cutoff));
       });
     },
-    recordMarketActivity(asset, at) { activity.run(asset, at); },
+    recordMarketActivity(asset, at) { activity.run({ asset, at }); },
     /** A New discovery can precede registration. Use its first local sighting until a market is registered. */
     retainedDiscoveries(rows) {
       const saved = forgetCutoff.get();
@@ -225,7 +225,7 @@ export function marketAccessors({ writer, reader, transaction }) {
       return transaction(() => {
         const changes = savePrice.run(asset, decimal(price), integer(at, 'at'), change1h, change24h, change7d,
           volume24h, marketCap, fdv, trust, agents, exchanges, trending, floor === null ? null : decimal(floor, 'floor'), floorCurrency).changes;
-        if (changes) saveVisibility.run(asset, at, visibility, staleSince);
+        if (changes) saveVisibility.run({ asset, at, visibility, staleSince });
         return changes;
       });
     },
