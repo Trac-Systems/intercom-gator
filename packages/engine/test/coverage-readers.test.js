@@ -120,3 +120,63 @@ test('trade scans and block decoding for registered peer-origin pools stay on pu
   assert.ok(+observations[0][2] > 0)
   assert.equal(store.reader.prepare('SELECT fromHint FROM engine_market_data WHERE market=?').get(id).fromHint, 1)
 })
+
+test('all three Solana readers rotate the common directory, discovery pages and exact public venue reads', async t => {
+  const { engine, store } = node(t)
+  const a = { address: 'A'.repeat(32), symbol: 'A' }, b = { address: 'B'.repeat(32), symbol: 'B' }
+  const ids = { raydium: 'R'.repeat(32), orca: 'O'.toLowerCase().repeat(32), meteora: 'M'.repeat(32) }
+  for (const [dex, pool] of Object.entries(ids)) {
+    const reader = engine.solanaReaders.get(dex), { source, chain } = reader.options
+    const market = engine.registry.pool({ chain, pool, token0: a.address, token1: b.address,
+      kind: 'pool', dex, firstSeen: start }, {}, true)
+    const list = [], exact = [], wire = []
+    let wrong = false
+    const raw = () => {
+      const second = wrong ? a : b
+      if (dex === 'raydium') return { id: pool, mintA: a, mintB: second, price: 2, day: { volume: 300 }, tvl: 50_000 }
+      if (dex === 'orca') return { address: pool, tokenA: a, tokenB: second, price: 2, stats: { '24h': { volume: 300 } }, tvlUsdc: 50_000 }
+      return { address: pool, token_x: a, token_y: second, current_price: 2, volume: { '24h': 300 }, tvl: 50_000 }
+    }
+    reader.options.http = {
+      get: async url => {
+        list.push(new URL(url))
+        return dex === 'raydium' ? { data: { data: [] } } : { data: [], meta: { cursor: { next: 'opaque:next' } } }
+      },
+      getPublic: async url => {
+        exact.push(new URL(url))
+        return dex === 'raydium' ? { data: [raw()] } : dex === 'orca' ? { data: raw() } : raw()
+      },
+    }
+    reader.options.publish = rows => wire.push(...rows)
+    const job = engine.scheduler.jobs.get('sol:' + dex)
+    for (let i = 0; i < 4; i++) await job.run()
+    assert.equal(list.length, 2)
+    assert.equal(exact.length, 2)
+    assert.equal(exact[0].origin, new URL(source.url).origin)
+    if (dex === 'raydium') assert.equal(exact[0].searchParams.get('ids'), pool)
+    else assert.ok(exact[0].pathname.endsWith('/' + pool))
+    if (dex === 'orca') assert.equal(list[1].searchParams.get('next'), 'opaque:next')
+    else assert.ok(Number(list[1].searchParams.get('page')) >= 2)
+    assert.ok(wire.every(row => row[0] === market.id && row[3] === '300'))
+    assert.equal(wire.length, 2)
+    wrong = true
+    await job.spotCheck(market.id)
+    assert.equal(wire.length, 2)
+    assert.equal(store.reader.prepare('SELECT fromHint FROM engine_market_data WHERE market=?').get(market.id).fromHint, 1)
+  }
+})
+
+test('a solo node can read the verified hint backlog with idle capacity without displacing its local state page', async t => {
+  const { engine } = node(t, 1, 1), source = engine.evm.get('bsc')
+  const [id] = pools(engine, 1)
+  source.spotCheck = async (market, rpc) => {
+    assert.equal(market, id)
+    assert.equal(rpc, source.rpc.publicOnly)
+  }
+  const job = engine.scheduler.jobs.get('dex:backlog')
+  assert.equal(job.idleOnly, true)
+  assert.equal(job.ready(), true)
+  assert.equal(engine.scheduler.jobs.get('evm:bsc:state').ready(), false)
+  await job.run()
+  assert.equal(engine.store.getSetting('dex-coverage/idle'), id)
+})

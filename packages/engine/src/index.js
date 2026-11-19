@@ -14,7 +14,7 @@ import { derivativeJobs } from './sources/derivatives.js'
 import { fetchTickers, loadNextSymbol } from './sources/cex.js'
 import { DexCoverage } from './coverage/dex.js'
 import { EvmSource } from './sources/evm.js'
-import { checkSolanaPrice, fetchSolana } from './sources/solana.js'
+import { SolanaCoverage } from './coverage/solana.js'
 import { registerNamesJob } from './sources/metadata.js'
 import { fetchReferences } from './sources/api.js'
 import { registerSupplyJobs } from './sources/supply.js'
@@ -143,6 +143,7 @@ export class Engine extends EventEmitter {
     this.control(store.getSetting('engine-settings'))
     this.installJobs()
     this.catchup = new PoolCatchup(this)
+    this.dexCoverage.installBacklogJob()
   }
   installJobs() {
     const { registry, store, clock, http } = this
@@ -219,17 +220,17 @@ export class Engine extends EventEmitter {
       })
     }
     const sol = this.catalog.chains.find((c) => c.family === 'solana')
+    this.solanaReaders = new Map()
     for (const source of this.catalog.apis) {
       if (sol && ['raydium', 'meteora', 'orca'].includes(source.id)) {
-        const pools = (client, fromHint = false) => fetchSolana({ source, registry, http: client, clock, chain: sol.id,
-          publish, fromHint, discover: data => this.discovery(data, fromHint) })
-        const directory = this.catalog.apis.find(api => api.id === 'dexscreener')
+        const reader = new SolanaCoverage(this, { source, registry, http, clock, chain: sol.id, publish, discover })
+        this.solanaReaders.set(source.id, reader)
         this.scheduler.add({
           id: 'sol:' + source.id,
           interval: 30000,
           markets: () => registry.jobsFor((m) => m.exchange === source.id),
-          run: () => pools(http),
-          spotCheck: id => directory ? checkSolanaPrice(directory, http, registry, id, publish, clock) : pools(publicHttp, true),
+          run: () => reader.run(),
+          spotCheck: id => reader.spotCheck(id),
         })
       } else if (source.id === 'bitcoin-fees') {
         this.scheduler.add({

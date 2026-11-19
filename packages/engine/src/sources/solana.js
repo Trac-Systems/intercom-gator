@@ -77,10 +77,20 @@ export function solanaPools(source, json) {
     )
 }
 
-export async function fetchSolana({ source, http, registry, publish, discover, clock, chain, fromHint = false }) {
-  const json = await http.get(formatUrl(source.url, { page: 1, limit: 100 }), source.rpm)
+export async function fetchSolana(options, page = 1, after = null) {
+  const { source, http } = options
+  const url = new URL(formatUrl(source.url, { page, limit: 100 }))
+  if (after) url.searchParams.set('next', after)
+  const json = await http.get(url.href, source.rpm)
+  recordSolanaPools(options, solanaPools(source, json))
+  const cursor = json?.meta?.cursor?.next
+  const listed = source.id === 'raydium' ? json?.data?.data : json?.data
+  return { more: listed?.length >= 100, cursor: typeof cursor === 'string' && cursor.length <= 512 ? cursor : null }
+}
+
+export function recordSolanaPools({ source, registry, publish, discover, clock, chain, fromHint = false }, pools) {
   const rows = []
-  for (const p of solanaPools(source, json)) {
+  for (const p of pools) {
     const now = clock()
     const discovery = {
       chain,

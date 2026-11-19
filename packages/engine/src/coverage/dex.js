@@ -22,6 +22,8 @@ export class DexCoverage {
       FROM pools p JOIN markets m ON m.id='dex:'||p.chain||':'||p.pool JOIN engine_market_data d ON d.market=m.id
       LEFT JOIN assets a ON a.id=m.base LEFT JOIN engine_pool_parameters k USING(chain,pool)
       WHERE p.chain=? ORDER BY (coalesce(a.rank,999999)<=50) DESC,coalesce(p.liquidity,0) DESC,m.id`)
+    this.nextHint = db.prepare(`SELECT m.id,m.chain,m.exchange FROM engine_market_data d JOIN markets m ON m.id=d.market
+      WHERE d.market>? AND d.market<'dex;' AND d.fromHint=1 ORDER BY d.market LIMIT 1`)
     this.scan = db.prepare('SELECT block AS scanned,polled FROM engine_pool_scans WHERE chain=? AND pool=?')
     this.plans = new Map()
     this.checkAt = -Infinity
@@ -35,6 +37,30 @@ export class DexCoverage {
       this.checkAt = now + MINUTE
     }
     return this.slice
+  }
+
+  /** Small networks keep all existing priorities. Use a spare scheduler slot for verified remote discoveries. */
+  installBacklogJob() {
+    const { scheduler, store, budget } = this.engine
+    const cursor = 'dex-coverage/idle'
+    scheduler.add({ id: 'dex:backlog', idleOnly: true, interval: MINUTE,
+      ready: () => !this.members().split && budget.used < budget.limit / 2,
+      run: async () => {
+        const last = store.getSetting(cursor) ?? 'dex:'
+        const row = this.nextHint.get(last) ?? this.nextHint.get('dex:')
+        if (!row) return
+        try {
+          const evm = this.engine.evm.get(row.chain)
+          if (evm) await evm.spotCheck(row.id, evm.rpc.publicOnly)
+          else if (scheduler.jobs.has('sol:' + row.exchange))
+            await this.engine.solanaReaders.get(row.exchange)?.spotCheck(row.id)
+        } catch (error) {
+          if (!(error instanceof RateLimited)) store.setSetting(cursor, row.id)
+          throw error
+        }
+        store.setSetting(cursor, row.id)
+      },
+    })
   }
 
   /** Keep one plan per chain/reader. A membership change invalidates it at the next read. */
