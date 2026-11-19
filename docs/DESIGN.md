@@ -502,10 +502,15 @@ and the last displayed comparison retain their references while the engine uses 
 share compressed archive pages. Above 285 MB of live database pages, the store shortens disposable raw history to leave
 room below the 300 MB node target. It keeps compact source prices, timestamps and arrival order for late peer
 comparisons through the original two-hour window, alongside current quotes and recorded checks. After raw eviction,
-the store can compact a fragmented quote index of up to 24 MiB. If live pages still exceed 295 MB or the profile
-ceiling, the next eviction tiers are registered package caches and finally candle histories of inactive, unwatched,
-unheld assets. Candle expiry uses the existing asset, timeframe and timestamp primary key. Incremental vacuum
-releases up to 1,024 free pages per transaction. The network status includes the
+the store can compact a fragmented quote index of up to 24 MiB. Above 295 MB it keeps shortening raw history only.
+The 300 MB node target applies to raw evidence and never empties a package cache. The profile ceiling (§1) is the
+user's storage cap. Only when live pages exceed that ceiling do the next eviction tiers run: registered package
+caches, then candle histories of inactive, unwatched, unheld assets. Logo images keep their own bound of 8/20/48 MiB
+(small/normal/large) and evict only that store's excess. Images reached only through a chain template go first,
+then the oldest. A released reference waits a day. Under general page pressure the logo evictor removes nothing. At
+startup, references that a v0.1.0 node evicted under pressure (`reason='evicted'`) become due again. The logo job's
+request share and per-host buckets pace the refetch. Candle expiry uses the existing asset, timeframe and timestamp
+primary key. Incremental vacuum releases up to 1,024 free pages per transaction. The network status includes the
 physical size of `gator.db` in `storageFileBytes` alongside its allocated size in MiB.
 
 ## 7. Agent access

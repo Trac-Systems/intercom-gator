@@ -16,6 +16,12 @@ const HOST_RPM = 120
 const DEMAND_CAP = 512
 const SHA = /^[0-9a-f]{64}$/
 const DERIVED_CAP = 5000
+const MiB = 1024 ** 2
+/**
+ * Byte bound of the stored logo images per machine profile (about 5% of the store ceiling; a typical logo is ~16 KiB).
+ * Images are evicted only while the logo store itself is over this bound, never to chase a whole-database target.
+ */
+export const LOGO_STORE_BYTES = Object.freeze({ small: 8 * MiB, normal: 20 * MiB, large: 48 * MiB })
 
 /** EIP-55 mixed-case checksum of a lowercase 0x address (logo repositories key EVM tokens by it). */
 export function checksumAddress(address) {
@@ -82,10 +88,11 @@ export async function fetchImageBytes(fetcher, url, { signal, timeout = 8000, ma
 export class Logos {
   /**
    * @param {{ store: any, http: any, budget: any, clock?: () => number, bundle: any, profile?: string,
-   *   fetch?: typeof globalThis.fetch, timeout?: number }} options
+   *   fetch?: typeof globalThis.fetch, timeout?: number, maxBytes?: number }} options
    */
-  constructor({ store, http, budget, clock = Date.now, bundle, profile = 'normal', fetch = globalThis.fetch, timeout }) {
-    Object.assign(this, { store, http, budget, clock, fetch, timeout })
+  constructor({ store, http, budget, clock = Date.now, bundle, profile = 'normal', fetch = globalThis.fetch, timeout,
+    maxBytes = LOGO_STORE_BYTES[profile] ?? LOGO_STORE_BYTES.normal }) {
+    Object.assign(this, { store, http, budget, clock, fetch, timeout, maxBytes })
     this.refs = logoRefs(bundle)
     this.signed = new Set(this.refs.keys())
     // A chain may carry a signed per-token template for tokens outside the bundle (discovered pools); only EVM and
@@ -102,12 +109,22 @@ export class Logos {
     this.idleUntil = 0
     this.prewarmAt = -Infinity
     this.prewarmList = []
-    for (const row of store.reader.prepare(
-      'SELECT l.ref,l.url,l.sha,l.failures,l.nextRetry,i.ext FROM engine_logos l LEFT JOIN engine_logo_images i ON i.sha=l.sha'
-    ).iterate()) {
+    // v0.1.0 emptied the logo store under whole-database pressure and parked each released reference for a day
+    // (reason 'evicted'; current eviction records 'logo cap'). Those references are due again at startup; the job's
+    // request-budget share and per-host buckets pace the refetch. Rewritten rows end up in the past, so this is one-time.
+    const now = clock(), repaired = []
+    for (const row of store.reader.prepare(`SELECT l.ref,l.url,l.sha,l.failures,l.nextRetry,l.reason,i.ext
+      FROM engine_logos l LEFT JOIN engine_logo_images i ON i.sha=l.sha`).iterate()) {
+      const parked = row.reason === 'evicted' && !row.ext && row.nextRetry > now
+      if (parked) repaired.push(row.ref)
       this.entries.set(row.ref, { url: row.url, sha: row.ext ? row.sha : null, ext: row.ext ?? null,
-        failures: row.failures, nextRetry: row.nextRetry })
+        failures: row.failures, nextRetry: parked ? now : row.nextRetry })
     }
+    if (repaired.length) {
+      const due = store.writer.prepare("UPDATE engine_logos SET nextRetry=? WHERE ref=? AND reason='evicted'")
+      store.transaction(() => { for (const ref of repaired) due.run(now, ref) })
+    }
+    this.repaired = repaired.length
     this.saveEntry = store.writer.prepare(`INSERT INTO engine_logos(ref,url,sha,failures,nextRetry,lastAttempt,reason)
       VALUES (?,?,?,?,?,?,?) ON CONFLICT(ref) DO UPDATE SET url=excluded.url,sha=excluded.sha,failures=excluded.failures,
       nextRetry=excluded.nextRetry,lastAttempt=excluded.lastAttempt,reason=excluded.reason`)
@@ -121,27 +138,44 @@ export class Logos {
   }
 
   /**
-   * Storage pressure (store.fitBudget): drop up to 32 images, those reached only through a chain template first, then
-   * the oldest. Their references wait a day before the next fetch, so eviction cannot turn into a refetch loop.
+   * Storage pressure (store.fitBudget). Logos are tiny and on every list screen, so whole-database pressure never
+   * drops them: only the logo store's own excess over `maxBytes` is evicted, otherwise this returns 0.
    */
   evict(db, now = this.clock()) {
-    const held = [...this.entries].filter(([, e]) => e.sha)
-    if (!held.length) return 0
-    const ages = new Map(db.prepare('SELECT sha,at FROM engine_logo_images').all().map(r => [r.sha, r.at]))
-    held.sort(([a, x], [b, y]) => Number(this.signed.has(a)) - Number(this.signed.has(b)) ||
-      (ages.get(x.sha) ?? 0) - (ages.get(y.sha) ?? 0))
-    const shas = [...new Set(held.map(([, e]) => e.sha))].slice(0, 32)
+    return this.trim(db, now)
+  }
+
+  /** Bytes of stored logo images. */
+  storedBytes(db = this.store.writer) {
+    return db.prepare('SELECT coalesce(sum(length(bytes)),0) AS n FROM engine_logo_images').get().n
+  }
+
+  /**
+   * While the logo store exceeds `maxBytes`, drop images reached only through a chain template (or no reference)
+   * first, then the oldest, and only as many as needed. Released references wait a day before the next fetch, so the
+   * bound cannot turn into a refetch loop. Returns the number of images dropped.
+   */
+  trim(db, now = this.clock()) {
+    let excess = this.storedBytes(db) - this.maxBytes
+    if (excess <= 0) return 0
+    const signed = new Set()
+    for (const [ref, e] of this.entries) if (e.sha && this.signed.has(ref)) signed.add(e.sha)
+    const images = db.prepare('SELECT sha,length(bytes) AS size FROM engine_logo_images ORDER BY at,sha').all()
+      .sort((a, b) => Number(signed.has(a.sha)) - Number(signed.has(b.sha)))
     const dropImage = db.prepare('DELETE FROM engine_logo_images WHERE sha=?')
-    const release = db.prepare("UPDATE engine_logos SET sha=NULL,nextRetry=?,reason='evicted' WHERE sha=?")
-    for (const sha of shas) {
+    const release = db.prepare("UPDATE engine_logos SET sha=NULL,nextRetry=?,reason='logo cap' WHERE sha=?")
+    const gone = new Set()
+    for (const { sha, size } of images) {
+      if (excess <= 0) break
       dropImage.run(sha)
       release.run(now + DAY, sha)
+      gone.add(sha)
+      excess -= size
     }
-    const gone = new Set(shas)
     for (const entry of this.entries.values()) {
       if (gone.has(entry.sha)) Object.assign(entry, { sha: null, ext: null, nextRetry: now + DAY })
     }
-    return shas.length
+    return gone.size
   }
 
   /** The signed source URL for a reference: explicit bundle reference first, then the chain's token template. */
@@ -262,6 +296,7 @@ export class Logos {
       if (previous && previous !== image.sha) this.dropOrphan.run(previous, previous)
     })
     this.entries.set(ref, { url, sha: image.sha, ext: image.ext, failures: 0, nextRetry: 0 })
+    if (this.storedBytes() > this.maxBytes) this.store.transaction(() => this.trim(this.store.writer, now))
   }
 
   fail(ref, url, error, now) {
