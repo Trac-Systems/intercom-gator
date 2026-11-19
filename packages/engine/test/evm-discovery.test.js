@@ -268,7 +268,9 @@ async function simulateHour(t, profile) {
     while (times[left] <= times[i] - 60 * second) left++
     peak = Math.max(peak, i - left + 1)
   }
-  assert.ok(peak <= engine.budget.limit && total <= engine.budget.limit * 30)
+  // EVM alone stays near half the profile budget; the first half hour adds the hot seed pages (their own 25% share
+  // of the minute budget while the priority prefix lasts), so allow 10% above half.
+  assert.ok(peak <= engine.budget.limit && total <= engine.budget.limit * 33, profile + ' ' + total)
   for (const [id, n] of counts) {
     const { period, hotInterval } = engine.evm.get(id).limits
     // Ten calls per period, plus the warm-up seed pages (a lookup and a header each) of the priority prefix.

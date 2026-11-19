@@ -11,12 +11,21 @@ import { RateLimited } from '../scheduler/index.js'
 // hot: tokens (by seed value) whose pairs form the plan's priority prefix, probed every hotInterval instead of every
 // period. 24 probes per 300 s on small needed ~61 h for Polygon's 17,542 probes and ~2.3 h on large (11-20).
 const LIMITS = {
-  small: { tracked: 32, chunk: 8, seed: 128, hot: 25, hotInterval: 60_000, tokens: 100, blocks: 2, period: 300_000 },
+  small: { tracked: 32, chunk: 8, seed: 256, hot: 25, hotInterval: 60_000, tokens: 100, blocks: 2, period: 300_000 },
   normal: { tracked: 128, chunk: 16, seed: 256, hot: 40, hotInterval: 10_000, tokens: 300, blocks: 4, period: 90_000 },
   large: { tracked: 256, chunk: 32, seed: 256, hot: 60, hotInterval: 5_000, tokens: 300, blocks: 8, period: 45_000 },
 }
 // Pools per state refresh: one Multicall3 eth_call carries up to 128 reads (4 per concentrated pool).
 const REFRESH_POOLS = 32
+// Hot seed pages of all chains together may spend this share of the profile's minute budget.
+export const SEED_SHARE = 0.25
+const seedSpend = new WeakMap()
+function recentSeedSpend(rpc, now) {
+  const log = seedSpend.get(rpc) ?? []
+  while (log.length && log[0] <= now - 60_000) log.shift()
+  seedSpend.set(rpc, log)
+  return log
+}
 const USD_QUOTE = /^(?:USDC(?:\.E)?|USDBC|USDT0?|USD₮0|DAI|USDG|USDB|BUSD|CUSD)$/i
 const DAY = 86400_000
 const hex = (n) => '0x' + n.toString(16)
@@ -776,12 +785,14 @@ export class EvmSource {
     return [m.id, decimal(m.inverse ? 1 / price : price), decimal(this.volume.get(m.id, at - DAY, at).v),
       null, null, null, at]
   }
-  /** Seed job pacing: the priority prefix (quotes and the most valuable tokens) runs at hotInterval while less
-   * than half of the profile's minute budget is spent; otherwise, and after the prefix, once per period. */
+  /** Seed job pacing: the priority prefix (quotes and the most valuable tokens) runs at hotInterval while all
+   * chains' seed pages spent less than SEED_SHARE of the profile minute budget; otherwise, and after the prefix,
+   * once per period. A busy node (the owner's: 570 of 900 per minute) still gets its share. */
   seedDelay() {
-    const budget = this.rpc?.budget
-    const spare = !budget || budget.used < budget.limit / 2
-    return this.seedHot && spare && this.limits.hotInterval ? this.limits.hotInterval : this.limits.period
+    if (!this.seedHot || !this.limits.hotInterval) return this.limits.period
+    const limit = this.rpc?.budget?.limit
+    if (!limit || !this.rpc) return this.limits.hotInterval
+    return recentSeedSpend(this.rpc, this.clock()).length < limit * SEED_SHARE ? this.limits.hotInterval : this.limits.period
   }
   nextProbes() {
     const now = this.clock()
@@ -831,6 +842,7 @@ export class EvmSource {
         const out = []
         for (let i = 0; i < calls.length; i += 128) {
           const chunk = calls.slice(i, i + 128)
+          if (!work.cache.has(JSON.stringify(chunk))) recentSeedSpend(this.rpc, this.clock()).push(this.clock())
           try {
             out.push(...await readOnce(work.cache, JSON.stringify(chunk), () => multiRead(this.rpc, this.chain, chunk, hex(tip))))
           } catch (error) {
