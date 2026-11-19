@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { paths, rewrites, sha256, upstream } from '../scripts/vendor-sync.mjs';
+import { patchSeen, paths, rewrites, sha256, upstream } from '../scripts/vendor-sync.mjs';
 
 const dir = new URL('../vendor/intercom-sidechannel/', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('VENDOR.json', dir)));
@@ -22,6 +22,7 @@ test('the five vendored files reverse to the pinned Intercom blobs', () => {
     const bytes = readFileSync(new URL(name, dir));
     assert.equal(sha256(bytes), hashes.vendoredSha256, name);
     let restored = bytes.toString('utf8');
+    if (name === 'seen.js') restored = patchSeen(restored, true);
     for (const [before, after] of rewrites) restored = restored.replaceAll(after, before);
     assert.equal(sha256(restored), hashes.upstreamSha256, name);
     // The release module is unmodified 0.0.11; the opt-in behaviour lives in managed.js.

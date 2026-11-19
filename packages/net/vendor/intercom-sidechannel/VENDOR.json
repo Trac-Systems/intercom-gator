@@ -20,7 +20,8 @@
     },
     "seen.js": {
       "upstreamSha256": "4802b0f3a5220cb7017c43f27c1c9da7af435304cdee97c8f1a6528fa3c340b3",
-      "vendoredSha256": "4802b0f3a5220cb7017c43f27c1c9da7af435304cdee97c8f1a6528fa3c340b3"
+      "vendoredSha256": "8474ef10dc8d03d3e53b71dd24c846e42630ba3cfa2ad973aa91dfcf8d6afa54",
+      "patch": "scripts/patches/seen-windows.patch"
     }
   }
 }

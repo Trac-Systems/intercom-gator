@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { integer } from './channel-options.js';
+import { openPrivateRead, windowsLstat } from '../../src/private-file.js';
 
 const HOUR = 3_600_000;
 const HASH_BYTES = 32;
@@ -59,7 +60,10 @@ const LINUX_NOFOLLOW = {
 // and architectures (MIPS, SPARC, Alpha and PA-RISC use other values).
 export function openFlags(constants = fs.constants, platform = os.platform(), arch = os.arch()) {
   const { O_EXCL, O_NOFOLLOW, O_NONBLOCK } = constants;
-  if (O_EXCL && O_NOFOLLOW && O_NONBLOCK) return { exclusive: O_EXCL, safe: O_NOFOLLOW | O_NONBLOCK };
+  if (platform === 'win32' && O_EXCL) return { exclusive: O_EXCL, safe: 0 };
+  if ((platform === 'darwin' || platform === 'linux') && O_EXCL && O_NOFOLLOW && O_NONBLOCK) {
+    return { exclusive: O_EXCL, safe: O_NOFOLLOW | O_NONBLOCK };
+  }
   if (platform === 'darwin') return { exclusive: 0x800, safe: 0x100 | 0x4 };
   if (platform === 'linux' && Object.hasOwn(LINUX_NOFOLLOW, arch)) {
     return { exclusive: 0x80, safe: LINUX_NOFOLLOW[arch] | 0x800 };
@@ -109,7 +113,8 @@ class HourFiles {
     const bytes = integer(config.maxFileBytes ?? 65_536, 'maxFileBytes', HASH_BYTES, 262_144);
     this.capacity = Math.floor(bytes / HASH_BYTES) * HASH_BYTES;
     this.flags = openFlags();
-    this.uid = globalThis.process?.geteuid?.() ?? os.userInfo().uid;
+    this.windows = os.platform() === 'win32';
+    this.uid = this.windows ? null : globalThis.process?.geteuid?.() ?? os.userInfo().uid;
     this.lockPath = path.join(this.directory, '.writer.lock');
     this.lock = null;
     this.directoryFd = null;
@@ -120,11 +125,15 @@ class HourFiles {
 
   file(hour) { return path.join(this.directory, `seen-${hour}.bin`); }
 
+  lstat(file) { return this.windows ? windowsLstat(file) : fs.lstatSync(file); }
+  fstat(fd) { return this.windows ? fs.fstatSync(fd, { bigint: true }) : fs.fstatSync(fd); }
+  owned(stat) { return this.windows || stat.uid === this.uid; }
+
   checkDirectory() {
-    const stat = fs.lstatSync(this.directory);
-    if (!stat.isDirectory() || stat.uid !== this.uid || (stat.mode & 0o077) ||
-        (this.directoryFd !== null && !sameFile(fs.fstatSync(this.directoryFd), stat))) throw new Error('Expected a private, owner-only seen directory');
-    if (this.lock && !sameFile(this.lock, fs.lstatSync(this.lockPath))) throw new Error('Seen writer lock changed');
+    const stat = this.lstat(this.directory);
+    if (!stat.isDirectory() || (!this.windows && (stat.uid !== this.uid || (stat.mode & 0o077))) ||
+        (this.directoryFd !== null && !sameFile(this.fstat(this.directoryFd), stat))) throw new Error('Expected a private, owner-only seen directory');
+    if (this.lock && !sameFile(this.lock, this.lstat(this.lockPath))) throw new Error('Seen writer lock changed');
     return stat;
   }
 
@@ -157,15 +166,23 @@ class HourFiles {
       fs.mkdirSync(temp, { mode: 0o700 });
       let created;
       try {
+        if (this.windows) {
+          created = this.lstat(temp);
+          if (!created.isDirectory()) throw new Error('Expected a seen lock directory');
+        }
         const data = b4a.from(JSON.stringify(owner));
-        const fd = fs.openSync(path.join(temp, 'owner'), fs.constants.O_WRONLY | fs.constants.O_CREAT | this.flags.exclusive | this.flags.safe, 0o600);
+        const file = path.join(temp, 'owner');
+        const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | this.flags.exclusive;
+        const fd = this.windows ? this.open(file, flags) : fs.openSync(file, flags | this.flags.safe, 0o600);
         try {
+          if (this.windows && !sameFile(created, this.lstat(temp))) throw new Error('Seen lock changed');
           if (fs.writeSync(fd, data, 0, data.length, 0) !== data.length) throw new Error('Incomplete seen lock record');
         } finally {
           fs.closeSync(fd);
         }
-        created = fs.lstatSync(temp);
+        created ??= this.lstat(temp);
         this.checkDirectory();
+        if (this.windows && !sameFile(created, this.lstat(temp))) throw new Error('Seen lock changed');
         if (!this.exists(this.lockPath)) {
           try {
             fs.renameSync(temp, this.lockPath);
@@ -196,7 +213,7 @@ class HourFiles {
 
   exists(file) {
     try {
-      fs.lstatSync(file);
+      this.lstat(file);
       return true;
     } catch (error) {
       if (error?.code === 'ENOENT') return false;
@@ -205,18 +222,20 @@ class HourFiles {
   }
 
   readLock(dir) {
-    const stat = fs.lstatSync(dir);
-    if (!stat.isDirectory() || stat.uid !== this.uid) return { stat, owner: null };
+    const stat = this.lstat(dir);
+    if (!stat.isDirectory() || !this.owned(stat)) return { stat, owner: null };
+    const file = path.join(dir, 'owner');
     let fd;
     try {
-      fd = fs.openSync(path.join(dir, 'owner'), fs.constants.O_RDONLY | this.flags.safe);
+      fd = this.windows ? openPrivateRead(file, 'win32') : fs.openSync(file, fs.constants.O_RDONLY | this.flags.safe);
     } catch {
       return { stat, owner: null };
     }
     try {
-      const info = fs.fstatSync(fd);
-      if (!info.isFile() || info.nlink !== 1 || info.uid !== this.uid || info.size > 1024) return { stat, owner: null };
-      const owner = JSON.parse(b4a.toString(readRange(fd, 0, info.size)));
+      const info = this.fstat(fd);
+      if (this.windows && !sameFile(stat, this.lstat(dir))) return { stat, owner: null };
+      if (!info.isFile() || Number(info.nlink) !== 1 || !this.owned(info) || info.size > 1024) return { stat, owner: null };
+      const owner = JSON.parse(b4a.toString(readRange(fd, 0, Number(info.size))));
       const valid = owner?.version === 1 && Number.isSafeInteger(owner.pid) && owner.pid > 0 &&
         typeof owner.host === 'string' && typeof owner.process === 'string' && typeof owner.token === 'string';
       return { stat, owner: valid ? owner : null };
@@ -252,11 +271,11 @@ class HourFiles {
   }
 
   removeLock(dir) {
-    const stat = fs.lstatSync(dir);
-    if (!stat.isDirectory() || stat.uid !== this.uid) throw new Error('Expected an owned seen lock directory');
+    const stat = this.lstat(dir);
+    if (!stat.isDirectory() || !this.owned(stat)) throw new Error('Expected an owned seen lock directory');
     const owner = path.join(dir, 'owner');
     if (this.exists(owner)) {
-      if (!fs.lstatSync(owner).isFile()) throw new Error('Expected a regular seen lock record');
+      if (!this.lstat(owner).isFile()) throw new Error('Expected a regular seen lock record');
       fs.unlinkSync(owner);
     }
     fs.rmdirSync(dir);
@@ -280,17 +299,21 @@ class HourFiles {
   }
 
   regular(file) {
-    const stat = fs.lstatSync(file);
-    if (!stat.isFile() || stat.nlink !== 1 || stat.uid !== this.uid) throw new Error('Expected an owned regular seen file');
+    const stat = this.lstat(file);
+    if (!stat.isFile() || Number(stat.nlink) !== 1 || !this.owned(stat)) throw new Error('Expected an owned regular seen file');
     return stat;
   }
 
   open(file, flags, expected) {
     this.checkDirectory();
+    if (this.windows && !(flags & this.flags.exclusive)) {
+      const before = this.regular(file);
+      if (!sameFile(before, expected)) throw new Error('Seen file identity changed');
+    }
     const fd = fs.openSync(file, flags | this.flags.safe, 0o600);
     try {
       const stat = this.regular(file);
-      if (!sameFile(stat, fs.fstatSync(fd)) || (expected && !sameFile(stat, expected))) {
+      if (!sameFile(stat, this.fstat(fd)) || (expected && !sameFile(stat, expected))) {
         throw new Error('Seen file identity changed');
       }
       this.checkDirectory();
@@ -301,27 +324,44 @@ class HourFiles {
     }
   }
 
+  // Windows can refuse replacement while either file has an open handle.
+  // POSIX keeps its original inode pinned until the operation finishes.
+  closeForRename(fd) {
+    if (this.windows && fd !== null) {
+      fs.closeSync(fd);
+      return null;
+    }
+    return fd;
+  }
+
   replace(file, data, expected) {
-    const temp = path.join(this.directory, 'seen-compact-' + b4a.toString(crypto.randomBytes(16), 'hex') + '.tmp');
+    const create = this.windows && !expected;
+    // Rehoming into an absent Windows bucket uses CREATE_NEW. The original buckets
+    // remain available for recovery until this complete write succeeds.
+    const temp = create ? file : path.join(this.directory, 'seen-compact-' + randomHex() + '.tmp');
     const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | this.flags.exclusive;
-    const fd = this.open(temp, flags);
+    let fd = this.open(temp, flags);
+    let identity;
     try {
+      identity = this.fstat(fd);
       if (fs.writeSync(fd, data, 0, data.length, 0) !== data.length) throw new Error('Incomplete compaction');
+      identity = this.fstat(fd);
+      fd = this.closeForRename(fd);
       this.checkDirectory();
-      // Without an expected identity the target must not exist yet.
-      const target = expected ? sameFile(this.regular(file), expected) : !this.exists(file);
-      if (!target || !sameFile(this.regular(temp), fs.fstatSync(fd))) {
-        throw new Error('Seen file changed before compaction');
+      if (!sameFile(this.regular(temp), identity)) throw new Error('Seen file changed before compaction');
+      if (!create) {
+        const target = expected ? sameFile(this.regular(file), expected) : !this.exists(file);
+        if (!target) throw new Error('Seen file changed before compaction');
+        fs.renameSync(temp, file);
       }
-      const identity = fs.fstatSync(fd);
-      fs.renameSync(temp, file);
       return identity;
     } catch (error) {
+      fd = this.closeForRename(fd);
       this.checkDirectory();
-      if (sameFile(this.regular(temp), fs.fstatSync(fd))) fs.unlinkSync(temp);
+      if (this.exists(temp) && sameFile(this.regular(temp), identity)) fs.unlinkSync(temp);
       throw error;
     } finally {
-      fs.closeSync(fd);
+      if (fd !== null) fs.closeSync(fd);
     }
   }
 
@@ -375,7 +415,8 @@ class HourFiles {
     const parts = [];
     for (const item of [current, ...future.sort((a, b) => a.hour - b.hour)]) {
       if (!item) continue;
-      const aligned = item.stat.size - item.stat.size % HASH_BYTES;
+      const size = Number(item.stat.size);
+      const aligned = size - size % HASH_BYTES;
       const keep = Math.min(this.capacity, aligned);
       if (!keep) continue;
       const fd = this.open(item.file, fs.constants.O_RDONLY, item.stat);
@@ -418,19 +459,22 @@ class HourFiles {
         if (observed >= hour) cleanup.push(item);
         continue;
       }
-      const aligned = stat.size - stat.size % HASH_BYTES;
+      const size = Number(stat.size);
+      const aligned = size - size % HASH_BYTES;
       const keep = Math.min(this.capacity, aligned);
-      const fd = this.open(file, fs.constants.O_RDONLY, stat);
+      let fd = this.open(file, fs.constants.O_RDONLY, stat);
       try {
-        if (stat.size !== keep) {
-          item.stat = this.replace(file, readRange(fd, aligned - keep, keep), stat);
-          if (sameFile(stat, this.active)) this.active = item.stat;
-        }
         const length = Math.min(remaining * HASH_BYTES, keep);
         if (length) recent.push([item.hour, readRange(fd, aligned - length, length)]);
         remaining -= length / HASH_BYTES;
+        if (size !== keep) {
+          const compact = readRange(fd, aligned - keep, keep);
+          fd = this.closeForRename(fd);
+          item.stat = this.replace(file, compact, stat);
+          if (sameFile(stat, this.active)) this.active = item.stat;
+        }
       } finally {
-        fs.closeSync(fd);
+        if (fd !== null) fs.closeSync(fd);
       }
       if (item.hour === hour) active = item.stat;
     }
@@ -457,19 +501,22 @@ class HourFiles {
     const file = this.file(this.hour);
     const hash = b4a.from(key, 'hex');
     const flags = fs.constants.O_RDWR | (this.active ? 0 : fs.constants.O_CREAT | this.flags.exclusive);
-    const fd = this.open(file, flags, this.active);
+    let fd = this.open(file, flags, this.active);
     try {
-      const stat = fs.fstatSync(fd);
-      if (stat.size !== (this.active?.size ?? 0)) throw new Error('Seen file size changed');
-      if (stat.size + HASH_BYTES > this.capacity) {
+      const stat = this.fstat(fd);
+      const size = Number(stat.size);
+      if (size !== Number(this.active?.size ?? 0)) throw new Error('Seen file size changed');
+      if (size + HASH_BYTES > this.capacity) {
         const keep = Math.floor(this.capacity / (2 * HASH_BYTES)) * HASH_BYTES;
-        this.active = this.replace(file, b4a.concat([readRange(fd, stat.size - keep, keep), hash]), stat);
+        const compact = b4a.concat([readRange(fd, size - keep, keep), hash]);
+        fd = this.closeForRename(fd);
+        this.active = this.replace(file, compact, stat);
       } else {
-        if (fs.writeSync(fd, hash, 0, HASH_BYTES, stat.size) !== HASH_BYTES) throw new Error('Incomplete seen record');
-        this.active = fs.fstatSync(fd);
+        if (fs.writeSync(fd, hash, 0, HASH_BYTES, size) !== HASH_BYTES) throw new Error('Incomplete seen record');
+        this.active = this.fstat(fd);
       }
     } finally {
-      fs.closeSync(fd);
+      if (fd !== null) fs.closeSync(fd);
     }
   }
 }
