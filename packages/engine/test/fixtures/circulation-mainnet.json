@@ -1,0 +1,73 @@
+{
+  "bnb-burn": {
+    "bcSupply": 0,
+    "bscSupply": 131510353.6
+  },
+  "tronscan-funds": {
+    "totalTurnOver": 95047145346.40147,
+    "genesisBlockIssue": 100000000000.0,
+    "burnedOnIndependenceDay": 1000000000.0,
+    "totalBlockReward": 1517133096.0,
+    "totalVoteReward": 11570231424.0,
+    "circulationSupply": 95046366117.16151,
+    "totalBurnedForResourcesAndFees": 17038993144.613708
+  },
+  "avax-supply": {
+    "totalSupply": "470339911.9520618849375191779",
+    "circulatingSupply": "470339911.9520618849375191779",
+    "totalPBurned": "20298.80770500996907012970384",
+    "totalCBurned": "5155236.447645230023438150637",
+    "totalXBurned": "45626.52225855819265819530270",
+    "totalStaked": "213474342.184879",
+    "totalLocked": "26122743.88604758451566767441",
+    "totalRewards": "115561073.7296706831226856535",
+    "lastUpdated": "2026-11-19T11:45:15.840Z",
+    "genesisUnlock": "360000000",
+    "l1ValidatorFees": "19516.27463270400003464737542"
+  },
+  "tontech-circulation": {
+    "result": "2870322095.771816961"
+  },
+  "sui-circulation": {
+    "month": 11,
+    "year": 2026,
+    "circulatingSupplyValue": 4139043544.1303763,
+    "circulatingSupplyPercentage": 0.41390435441303763
+  },
+  "ripple-distribution": {
+    "result": "success",
+    "count": 1,
+    "marker": "20261018000000",
+    "rows": [
+      {
+        "date": "2026-10-25T00:00:00Z",
+        "total": "99985583260",
+        "distributed": "63516606953",
+        "undistributed": "5068976307",
+        "escrowed": "31400000000"
+      }
+    ]
+  },
+  "near-circulation": {
+    "circulating_supply_in_yoctonear": "1312113465497752560650862705794036",
+    "timestamp": "1795046400000000000"
+  },
+  "aptos-circulation": {
+    "blockchain_time_microseconds": 1795089138807753,
+    "current_circulating_supply": 889222706.3731208,
+    "current_total_supply": 1211809644.2352624,
+    "ledger_version": 8122643326
+  },
+  "kamino-circulation": 6021918190.75,
+  "jup-circulation": {
+    "circulating": 3319369204.37,
+    "total": 6862295090.11
+  },
+  "aptos-usd1": [
+    {
+      "vec": [
+        "19121853520449"
+      ]
+    }
+  ]
+}

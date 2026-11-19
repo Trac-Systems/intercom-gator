@@ -1,0 +1,15 @@
+Fonts used by index.html (woff2, latin subset, variable "standard" axes). Files verified byte-identical to the sources below.
+
+bricolage-grotesque-latin-standard.woff2
+  Family:  Bricolage Grotesque (variable: wght 200-800, wdth 75-100, opsz 12-96)
+  Licence: SIL Open Font License 1.1 (OFL-1.1)
+  Source:  https://cdn.jsdelivr.net/npm/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-standard-normal.woff2
+  Upstream: https://github.com/google/fonts/tree/main/ofl/bricolagegrotesque
+
+martian-mono-latin-standard.woff2
+  Family:  Martian Mono (variable: wght 100-800, wdth 75-112.5)
+  Licence: SIL Open Font License 1.1 (OFL-1.1)
+  Source:  https://cdn.jsdelivr.net/npm/@fontsource-variable/martian-mono/files/martian-mono-latin-standard-normal.woff2
+  Upstream: https://github.com/google/fonts/tree/main/ofl/martianmono
+
+Total: 2 families, 170,040 bytes.

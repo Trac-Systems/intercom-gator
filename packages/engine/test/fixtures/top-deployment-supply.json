@@ -1,0 +1,123 @@
+{
+  "tokens": {
+    "ethereum:0x2af5d2ad76741191d15dfe7bf6ac92d4bd912ca3": [
+      "0x0000000000000000000000000000000000000000000000000000000000000012",
+      "0x00000000000000000000000000000000000000000221f06fb12854a314000000",
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "0x00000000000000000000000000000000000000000000000000000a5d65e712a4"
+    ],
+    "ethereum:0x9f6f3991d525015a6f8caf062c83b62fd3ac4436": [
+      "0x0000000000000000000000000000000000000000000000000000000000000006",
+      "0x00000000000000000000000000000000000000000000000000006f96a102c1d0",
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "0x0000000000000000000000000000000000000000000000000000000000000000"
+    ],
+    "solana:ousd2mJsPEckLHcSCDxyKD7NDGARZcfLbDZkKiatYHB": {
+      "mint": {
+        "context": {
+          "slot": 471331759
+        },
+        "value": {
+          "amount": "121021990436640",
+          "decimals": 6
+        }
+      },
+      "incinerator": {
+        "context": {
+          "slot": 471331759
+        },
+        "value": []
+      }
+    },
+    "solana:5GgRAEmv8ZxF2PR5hY72Qs5x1bnQ6UK2RbTPoqJ3wSwW": {
+      "mint": {
+        "context": {
+          "slot": 471331761
+        },
+        "value": {
+          "amount": "4337593564",
+          "decimals": 6
+        }
+      },
+      "incinerator": {
+        "context": {
+          "slot": 471331761
+        },
+        "value": [
+          {
+            "pubkey": "BchZBW3iU8gitnoTDmVWUdJovXdcWD5E9BB9YUFnfmJa",
+            "account": {
+              "data": {
+                "program": "spl-token-2022",
+                "parsed": {
+                  "info": {
+                    "extensions": [
+                      {
+                        "extension": "immutableOwner"
+                      },
+                      {
+                        "extension": "transferFeeAmount",
+                        "state": {
+                          "withheldAmount": 0
+                        }
+                      },
+                      {
+                        "extension": "transferHookAccount",
+                        "state": {
+                          "transferring": false
+                        }
+                      }
+                    ],
+                    "isNative": false,
+                    "mint": "5GgRAEmv8ZxF2PR5hY72Qs5x1bnQ6UK2RbTPoqJ3wSwW",
+                    "owner": "1nc1nerator11111111111111111111111111111111",
+                    "state": "initialized",
+                    "tokenAmount": {
+                      "amount": "1",
+                      "decimals": 6,
+                      "uiAmount": 0.000001,
+                      "uiAmountString": "0.000001"
+                    }
+                  },
+                  "type": "account"
+                },
+                "space": 187
+              }
+            }
+          }
+        ]
+      }
+    },
+    "bsc:0x22b1458e780f8fa71e2f84502cee8b5a3cc731fa": [
+      "0x0000000000000000000000000000000000000000000000000000000000000012",
+      "0x000000000000000000000000000000000000000003bb090b341173fe48069000",
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "0x00000000000000000000000000000000000000000000000000446ad9ab3b92af"
+    ]
+  },
+  "circleEurc": {
+    "chain": "SOL",
+    "amount": "69902423.368748",
+    "updateDate": "2026-11-19T11:51:01.813Z"
+  },
+  "falconTable": {
+    "columns": [
+      "date",
+      "origin_key",
+      "address",
+      "decimals",
+      "method",
+      "value"
+    ],
+    "rows": [
+      [
+        "2026-11-18",
+        "ethereum",
+        "0xfa2b947eec368f42195f24f36d2af29f7c24cec2",
+        18,
+        "rpc",
+        1524287103.86
+      ]
+    ]
+  }
+}

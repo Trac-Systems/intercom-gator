@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="t">
+<title id="t">intercom-gator</title>
+<style>.g{fill:#eae7ff}.a{fill:#6a35d9}.b{fill:#9e90e7}@media (prefers-color-scheme:dark){.g{fill:#2f264e}.a{fill:#a88fff}.b{fill:#7d6abf}}</style>
+<path class="g" d="M0 0H24L32 8V32H0Z"/>
+<path class="b" d="M0 19H10L13 22L16 19L19 22L22 19L25 22L28 19A6 6 0 0 1 22 25H0Z"/>
+<path class="a" fill-rule="evenodd" d="M0 10H4A4 4 0 0 1 12 10H21A2 2 0 0 1 25 10A6 6 0 0 1 31 16H28L25 19L22 16L19 19L16 16L13 19L10 16H0ZM8 7.2A3 3 0 0 1 8 11.6A3 3 0 0 1 8 7.2Z"/>
+</svg>

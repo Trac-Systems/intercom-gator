@@ -1,0 +1,2783 @@
+{
+  "events": [
+    {
+      "id": "v2-swap",
+      "emitter": "pool",
+      "signature": "Swap(address,uint256,uint256,uint256,uint256,address)",
+      "topic0": "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822",
+      "fields": [
+        "sender",
+        "amount0In",
+        "amount1In",
+        "amount0Out",
+        "amount1Out",
+        "to"
+      ],
+      "indexed": [
+        0,
+        5
+      ]
+    },
+    {
+      "id": "v2-sync",
+      "emitter": "pool",
+      "signature": "Sync(uint112,uint112)",
+      "topic0": "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1",
+      "fields": [
+        "reserve0",
+        "reserve1"
+      ],
+      "indexed": []
+    },
+    {
+      "id": "v2-pair",
+      "emitter": "factory",
+      "signature": "PairCreated(address,address,address,uint256)",
+      "topic0": "0x0d3648bd0f6ba80134a33ba9275ac585d9d315f0ad8355cddefde31afa28d0e9",
+      "fields": [
+        "token0",
+        "token1",
+        "pair",
+        "pairCount"
+      ],
+      "indexed": [
+        0,
+        1
+      ]
+    },
+    {
+      "id": "v3-swap",
+      "emitter": "pool",
+      "signature": "Swap(address,address,int256,int256,uint160,uint128,int24)",
+      "topic0": "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+      "fields": [
+        "sender",
+        "recipient",
+        "amount0",
+        "amount1",
+        "sqrtPriceX96",
+        "liquidity",
+        "tick"
+      ],
+      "indexed": [
+        0,
+        1
+      ]
+    },
+    {
+      "id": "v3-pool",
+      "emitter": "factory",
+      "signature": "PoolCreated(address,address,uint24,int24,address)",
+      "topic0": "0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118",
+      "fields": [
+        "token0",
+        "token1",
+        "fee",
+        "tickSpacing",
+        "pool"
+      ],
+      "indexed": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "id": "pancake-swap",
+      "emitter": "pool",
+      "signature": "Swap(address,address,int256,int256,uint160,uint128,int24,uint128,uint128)",
+      "topic0": "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+      "fields": [
+        "sender",
+        "recipient",
+        "amount0",
+        "amount1",
+        "sqrtPriceX96",
+        "liquidity",
+        "tick",
+        "protocolFeesToken0",
+        "protocolFeesToken1"
+      ],
+      "indexed": [
+        0,
+        1
+      ]
+    },
+    {
+      "id": "v4-swap",
+      "emitter": "manager",
+      "signature": "Swap(bytes32,address,int128,int128,uint160,uint128,int24,uint24)",
+      "topic0": "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+      "fields": [
+        "id",
+        "sender",
+        "amount0",
+        "amount1",
+        "sqrtPriceX96",
+        "liquidity",
+        "tick",
+        "fee"
+      ],
+      "indexed": [
+        0,
+        1
+      ]
+    },
+    {
+      "id": "v4-init",
+      "emitter": "manager",
+      "signature": "Initialize(bytes32,address,address,uint24,int24,address,uint160,int24)",
+      "topic0": "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438",
+      "fields": [
+        "id",
+        "currency0",
+        "currency1",
+        "fee",
+        "tickSpacing",
+        "hooks",
+        "sqrtPriceX96",
+        "tick"
+      ],
+      "indexed": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "id": "velo-swap",
+      "emitter": "pool",
+      "signature": "Swap(address,address,uint256,uint256,uint256,uint256)",
+      "topic0": "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+      "fields": [
+        "sender",
+        "to",
+        "amount0In",
+        "amount1In",
+        "amount0Out",
+        "amount1Out"
+      ],
+      "indexed": [
+        0,
+        1
+      ]
+    },
+    {
+      "id": "velo-sync",
+      "emitter": "pool",
+      "signature": "Sync(uint256,uint256)",
+      "topic0": "0xcf2aa50876cdfbb541206f89af0ee78d44a2abf8d328e37fa4917f982149848a",
+      "fields": [
+        "reserve0",
+        "reserve1"
+      ],
+      "indexed": []
+    },
+    {
+      "id": "velo-pool",
+      "emitter": "factory",
+      "signature": "PoolCreated(address,address,bool,address,uint256)",
+      "topic0": "0x2128d88d14c80cb081c1252a5acff7a264671bf199ce226b53788fb26065005e",
+      "fields": [
+        "token0",
+        "token1",
+        "stable",
+        "pool",
+        "poolCount"
+      ],
+      "indexed": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "id": "balancer-swap",
+      "emitter": "vault",
+      "signature": "Swap(bytes32,address,address,uint256,uint256)",
+      "topic0": "0x2170c741c41531aec20e7c107c24eecfdd15e69c9bb0a8dd37b1840b9e0b207b",
+      "fields": [
+        "poolId",
+        "tokenIn",
+        "tokenOut",
+        "amountIn",
+        "amountOut"
+      ],
+      "indexed": [
+        0,
+        1,
+        2
+      ]
+    },
+    {
+      "id": "curve-swap",
+      "emitter": "pool",
+      "signature": "TokenExchange(address,int128,uint256,int128,uint256)",
+      "topic0": "0x8b3e96f2b889fa771c53c981b40daf005f63f637f1869f707052d15a3dd97140",
+      "fields": [
+        "buyer",
+        "soldId",
+        "tokensSold",
+        "boughtId",
+        "tokensBought"
+      ],
+      "indexed": [
+        0
+      ]
+    },
+    {
+      "id": "curve-plain",
+      "emitter": "factory",
+      "signature": "PlainPoolDeployed(address[4],uint256,uint256,address)",
+      "topic0": "0x5b4a28c940282b5bf183df6a046b8119cf6edeb62859f75e835eb7ba834cce8d",
+      "fields": [
+        "coins",
+        "A",
+        "fee",
+        "deployer"
+      ],
+      "indexed": []
+    },
+    {
+      "id": "solidly-pair",
+      "emitter": "factory",
+      "signature": "PairCreated(address,address,bool,address,uint256)",
+      "topic0": "0xc4805696c66d7cf352fc1d6bb633ad5ee82f6cb577c453024b6e0eb8306c6fc9",
+      "fields": [
+        "token0",
+        "token1",
+        "stable",
+        "pair",
+        "pairCount"
+      ],
+      "indexed": [
+        0,
+        1
+      ]
+    },
+    {
+      "id": "slipstream-pool",
+      "emitter": "factory",
+      "signature": "PoolCreated(address,address,int24,address)",
+      "topic0": "0xab0d57f0df537bb25e80245ef7748fa62353808c54d6e528a9dd20887aed9ac2",
+      "fields": [
+        "token0",
+        "token1",
+        "tickSpacing",
+        "pool"
+      ],
+      "indexed": [
+        0,
+        1,
+        2
+      ]
+    }
+  ],
+  "kinds": [
+    {
+      "id": "v2",
+      "events": [
+        "v2-pair",
+        "v2-swap",
+        "v2-sync"
+      ]
+    },
+    {
+      "id": "v3",
+      "events": [
+        "v3-pool",
+        "v3-swap"
+      ]
+    },
+    {
+      "id": "pancake-v3",
+      "events": [
+        "v3-pool",
+        "pancake-swap"
+      ]
+    },
+    {
+      "id": "v4",
+      "events": [
+        "v4-init",
+        "v4-swap"
+      ]
+    },
+    {
+      "id": "velodrome-v2",
+      "events": [
+        "velo-pool",
+        "velo-swap",
+        "velo-sync"
+      ]
+    },
+    {
+      "id": "balancer-v2",
+      "events": [
+        "balancer-swap"
+      ]
+    },
+    {
+      "id": "curve-plain",
+      "events": [
+        "curve-plain",
+        "curve-swap"
+      ]
+    },
+    {
+      "id": "solidly-v1",
+      "events": [
+        "solidly-pair",
+        "v2-swap",
+        "velo-sync"
+      ]
+    },
+    {
+      "id": "slipstream",
+      "events": [
+        "slipstream-pool",
+        "v3-swap"
+      ]
+    }
+  ],
+  "evm": [
+    {
+      "chain": "ethereum",
+      "deployments": [
+        {
+          "name": "Balancer V2 Vault",
+          "kind": "balancer-v2",
+          "address": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+          "feeTiersPpm": null,
+          "source": "https://github.com/balancer/balancer-deployments/blob/master/addresses/mainnet.json"
+        },
+        {
+          "name": "Curve classic plain stableswap",
+          "kind": "curve-plain",
+          "address": "0xb9fc157394af804a3578134a6585c0dc9cc990d4",
+          "feeTiersPpm": null,
+          "source": "https://github.com/curvefi/curve-js/blob/master/src/constants/network_constants.ts"
+        },
+        {
+          "name": "PancakeSwap V3",
+          "kind": "pancake-v3",
+          "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+          "feeTiersPpm": [
+            100,
+            500,
+            2500,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@pancakeswap/v3-sdk/3.10.4"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xc0aee478e3658e2610c5f7a4a2e1777ce9e4f2ac",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0",
+          "router": "0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f",
+          "routerKind": "v2",
+          "routerSource": "https://etherscan.io/address/0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f#code"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0xbaceb8ec6b9355dfc0269c18bac9d6e2bdc29c4f",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0",
+          "router": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+          "routerKind": "v2",
+          "routerSource": "https://docs.uniswap.org/contracts/v2/reference/smart-contracts/v2-deployments"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0",
+          "router": "0xe592427a0aece92de3edee1f18e0157c05861564",
+          "routerKind": "v3",
+          "routerSource": "https://docs.uniswap.org/contracts/v3/reference/deployments/ethereum-deployments"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x000000000004444c5dc75cb358380d2e3de08a90",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "DAI",
+          "address": "0x6b175474e89094c44da98b954eedeac495271d0f",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDC",
+          "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDG",
+          "address": "0xe343167631d89b6ffc58b88d6b7fb0228795491d",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "decimals": 18
+        }
+      ],
+      "lockers": [
+        "0x663a5c229c09b049e36dcc11f9b0d4a8eb9db214"
+      ]
+    },
+    {
+      "chain": "bsc",
+      "deployments": [
+        {
+          "name": "PancakeSwap V2",
+          "kind": "v2",
+          "address": "0xca143ce32fe78f1f7019d7d551a6402fc5350c73",
+          "feeTiersPpm": [
+            2500
+          ],
+          "source": "https://developer.pancakeswap.finance/contracts/v2/addresses",
+          "router": "0x10ed43c718714eb63d5aa57b78b54704e256024e",
+          "routerKind": "v2",
+          "routerSource": "https://developer.pancakeswap.finance/contracts/v2/addresses"
+        },
+        {
+          "name": "PancakeSwap V3",
+          "kind": "pancake-v3",
+          "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+          "feeTiersPpm": [
+            100,
+            500,
+            2500,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@pancakeswap/v3-sdk/3.10.4"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0x126555dd55a39328f69400d6ae4f782bd4c34abb",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x8909dc15e40173ff4699343b6eb8132c65e18ec6",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0xdb1d10011ad0ff90774d0c6bb92e5c5c8b4461f7",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "DAI",
+          "address": "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDC",
+          "address": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDT",
+          "address": "0x55d398326f99059ff775485246999027b3197955",
+          "decimals": 18
+        },
+        {
+          "symbol": "WBNB",
+          "address": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "decimals": 18
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x2170ed0880ac9a755fd29b2688956bd959f933f8",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "deployments": [
+        {
+          "name": "Aerodrome",
+          "kind": "velodrome-v2",
+          "address": "0x420dd381b31aef6683db6b902084cb0ffece40da",
+          "feeTiersPpm": null,
+          "source": "https://github.com/aerodrome-finance/contracts/blob/main/script/constants/output/DeployCore-Base.json"
+        },
+        {
+          "name": "Aerodrome Slipstream",
+          "kind": "slipstream",
+          "address": "0x5e7bb104d84c7cb9b682aac2f3d509f5f406809a",
+          "feeTiersPpm": null,
+          "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/aerodrome-slipstream/index.ts"
+        },
+        {
+          "name": "Aerodrome Slipstream",
+          "kind": "slipstream",
+          "address": "0x9592cd9b267748cbfbde90ac9f7df3c437a6d51b",
+          "feeTiersPpm": null,
+          "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/aerodrome-slipstream/index.ts"
+        },
+        {
+          "name": "Aerodrome Slipstream",
+          "kind": "slipstream",
+          "address": "0xade65c38cd4849adba595a4323a8c7ddfe89716a",
+          "feeTiersPpm": null,
+          "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/aerodrome-slipstream/index.ts"
+        },
+        {
+          "name": "Aerodrome Slipstream",
+          "kind": "slipstream",
+          "address": "0xf8f2eb4940cfe7d13603dddd87f123820fc061ef",
+          "feeTiersPpm": null,
+          "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/aerodrome-slipstream/index.ts"
+        },
+        {
+          "name": "Balancer V2 Vault",
+          "kind": "balancer-v2",
+          "address": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+          "feeTiersPpm": null,
+          "source": "https://github.com/balancer/balancer-deployments/blob/master/addresses/base.json"
+        },
+        {
+          "name": "PancakeSwap V3",
+          "kind": "pancake-v3",
+          "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+          "feeTiersPpm": [
+            100,
+            500,
+            2500,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@pancakeswap/v3-sdk/3.10.4"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0x71524b4f93c58fcbf659783284e38825f0622859",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x8909dc15e40173ff4699343b6eb8132c65e18ec6",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0",
+          "router": "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+          "routerKind": "v2",
+          "routerSource": "https://docs.uniswap.org/contracts/v2/reference/smart-contracts/v2-deployments"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x33128a8fc17869897dce68ed026d694621f6fdfd",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0",
+          "router": "0x2626664c2603336e57b271c5c0b26f421741e481",
+          "routerKind": "v3-router02",
+          "routerSource": "https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x498581ff718922c3f8e6a244956af099b2652b2b",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "DAI",
+          "address": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDC",
+          "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDbC",
+          "decimals": 6,
+          "address": "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca"
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x4200000000000000000000000000000000000006",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "deployments": [
+        {
+          "name": "Balancer V2 Vault",
+          "kind": "balancer-v2",
+          "address": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+          "feeTiersPpm": null,
+          "source": "https://github.com/balancer/balancer-deployments/blob/master/addresses/arbitrum.json"
+        },
+        {
+          "name": "Curve classic plain stableswap",
+          "kind": "curve-plain",
+          "address": "0xb17b674d9c5cb2e441f8e196a2f048a81355d031",
+          "feeTiersPpm": null,
+          "source": "https://github.com/curvefi/curve-js/blob/master/src/constants/network_constants.ts"
+        },
+        {
+          "name": "PancakeSwap V3",
+          "kind": "pancake-v3",
+          "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+          "feeTiersPpm": [
+            100,
+            500,
+            2500,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@pancakeswap/v3-sdk/3.10.4"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0x1af415a1eba07a4986a52b6f2e7de7003d82231e",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0xf1d7cc64fb4452f05c498126312ebe29f30fbcf9",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0",
+          "router": "0xe592427a0aece92de3edee1f18e0157c05861564",
+          "routerKind": "v3",
+          "routerSource": "https://docs.uniswap.org/contracts/v3/reference/deployments/arbitrum-deployments"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x360e68faccca8ca495c1b759fd9eee466db9fb32",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "DAI",
+          "address": "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDC",
+          "address": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDC.e",
+          "address": "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDG",
+          "address": "0x004b506865409877c9fa29bfb1eba929984b9bbc",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT0",
+          "decimals": 6,
+          "address": "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9"
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "deployments": [
+        {
+          "name": "Balancer V2 Vault",
+          "kind": "balancer-v2",
+          "address": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+          "feeTiersPpm": null,
+          "source": "https://github.com/balancer/balancer-deployments/blob/master/addresses/optimism.json"
+        },
+        {
+          "name": "Curve classic plain stableswap",
+          "kind": "curve-plain",
+          "address": "0x2db0e83599a91b508ac268a6197b8b14f5e72840",
+          "feeTiersPpm": null,
+          "source": "https://github.com/curvefi/curve-js/blob/master/src/constants/network_constants.ts"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xfbc12984689e5f15626bad03ad60160fe98b303c",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0x9c6522117e2ed1fe5bdb72bb0ed5e3f2bde7dbe0",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x0c3c1c532f1e39edf36be9fe0be1410313e074bf",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0",
+          "router": "0xe592427a0aece92de3edee1f18e0157c05861564",
+          "routerKind": "v3",
+          "routerSource": "https://docs.uniswap.org/contracts/v3/reference/deployments/optimism-deployments"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Velodrome Slipstream",
+          "kind": "slipstream",
+          "address": "0xcc0bddb707055e04e497ab22a59c2af4391cd12f",
+          "feeTiersPpm": null,
+          "source": "https://sourcify.dev/server/v2/contract/10/0xCc0bDDB707055e04e497aB22a59c2aF4391cd12F?fields=abi"
+        },
+        {
+          "name": "Velodrome V2",
+          "kind": "velodrome-v2",
+          "address": "0xf1046053aa5682b4f9a81b5481394da16be5ff5a",
+          "feeTiersPpm": null,
+          "source": "https://github.com/velodrome-finance/contracts/blob/main/deployment-addresses/optimism.json"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "DAI",
+          "address": "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDC",
+          "address": "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDC.e",
+          "address": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x4200000000000000000000000000000000000006",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "deployments": [
+        {
+          "name": "Balancer V2 Vault",
+          "kind": "balancer-v2",
+          "address": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+          "feeTiersPpm": null,
+          "source": "https://github.com/balancer/balancer-deployments/blob/master/addresses/polygon.json"
+        },
+        {
+          "name": "Curve classic plain stableswap",
+          "kind": "curve-plain",
+          "address": "0x722272d36ef0da72ff51c5a65db7b870e2e8d4ee",
+          "feeTiersPpm": null,
+          "source": "https://github.com/curvefi/curve-js/blob/master/src/constants/network_constants.ts"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0x917933899c6a5f8e37f31e19f92cdbff7e8ff0e2",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x9e5a52f57b3038f1b8eee45f28b3c1967e22799c",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0",
+          "router": "0xe592427a0aece92de3edee1f18e0157c05861564",
+          "routerKind": "v3",
+          "routerSource": "https://docs.uniswap.org/contracts/v3/reference/deployments/polygon-deployments"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x67366782805870060151383f4bbff9dab53e5cd6",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "DAI",
+          "address": "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDC",
+          "address": "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDC.e",
+          "address": "0x2791bca1f2de4661ed88a30c99a7a9449aa84174",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619",
+          "decimals": 18
+        },
+        {
+          "symbol": "WPOL",
+          "address": "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "deployments": [
+        {
+          "name": "Balancer V2 Vault",
+          "kind": "balancer-v2",
+          "address": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+          "feeTiersPpm": null,
+          "source": "https://github.com/balancer/balancer-deployments/blob/master/addresses/avalanche.json"
+        },
+        {
+          "name": "Curve classic plain stableswap",
+          "kind": "curve-plain",
+          "address": "0xb17b674d9c5cb2e441f8e196a2f048a81355d031",
+          "feeTiersPpm": null,
+          "source": "https://github.com/curvefi/curve-js/blob/master/src/constants/network_constants.ts"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0x3e603c14af37ebdad31709c4f848fc6ad5bec715",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x9e5a52f57b3038f1b8eee45f28b3c1967e22799c",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x740b1c1de25031c31ff4fc9a62f554a55cdc1bad",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x06380c0e0912312b5150364b9dc4542ba0dbbc85",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "USDC",
+          "address": "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7",
+          "decimals": 6
+        },
+        {
+          "symbol": "WAVAX",
+          "address": "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+          "decimals": 18
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x49d5c2bdffac6ce2bfdb6640f4f80f226bc10bab",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "deployments": [
+        {
+          "name": "PancakeSwap V3",
+          "kind": "pancake-v3",
+          "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+          "feeTiersPpm": [
+            100,
+            500,
+            2500,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@pancakeswap/v3-sdk/3.10.4"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xfbc12984689e5f15626bad03ad60160fe98b303c",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x114a43df6c5f54ebb8a9d70cd1951d3dd68004c7",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x31fafd4889fa1269f7a13a66ee0fb458f27d72a9",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x248083fb965359d82b06c1f5322480dcfc1ad857",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "DAI",
+          "address": "0x4af15ec2a0bd43db75dd04e62faa3b8ef36b00d5",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDC",
+          "address": "0x176211869ca2b568f2a7d4ee941e073a821ee1ff",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0xa219439258ca9da29e9cc4ce5596924745e12b93",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0xe5d7c2a44ffddf6b295a15c148167daaaf5cf34f",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "scroll",
+      "deployments": [
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xb45e53277a7e0f1d35f2a77160e91e25507f1763",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0x46b3fdf7b5cde91ac049936bf0bdb12c5d22202e",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "USDC",
+          "address": "0x06efdbff2a14a7c8e15944d1f4a48f9f95f663a4",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0xf55bec9cafdbe8730f096aa55dad6d22d44099df",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x5300000000000000000000000000000000000004",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "zksync",
+      "deployments": [
+        {
+          "name": "PancakeSwap V3",
+          "kind": "pancake-v3",
+          "address": "0x1bb72e0cbbea93c08f535fc7856e0338d7f7a8ab",
+          "feeTiersPpm": [
+            100,
+            500,
+            2500,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@pancakeswap/v3-sdk/3.10.4"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x8fda5a7a8dca67bbcdd10f02fa0649a937215422",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "USDC",
+          "address": "0x1d17cbcf0d6d143135ae902365d2e5e2a16538d4",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDC.e",
+          "address": "0x3355df6d4c9c3035724fd0e3914de96a5a83aaf4",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0x493257fd37edb34451f62edf8d2a0c418852ba4c",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x5aea5775959fbc2557cc8789bc1bf90a239d9a91",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "blast",
+      "deployments": [
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x5c346464d33f90babaf70db6388507cc889c1070",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x792edade80af5fc680d96a2ed80a44247d2cf6fd",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x1631559198a9e474033433b2958dabc135ab6446",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "USDB",
+          "address": "0x4300000000000000000000000000000000000003",
+          "decimals": 18
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x4300000000000000000000000000000000000004",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "mantle",
+      "deployments": [
+        {
+          "name": "Agni Finance",
+          "kind": "pancake-v3",
+          "address": "0x25780dc8fc3cfbd75f33bfdab65e969b603b2035",
+          "feeTiersPpm": null,
+          "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/factory/uniV3.ts"
+        },
+        {
+          "name": "FusionX V2",
+          "kind": "v2",
+          "address": "0xe5020961fa51ffd3662cdf307def18f9a87cce7c",
+          "feeTiersPpm": [
+            2500
+          ],
+          "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/factory/uniV2.ts"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "USDC",
+          "address": "0x09bc4e0d864854c6afb6eb9a9cdf58ac190d0df9",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0x201eba5cc46d216ce6dc03f6a759e8e766e956ae",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0xdeaddeaddeaddeaddeaddeaddeaddeaddead1111",
+          "decimals": 18
+        },
+        {
+          "symbol": "WMNT",
+          "address": "0x78c1b0c915c4faa5fffa6cabf0219da63d7f4cb8",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "deployments": [
+        {
+          "name": "Shadow Exchange concentrated liquidity",
+          "kind": "v3",
+          "address": "0xcd2d0637c94fe77c2896bbcbb174ceffb08de6d7",
+          "feeTiersPpm": null,
+          "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/shadow-exchange.ts"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xb45e53277a7e0f1d35f2a77160e91e25507f1763",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0x46b3fdf7b5cde91ac049936bf0bdb12c5d22202e",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "USDC.e",
+          "address": "0x29219dd400f2bf60e5a23d13be72b486d4038894",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0x6047828dc181963ba44974801ff68e538da5eaf9",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x309c92261178fa0cf748a855e90ae73fdb79ebc7",
+          "decimals": 18
+        },
+        {
+          "symbol": "wS",
+          "address": "0x039e2fb66102314ce7b64ce5ce3e5183bc94ad38",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "berachain",
+      "deployments": [
+        {
+          "name": "Kodiak V2",
+          "kind": "v2",
+          "address": "0x5e705e184d233ff2a7cb1553793464a9d0c3028f",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/fees/kodiak-v2.ts"
+        },
+        {
+          "name": "Kodiak V3",
+          "kind": "v3",
+          "address": "0xd84cbf0b02636e7f53db9e5e45a616e05d710990",
+          "feeTiersPpm": null,
+          "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/dexs/kodiak-v3.ts"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "BUSD",
+          "decimals": 18,
+          "address": "0xfcbd14dc51f0a4d49d5e53c2e0950e0bc26d0dce"
+        },
+        {
+          "symbol": "USDC.e",
+          "address": "0x549943e04f40284185054145c6e4e9568c1d3241",
+          "decimals": 6
+        },
+        {
+          "symbol": "USD₮0",
+          "decimals": 6,
+          "address": "0x779ded0c9e1022225f8e0630b35a9b54be713736"
+        },
+        {
+          "symbol": "WBERA",
+          "address": "0x6969696969696969696969696969696969696969",
+          "decimals": 18
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x2f6f07cdcf3588944bf4c42ac74ff24bf56e7590",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "deployments": [
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x1f98400000000000000000000000000000000002",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x1f98400000000000000000000000000000000003",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x1f98400000000000000000000000000000000004",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "DAI",
+          "address": "0x20cab320a855b39f724131c69424240519573f81",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDC",
+          "address": "0x078d782b760474a361dda0af3839290b0ef57ad6",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDG",
+          "address": "0x2a22868610610199d43fe93a16661473a9f86f1e",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0x588ce4f028d8e7b53b687865d6a67b3a54c75518",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x4200000000000000000000000000000000000006",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "gnosis",
+      "deployments": [
+        {
+          "name": "Balancer V2 Vault",
+          "kind": "balancer-v2",
+          "address": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+          "feeTiersPpm": null,
+          "source": "https://github.com/balancer/balancer-deployments/blob/master/addresses/gnosis.json"
+        },
+        {
+          "name": "Curve classic plain stableswap",
+          "kind": "curve-plain",
+          "address": "0xd19baeadc667cf2015e395f2b08668ef120f41f5",
+          "feeTiersPpm": null,
+          "source": "https://github.com/curvefi/curve-js/blob/master/src/constants/network_constants.ts"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0xf78031cbca409f2fb6876bdfdbc1b2df24cf9bef",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "USDC",
+          "address": "0xddafbb505ad214d7b80b1f830fccc89b60fb7a83",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0x4ecaba5870353805a9f068101a40e0f32ed605c6",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x6a023ccd1ff6f2045c3309768ead9e68f978f6e1",
+          "decimals": 18
+        },
+        {
+          "symbol": "WXDAI",
+          "address": "0xe91d153e0b41518a2ce8dd3d7944fa863463a97d",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "celo",
+      "deployments": [
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x79a530c8e2fa8748b7b40dd3629c0520c2ccf03f",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0xafe208a311b21f13ef87e33a90049fc17a7acdec",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x288dc841a52fca2707c6947b3a777c5e56cd87bc",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "CELO",
+          "address": "0x471ece3750da237f93b8e339c536989b8978a438",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDC",
+          "address": "0xceba9300f2b948710d2653dd7b07f33a8b32118c",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDT",
+          "address": "0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x2def4285787d58a2f811af24755a8150622f4361",
+          "decimals": 18
+        },
+        {
+          "symbol": "cUSD",
+          "address": "0x765de816845861e75a25fca122bb6898b8b1282a",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "fantom",
+      "deployments": [
+        {
+          "name": "Curve classic plain stableswap",
+          "kind": "curve-plain",
+          "address": "0x686d67265703d1f124c45e33d47d794c566889ba",
+          "feeTiersPpm": null,
+          "source": "https://github.com/curvefi/curve-js/blob/master/src/constants/network_constants.ts"
+        },
+        {
+          "name": "Solidly V1",
+          "kind": "solidly-v1",
+          "address": "0x3faab499b519fdc5819e3d7ed0c26111904cbc28",
+          "feeTiersPpm": [
+            100,
+            2000
+          ],
+          "source": "https://sourcify.dev/server/v2/contract/250/0x3fAaB499b519fdC5819e3D7ed0C26111904cbc28?fields=abi"
+        },
+        {
+          "name": "SpookySwap V3",
+          "kind": "v3",
+          "address": "0x7928a2c48754501f3a8064765ecae541dae5c3e6",
+          "feeTiersPpm": null,
+          "source": "https://github.com/DefiLlama/dimension-adapters/blob/master/factory/uniV3.ts"
+        },
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0x7770978eed668a3ba661d51a773d3a992fc9ddcb",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "WFTM",
+          "address": "0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "robinhood",
+      "deployments": [
+        {
+          "name": "SushiSwap V2",
+          "kind": "v2",
+          "address": "0xe52abd50ad151ecdf56427effd715e703696a6b1",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "SushiSwap V3",
+          "kind": "v3",
+          "address": "0xe51960f1b45f1c9fb6d166e6a884f866fc70433b",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/sushi/7.7.0"
+        },
+        {
+          "name": "Uniswap V2",
+          "kind": "v2",
+          "address": "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f",
+          "feeTiersPpm": [
+            3000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V3",
+          "kind": "v3",
+          "address": "0x1f7d7550b1b028f7571e69a784071f0205fd2efa",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        },
+        {
+          "name": "Uniswap V4",
+          "kind": "v4",
+          "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "feeTiersPpm": null,
+          "source": "https://registry.npmjs.org/@uniswap/sdk-core/7.22.0"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "USDG",
+          "address": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "decimals": 6
+        },
+        {
+          "symbol": "WETH",
+          "address": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "decimals": 18
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "deployments": [
+        {
+          "name": "HyperSwap V3",
+          "kind": "v3",
+          "address": "0xb1c0fa0b789320044a6f623cfe5ebda9562602e3",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://hyperevmscan.io/address/0xb1c0fa0b789320044a6f623cfe5ebda9562602e3"
+        },
+        {
+          "name": "Project X V3",
+          "kind": "v3",
+          "address": "0xff7b3e8c00e57ea31477c32a5b52a58eea47b072",
+          "feeTiersPpm": [
+            100,
+            500,
+            3000,
+            10000
+          ],
+          "source": "https://hyperevmscan.io/address/0xff7b3e8c00e57ea31477c32a5b52a58eea47b072"
+        }
+      ],
+      "quoteTokens": [
+        {
+          "symbol": "WHYPE",
+          "address": "0x5555555555555555555555555555555555555555",
+          "decimals": 18
+        },
+        {
+          "symbol": "USDT0",
+          "address": "0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb",
+          "decimals": 6
+        },
+        {
+          "symbol": "USDC",
+          "address": "0xb88339cb7199b77e23db6e890353e22632ba630f",
+          "decimals": 6
+        }
+      ]
+    }
+  ],
+  "solana": [
+    {
+      "name": "Raydium",
+      "programs": [
+        {
+          "kind": "AMM V4",
+          "address": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
+        },
+        {
+          "kind": "CPMM",
+          "address": "CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C"
+        },
+        {
+          "kind": "CLMM",
+          "address": "CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK"
+        }
+      ],
+      "api": "raydium"
+    },
+    {
+      "name": "Orca",
+      "programs": [
+        {
+          "kind": "Whirlpools",
+          "address": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+        }
+      ],
+      "api": "orca"
+    },
+    {
+      "name": "Meteora",
+      "programs": [
+        {
+          "kind": "DLMM",
+          "address": "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
+        }
+      ],
+      "api": "meteora"
+    }
+  ],
+  "nft": {
+    "marketplaces": [
+      {
+        "chain": "ethereum",
+        "name": "Seaport 1.5",
+        "protocol": "seaport",
+        "address": "0x00000000000000adc04c56bf30ac9d3c0aaf14dc",
+        "source": "https://github.com/ProjectOpenSea/seaport/blob/main/docs/Deployments.md"
+      },
+      {
+        "chain": "ethereum",
+        "name": "Seaport 1.6",
+        "protocol": "seaport",
+        "address": "0x0000000000000068f116a894984e2db1123eb395",
+        "source": "https://github.com/ProjectOpenSea/seaport/blob/main/docs/Deployments.md"
+      },
+      {
+        "chain": "ethereum",
+        "name": "Blur",
+        "protocol": "blur-v2",
+        "address": "0xb2ecfe4e4d61f8790bbb9de2d1259b9e2410cea5",
+        "source": "https://etherscan.io/address/0xb2ecfe4e4d61f8790bbb9de2d1259b9e2410cea5#code"
+      },
+      {
+        "chain": "ethereum",
+        "name": "Payment Processor",
+        "protocol": "payment-processor-v2",
+        "address": "0x9a1d00000000fc540e2000560054812452eb5366",
+        "source": "https://etherscan.io/address/0x9a1d00000000fc540e2000560054812452eb5366#code"
+      },
+      {
+        "chain": "base",
+        "name": "Seaport 1.5",
+        "protocol": "seaport",
+        "address": "0x00000000000000adc04c56bf30ac9d3c0aaf14dc",
+        "source": "https://github.com/ProjectOpenSea/seaport/blob/main/docs/Deployments.md"
+      },
+      {
+        "chain": "base",
+        "name": "Seaport 1.6",
+        "protocol": "seaport",
+        "address": "0x0000000000000068f116a894984e2db1123eb395",
+        "source": "https://github.com/ProjectOpenSea/seaport/blob/main/docs/Deployments.md"
+      },
+      {
+        "chain": "base",
+        "name": "Payment Processor",
+        "protocol": "payment-processor-v2",
+        "address": "0x9a1d00000000fc540e2000560054812452eb5366",
+        "source": "https://basescan.org/address/0x9a1d00000000fc540e2000560054812452eb5366#code"
+      }
+    ],
+    "currencies": [
+      {
+        "chain": "ethereum",
+        "symbol": "WETH",
+        "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "decimals": 18,
+        "unit": "ETH"
+      },
+      {
+        "chain": "ethereum",
+        "symbol": "Blur Pool",
+        "address": "0x0000000000a39bb272e79075ade125fd351887ac",
+        "decimals": 18,
+        "unit": "ETH"
+      },
+      {
+        "chain": "ethereum",
+        "symbol": "USDC",
+        "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "decimals": 6,
+        "unit": "USD"
+      },
+      {
+        "chain": "base",
+        "symbol": "WETH",
+        "address": "0x4200000000000000000000000000000000000006",
+        "decimals": 18,
+        "unit": "ETH"
+      },
+      {
+        "chain": "base",
+        "symbol": "USDC",
+        "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "decimals": 6,
+        "unit": "USD"
+      }
+    ],
+    "collections": [
+      {
+        "chain": "ethereum",
+        "address": "0x60e4d786628fea6478f785a6d7e704777c86a7c6",
+        "name": "MutantApeYachtClub",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xe9d9d14d858cf9cda2d320493726af7fc907309a",
+        "name": "Sections by Grant Yun",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d",
+        "name": "BoredApeYachtClub",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xbd3531da5cf5857e7cfaa92426877b022e612cf8",
+        "name": "PudgyPenguins",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x387c41b0b2f1128de44db1bcf8baad085f26392c",
+        "name": "Argonauts",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x5de14381e86b9a3816aa329f254ad960bbb135a0",
+        "name": "KACHOFUGETSU",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xe31703379e32cad7502a594a854a76f9bb0be0e5",
+        "name": "JPEG Frens",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x524cab2ec69124574082676e6f654a18df49a048",
+        "name": "LilPudgys",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x0000ec93127baa929e58e97dd0095a2bfb38ec1d",
+        "name": "identity.md",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x5af0d9827e0c53e4799bb226655a1de152a425a5",
+        "name": "Milady",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xed5af388653567af2f388e6224dc7c4b3241c544",
+        "name": "Azuki",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xa8edf6c9ac6bf1a00afaaca6e0ca705b89192fb9",
+        "name": "Moriusa",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xd774557b647330c91bf44cfeab205095f7e6c367",
+        "name": "Nakamigos",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x9eb6e2025b64f340691e424b7fe7022ffde12438",
+        "name": "Normies",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x79fcdef22feed20eddacbb2587640e45491b757f",
+        "name": "mfer",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xf08acc2f16ddf2f5d047fcc4d39a6c528a9645af",
+        "name": "The Ape Society",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x9378368ba6b85c1fba5b131b530f5f5bedf21a18",
+        "name": "VeeFriends Series 2",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x4e1f41613c9084fdb9e34e11fae9412427480e56",
+        "name": "Terraforms",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xb8ea78fcacef50d41375e44e6814ebba36bb33c4",
+        "name": "Good Vibes Club",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x3cc3e703da2c4b529c17efd1f1afd61dec0216af",
+        "name": "Glyphoras",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x790b2cf29ed4f310bf7641f013c65d4560d28371",
+        "name": "Otherdeed Expanded",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x8a90cab2b38dba80c64b7734e58ee1db38b8992e",
+        "name": "Doodles",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x993873f58f0ce4728bbd68dd5fabcb75ef48e7c4",
+        "name": "FREEDZ",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x59468516a8259058bad1ca5f8f4bff190d30e066",
+        "name": "Invisible Friends",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xbe9371326f91345777b04394448c23e2bfeaa826",
+        "name": "Gemesis",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x306b1ea3ecdf94ab739f1910bbda052ed4a9f949",
+        "name": "Beanz",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xb8c2b09a40a3cc99e7da0daad0bf0177186bb276",
+        "name": "Crawlers by Slava Rybin",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x03b8d129a8f6dc62a797b59aa5eebb11ad63dada",
+        "name": "SMOWL",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x86ffb7988913e85a5a07d459a5165ab1273cfe62",
+        "name": "Blokyz",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x08cded8258730bda384ff198001e47a1b50f7f9d",
+        "name": "111K",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xba30e5f9bb24caa003e9f2f0497ad287fdf95623",
+        "name": "BoredApeKennelClub",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xcb0befd9417c65f19bd348840515fdb20d6fb818",
+        "name": "a KID called BEAST",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270",
+        "name": "Art Blocks",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x49cf6f5d44e70224e2e23fdcdd2c053f30ada28b",
+        "name": "CloneX",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x9c51a3cb5094b26aa1dcb380f3dc7e1a7c681c2d",
+        "name": "Drop Ded Gorgez",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x34d85c9cdeb23fa97cb08333b511ac86e1c4e258",
+        "name": "Otherdeed",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x9c0da87bbbe41a813461422e0521bc12f5386e28",
+        "name": "JPEGZ",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x56ca43cbe18ecae79e44f50f3ee08aeb73150b07",
+        "name": "LiveArtXCard",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xc3f733ca98e0dad0386979eb96fb1722a1a05e69",
+        "name": "Acclimated​MoonCats",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x894ed8be91642b12928fbf8598f929f4ffb100f6",
+        "name": "Exultant Chaos",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x1a92f7381b9f03921564a437210bb9396471050c",
+        "name": "Cool Cats",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x2a2aabf10b9c9bb5c2e13ff2a74d48dafdb723d8",
+        "name": "Fungo Genesis",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xda11e1d06e4e0d0ac26805bdb063ecdbac426aa0",
+        "name": "SideKX",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x48bc9d4c4e9ea77afbc200b255ed7907977f5df3",
+        "name": "Chrome",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x5946aeaab44e65eb370ffaa6a7ef2218cff9b47d",
+        "name": "Creepz by OVERLORD",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x97630aa70ab14ed9883b41dafccbc11349723043",
+        "name": "Credits",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x6339e5e072086621540d0362c4e3cea0d643e114",
+        "name": "Opepen Edition",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xc627a912171a92bdfe33419f3c9be073e522cb9c",
+        "name": "Cambria Charters",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xbc8af167ffaa6b780aaeb522ccabd64c5933bf02",
+        "name": "Derage",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x93a71c6730d0388176ddb960ff81a2f01deba400",
+        "name": "The Little Guys",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xc0bf6533fe18394a581aa38de831c4ecc64cbe55",
+        "name": "Wrapped CryptoBots",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xff9c1b15b16263c61d017ee9f65c50e4ae0113d7",
+        "name": "Loot",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x39ee2c7b3cb80254225884ca001f57118c8f21b6",
+        "name": "Potatoz",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xb6a37b5d14d502c3ab0ae6f3a0e058bc9517786e",
+        "name": "Elemental",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xa956567dcfd4ea3e869a74d706a18fab59a7f217",
+        "name": "FUGZ",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xf9a42c357709dbb27c77109823d7f1641d86aee9",
+        "name": "Binary",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xf5bcda7b2f6aa508f31c650abd3a3ecbcdad9daa",
+        "name": "Planies",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xd3d9ddd0cf0a5f0bfb8f7fceae075df687eaebab",
+        "name": "TEST NFT",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xe6d48bf4ee912235398b96e16db6f310c21e82cb",
+        "name": "God Hates NFTees",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x9df8aa7c681f33e442a0d57b838555da863504f3",
+        "name": "Pixelated Llama",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x4de566ac60e83015156cfd5c180f4bcad320a56d",
+        "name": "HV-MTL Activated",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x1f64ea8745e316cfde4b92353a1bb9654198a793",
+        "name": "X-Pod",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x9830b32f7210f0857a859c2a86387e4d1bb760b8",
+        "name": "Kaito Genesis",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x518ba36f1ca6dfe3bb1b098b8dd0444030e79d9f",
+        "name": "Wonky Stonks",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x209e639a0ec166ac7a1a4ba41968fa967db30221",
+        "name": "Genuine Undead",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x80396c7131159eb92e7e84839e51c9887a7a95d9",
+        "name": "Claus",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x2acab3dea77832c09420663b0e1cb386031ba17b",
+        "name": "DeadFellaz",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x0ae671a34935151c2de2e2e185d0c2dbdfe0645c",
+        "name": "Digital Slop",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x8943c7bac1914c9a7aba750bf2b6b09fd21037e0",
+        "name": "Lazy Lions",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x313e99d23d6a9ed47af8dccd545c2685f21ec44b",
+        "name": "TheDelMundos",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x4d7d2e237d64d1484660b55c0a4cc092fa5e6716",
+        "name": "DegenToonz",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xd479349a4818a5523bc36464cd9ea746f03ccb4b",
+        "name": "Yucky Ducks",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x6e6b13a7ff06b53dcc3589d35b1b0ffd58c5bdeb",
+        "name": "BitMON",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x5e52d41f0e40d7cdb204db0d09659846f7404547",
+        "name": "The Nibbles",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xe00d3dabe9fd2c0d4d8d7ce96a9faf9a07dbe529",
+        "name": "Gargoyle",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x56e6f1bffde5dccd9a183585ce31f2902fc52707",
+        "name": "Kodamara",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xc7e67762821b2ed6c0a1f423547b2899822d8650",
+        "name": "Wolf Game",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x67ee6daa43d06d5baa32fcfb4bca0a441facd59d",
+        "name": "Hazels",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x6f3d69f674daee44b4d6662622dad06328c08a10",
+        "name": "Dads",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x8f1b132e9fd2b9a2b210baa186bf1ae650adf7ac",
+        "name": "Quirklings",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xfba5880244850d89a91479a01bb8d1b678cd79fe",
+        "name": "TROLLS",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x769272677fab02575e84945f03eca517acc544cc",
+        "name": "Captainz",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x0c2e57efddba8c768147d1fdf9176a0a6ebd5d83",
+        "name": "KaijuKingz",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xc8ec742d51a6b627db72f37ae11a978c8dd65335",
+        "name": "Tunnel Vision",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xacf63e56fd08970b43401492a02f6f38b6635c91",
+        "name": "Kanpai Pandas",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xf70dec1aece43579e5ac3b2df4cba56fd8aff65d",
+        "name": "Abstract Chickens",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x75e95ba5997eb235f40ecf8347cdb11f18ff640b",
+        "name": "Psychedelics Anonymous Genesis",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xef1a89cbfabe59397ffda11fc5df293e9bc5db90",
+        "name": "Based Ghouls",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x7b1a5e0807383f84a66c8a1b1af494061a169336",
+        "name": "CyberKongz Evolution",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x13de83e286cfd9d24270860bbb2f8dc3e3418392",
+        "name": "Yokai Syndicate",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x075f90ff6b89a1c164fb352bebd0a16f55804ca2",
+        "name": "𝔡𝔢𝔞𝔱𝔥 𝔞𝔫𝔡 𝔱𝔞𝔵𝔢𝔰: 𝔢𝔳𝔞𝔡𝔢𝔯𝔰",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x79986af15539de2db9a5086382daeda917a9cf0c",
+        "name": "Cryptovoxels Parcel",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xfbaa0e362212e909fe3ff011a7d65077c1971942",
+        "name": "Final Bosu",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0xd78b76fcc33cd416da9d3d42f72649a23d7ac647",
+        "name": "Lil Heroes",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x86c10d10eca1fca9daf87a279abccabe0063f247",
+        "name": "Cool Pets",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x8a3d1a061c269199488ef521751c22c13f491ad3",
+        "name": "MicroFrens",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x203393330560cf43893ae7051d1b787844f13080",
+        "name": "VoltedDragonsSailorsClub",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x80205dfe723fa1c1fc20d575343e1556107d78b1",
+        "name": "Myths and Monsters",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "ethereum",
+        "address": "0x0c56f29b8d90eea71d57cadeb3216b4ef7494abc",
+        "name": "CLOAKS",
+        "source": "measured-ethereum-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x26c42724eba22f2d1a2ac5d35b0344bf2f3f8188",
+        "name": "Regenerates",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xbf57d0535e10e7033447174404b9bed3d9ef4c88",
+        "name": "Based Nouns",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xbc72a61bd9511c7cf9ed7e4b0cac1b8d0fba4bc6",
+        "name": "NFToshis 2.0",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x1649cd37f4748807b4882fc48765ba0b2affa94a",
+        "name": "Loopers",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x54157aefb9778358c3b265ff20444bb4bc9df3f6",
+        "name": "zygote",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x9e20ab7480cf57f503271e46ce8a3c0ad4387904",
+        "name": "Clash of Coins Buildings Series 2",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x8bf4d39aa13f3cb03f87d9500767fbc4d0940652",
+        "name": "Locked Antseed Stake",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xc87e55be39b9b2f7ee4acfda71dcccafe3b77f3a",
+        "name": "Apes Bunitori Club",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x699727f9e01a822efdcf7333073f0461e5914b4e",
+        "name": "The Warplets",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x03cd36ae90f7eccd013d8feffa7d515227cadc5d",
+        "name": "Chumlins",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xc7c114191aa3b2225f9bb053bc55b3d6f145bd33",
+        "name": "CHIPLETS",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xbc73621a1a8a3582f4e5eaeb6dc595607da88155",
+        "name": "Gacha Pull",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x0fac0853d93dd79ca313ead29821cad822501a02",
+        "name": "Spike Kitties",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x4d540dd5ee4dc4a92a027b206c45605794396fb5",
+        "name": "Cambrilio",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xe7d4de14e1e5bbc50be8b0905a056bec56be7b66",
+        "name": "Nyan Dot Cat",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x16cebf4754b082c0dde62043102a5b27235eb472",
+        "name": "Parallel Haven",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xf20a43f8396f8e28100d6d454e34483d78094c29",
+        "name": "Larvva Lads",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x3505ba4a3438895867bfba311bd9c77793a7f22b",
+        "name": "Only the Based",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xa669ca42f91873d406847d8329233c2703f377cd",
+        "name": "Parallel Deception",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x504405158f9960a0252a83ee2fd13167991addd6",
+        "name": "Parallel Battlepass",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x978b506008f913f25367a0bec1879c74d255a812",
+        "name": "Chimpers Cards - Festive Frens",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x0852af8836a0fbf8dc7a3556b3dd46109d29d0fb",
+        "name": "The Base Era Begins",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xabae101747e65f7f2e72b4e4d7a787aaa7b17cda",
+        "name": "Base Apes Gang Club",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x9acac436bb97c2076bcecb39efaef82329c84dc3",
+        "name": "Get Based",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x2838e10b99873168725f1865fcb7b291376f940a",
+        "name": "MEME APE CLUB",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x483a6abd50e5b7dd7817585cfbaf720b6c6d1a87",
+        "name": "OpenSea SDK Test Fixture",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xda997d6f5c92e5a85bc0f05ca73a9465bc33d08a",
+        "name": "Bat Guy",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xe35b7e37c125abeee67809d89173dd03e473e3a4",
+        "name": "World Cups",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0xda418908471675ef7d49fbbbce9a8dd096654fe8",
+        "name": "Lil Monos",
+        "source": "measured-base-2026-11-19"
+      },
+      {
+        "chain": "base",
+        "address": "0x7e50af303a0422ebec6bc198034a2430bbe0195c",
+        "name": "Demons are Hiding in the BASEment",
+        "source": "measured-base-2026-11-19"
+      }
+    ],
+    "sources": [
+      {
+        "id": "measured-ethereum-2026-11-19",
+        "date": "2026-11-19",
+        "url": null,
+        "note": "Top collections by ETH volume of unflagged sales decoded from Seaport 1.5/1.6, Blur V2 and Payment Processor V2 logs, Ethereum blocks 26442000-26449199 (24 h, 6485 sales, 769 collections); at least 3 sales and 2 distinct buyers; names from on-chain name(); shared storefront contracts left out."
+      },
+      {
+        "id": "measured-base-2026-11-19",
+        "date": "2026-11-19",
+        "url": null,
+        "note": "Every collection with at least 2 unflagged sales and 2 distinct buyers in Seaport 1.5/1.6 and Payment Processor V2 logs, Base blocks 59207136-59509535 (7 days, 399 sales, 95 collections); names from on-chain name()."
+      }
+    ]
+  }
+}

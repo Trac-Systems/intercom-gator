@@ -1,0 +1,2875 @@
+[
+  {
+    "id": "ethereum",
+    "name": "Ethereum Mainnet",
+    "family": "evm",
+    "chainId": 1,
+    "native": {
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 12,
+    "explorer": "https://etherscan.io",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://eth.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1"
+        }
+      },
+      {
+        "url": "https://mainnet.gateway.tenderly.co",
+        "wss": "wss://mainnet.gateway.tenderly.co",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1"
+        }
+      },
+      {
+        "url": "https://ethereum-rpc.publicnode.com",
+        "wss": "wss://ethereum-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1"
+        }
+      },
+      {
+        "url": "https://eth.drpc.org",
+        "wss": "wss://eth.drpc.org",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/ethereum/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/ethereum/assets/{address}/logo.png"
+  },
+  {
+    "id": "bsc",
+    "name": "BNB Smart Chain Mainnet",
+    "family": "evm",
+    "chainId": 56,
+    "native": {
+      "symbol": "BNB",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 0.75,
+    "explorer": "https://bscscan.com",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://bsc.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x38"
+        }
+      },
+      {
+        "url": "https://bsc-dataseed1.bnbchain.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": "10,000 requests per 5 minutes per IP (BNB public nodes)",
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x38"
+        }
+      },
+      {
+        "url": "https://bsc-rpc.publicnode.com",
+        "wss": "wss://bsc-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x38"
+        }
+      },
+      {
+        "url": "https://bsc-dataseed1.defibit.io",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x38"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/smartchain/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/smartchain/assets/{address}/logo.png"
+  },
+  {
+    "id": "base",
+    "name": "Base",
+    "family": "evm",
+    "chainId": 8453,
+    "native": {
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 2,
+    "explorer": "https://basescan.org",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://base.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x2105"
+        }
+      },
+      {
+        "url": "https://mainnet.base.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x2105"
+        }
+      },
+      {
+        "url": "https://base-rpc.publicnode.com",
+        "wss": "wss://base-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x2105"
+        }
+      },
+      {
+        "url": "https://base.gateway.tenderly.co",
+        "wss": "wss://base.gateway.tenderly.co",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 1000
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x2105"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/base/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/base/assets/{address}/logo.png"
+  },
+  {
+    "id": "arbitrum",
+    "name": "Arbitrum One",
+    "family": "evm",
+    "chainId": 42161,
+    "native": {
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 0.25,
+    "explorer": "https://arbiscan.io",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://arb1.arbitrum.io/rpc",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa4b1"
+        }
+      },
+      {
+        "url": "https://arbitrum.api.onfinality.io/public",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": "10 requests per minute (OnFinality public rate-limit exception for Arbitrum, documentation.onfinality.io/support/public-rate-limits)",
+        "getLogs": {
+          "allowed": null,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa4b1"
+        }
+      },
+      {
+        "url": "https://arb-one.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa4b1"
+        }
+      },
+      {
+        "url": "https://arbitrum-one-rpc.publicnode.com",
+        "wss": "wss://arbitrum-one-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa4b1"
+        }
+      },
+      {
+        "url": "https://arbitrum.drpc.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa4b1"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/arbitrum/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/arbitrum/assets/{address}/logo.png"
+  },
+  {
+    "id": "optimism",
+    "name": "OP Mainnet",
+    "family": "evm",
+    "chainId": 10,
+    "native": {
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 2,
+    "explorer": "https://optimistic.etherscan.io",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://op.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa"
+        }
+      },
+      {
+        "url": "https://mainnet.optimism.io",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa"
+        }
+      },
+      {
+        "url": "https://optimism-rpc.publicnode.com",
+        "wss": "wss://optimism-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa"
+        }
+      },
+      {
+        "url": "https://optimism.drpc.org",
+        "wss": "wss://optimism.drpc.org",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/optimism/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/optimism/assets/{address}/logo.png"
+  },
+  {
+    "id": "polygon",
+    "name": "Polygon Mainnet",
+    "family": "evm",
+    "chainId": 137,
+    "native": {
+      "symbol": "POL",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 2,
+    "explorer": "https://polygonscan.com",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://poly.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x89"
+        }
+      },
+      {
+        "url": "https://polygon.drpc.org",
+        "wss": "wss://polygon.drpc.org",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x89"
+        }
+      },
+      {
+        "url": "https://polygon-bor-rpc.publicnode.com",
+        "wss": "wss://polygon-bor-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x89"
+        }
+      },
+      {
+        "url": "https://polygon.gateway.tenderly.co",
+        "wss": "wss://polygon.gateway.tenderly.co",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x89"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/polygon/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/polygon/assets/{address}/logo.png"
+  },
+  {
+    "id": "avalanche",
+    "name": "Avalanche C-Chain",
+    "family": "evm",
+    "chainId": 43114,
+    "native": {
+      "symbol": "AVAX",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 1.7,
+    "explorer": "https://snowscan.xyz",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://avalanche.api.onfinality.io/public/ext/bc/C/rpc",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa86a"
+        }
+      },
+      {
+        "url": "https://avax.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa86a"
+        }
+      },
+      {
+        "url": "https://api.avax.network/ext/bc/C/rpc",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa86a"
+        }
+      },
+      {
+        "url": "https://avalanche-c-chain-rpc.publicnode.com",
+        "wss": "wss://avalanche-c-chain-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa86a"
+        }
+      },
+      {
+        "url": "https://avalanche.drpc.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa86a"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/avalanchec/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/avalanchec/assets/{address}/logo.png"
+  },
+  {
+    "id": "linea",
+    "name": "Linea",
+    "family": "evm",
+    "chainId": 59144,
+    "native": {
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 2,
+    "explorer": "https://lineascan.build",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://rpc.linea.build",
+        "wss": "wss://rpc.linea.build",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xe708"
+        }
+      },
+      {
+        "url": "https://linea.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xe708"
+        }
+      },
+      {
+        "url": "https://linea-rpc.publicnode.com",
+        "wss": "wss://linea-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xe708"
+        }
+      },
+      {
+        "url": "https://linea.drpc.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xe708"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/linea/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/linea/assets/{address}/logo.png"
+  },
+  {
+    "id": "scroll",
+    "name": "Scroll",
+    "family": "evm",
+    "chainId": 534352,
+    "native": {
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 3,
+    "explorer": "https://scrollscan.com",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://scroll.api.onfinality.io/public",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x82750"
+        }
+      },
+      {
+        "url": "https://scroll.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x82750"
+        }
+      },
+      {
+        "url": "https://rpc.scroll.io",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x82750"
+        }
+      },
+      {
+        "url": "https://scroll-rpc.publicnode.com",
+        "wss": "wss://scroll-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x82750"
+        }
+      },
+      {
+        "url": "https://scroll.drpc.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x82750"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/scroll/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/scroll/assets/{address}/logo.png"
+  },
+  {
+    "id": "zksync",
+    "name": "zkSync Mainnet",
+    "family": "evm",
+    "chainId": 324,
+    "native": {
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 0.2,
+    "explorer": "https://explorer.zksync.io",
+    "multicall3": "0xf9cda624fbc7e059355ce98a31693d299facd963",
+    "endpoints": [
+      {
+        "url": "https://zksync.api.onfinality.io/public",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": null,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x144"
+        }
+      },
+      {
+        "url": "https://zksync-era.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x144"
+        }
+      },
+      {
+        "url": "https://mainnet.era.zksync.io",
+        "wss": "wss://mainnet.era.zksync.io/ws",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x144"
+        }
+      },
+      {
+        "url": "https://zksync.drpc.org",
+        "wss": "wss://zksync.drpc.org",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x144"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/zksync/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/zksync/assets/{address}/logo.png"
+  },
+  {
+    "id": "blast",
+    "name": "Blast",
+    "family": "evm",
+    "chainId": 81457,
+    "native": {
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 2,
+    "explorer": "https://blastscan.io",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://blast.api.pocket.network",
+        "protocol": "evm-jsonrpc",
+        "wss": null,
+        "probe": "eth_chainId",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x13e31"
+        }
+      },
+      {
+        "url": "https://blast-rpc.publicnode.com",
+        "wss": "wss://blast-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": null,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": false,
+          "result": "HTTP 403 \"unsupported platform\": PublicNode dropped Blast (POST eth_chainId, 4 probes 15:39-15:49 UTC)"
+        }
+      },
+      {
+        "url": "https://blast.blockpi.network/v1/rpc/public",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": null,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": false,
+          "result": "HTTP 503 code 100021 \"Apikey not found\": no keyless BlockPI access (4 probes 15:39-15:49 UTC)"
+        }
+      },
+      {
+        "url": "https://blast.drpc.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": null,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": false,
+          "result": "HTTP 400 code 35 \"chain is not available on free plan\" (4 probes 15:39-15:49 UTC)"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/blast/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/blast/assets/{address}/logo.png"
+  },
+  {
+    "id": "mantle",
+    "name": "Mantle",
+    "family": "evm",
+    "chainId": 5000,
+    "native": {
+      "symbol": "MNT",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 2,
+    "explorer": "https://mantlescan.xyz",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://mantle.api.onfinality.io/public",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "0x1388"
+        }
+      },
+      {
+        "url": "https://mantle.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1388"
+        }
+      },
+      {
+        "url": "https://rpc.mantle.xyz",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1388"
+        }
+      },
+      {
+        "url": "https://mantle-rpc.publicnode.com",
+        "wss": "wss://mantle-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1388"
+        }
+      },
+      {
+        "url": "https://mantle.drpc.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1388"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/mantle/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/mantle/assets/{address}/logo.png"
+  },
+  {
+    "id": "sonic",
+    "name": "Sonic Mainnet",
+    "family": "evm",
+    "chainId": 146,
+    "native": {
+      "symbol": "S",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 0.63,
+    "explorer": "https://sonicscan.org",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://rpc.soniclabs.com",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x92"
+        }
+      },
+      {
+        "url": "https://sonic.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x92"
+        }
+      },
+      {
+        "url": "https://sonic-rpc.publicnode.com",
+        "wss": "wss://sonic-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x92"
+        }
+      },
+      {
+        "url": "https://sonic.drpc.org",
+        "wss": "wss://sonic.drpc.org",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x92"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/sonic/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/sonic/assets/{address}/logo.png"
+  },
+  {
+    "id": "berachain",
+    "name": "Berachain",
+    "family": "evm",
+    "chainId": 80094,
+    "native": {
+      "symbol": "BERA",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 2,
+    "explorer": "https://berascan.com",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://bera.api.pocket.network",
+        "protocol": "evm-jsonrpc",
+        "wss": null,
+        "probe": "eth_chainId",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x138de"
+        }
+      },
+      {
+        "url": "https://rpc.berachain.com",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x138de"
+        }
+      },
+      {
+        "url": "https://berachain-rpc.publicnode.com",
+        "wss": "wss://berachain-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x138de"
+        }
+      }
+    ]
+  },
+  {
+    "id": "unichain",
+    "name": "Unichain",
+    "family": "evm",
+    "chainId": 130,
+    "native": {
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 1,
+    "explorer": "https://uniscan.xyz",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://unichain.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x82"
+        }
+      },
+      {
+        "url": "https://mainnet.unichain.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 1000
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x82"
+        }
+      },
+      {
+        "url": "https://unichain-rpc.publicnode.com",
+        "wss": "wss://unichain-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x82"
+        }
+      },
+      {
+        "url": "https://unichain.drpc.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x82"
+        }
+      }
+    ]
+  },
+  {
+    "id": "gnosis",
+    "name": "Gnosis",
+    "family": "evm",
+    "chainId": 100,
+    "native": {
+      "symbol": "XDAI",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 5,
+    "explorer": "https://gnosisscan.io",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://gnosis.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x64"
+        }
+      },
+      {
+        "url": "https://rpc.gnosischain.com",
+        "wss": "wss://rpc.gnosischain.com/wss",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x64"
+        }
+      },
+      {
+        "url": "https://gnosis-rpc.publicnode.com",
+        "wss": "wss://gnosis-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x64"
+        }
+      },
+      {
+        "url": "https://gnosis.oat.farm",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x64"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/xdai/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/xdai/assets/{address}/logo.png"
+  },
+  {
+    "id": "celo",
+    "name": "Celo Mainnet",
+    "family": "evm",
+    "chainId": 42220,
+    "native": {
+      "symbol": "CELO",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 1,
+    "explorer": "https://celoscan.io",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://celo.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa4ec"
+        }
+      },
+      {
+        "url": "https://forno.celo.org",
+        "wss": "wss://forno.celo.org/ws",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa4ec"
+        }
+      },
+      {
+        "url": "https://celo.drpc.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa4ec"
+        }
+      },
+      {
+        "url": "https://celo.api.onfinality.io/public",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": null,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xa4ec"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/celo/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/celo/assets/{address}/logo.png"
+  },
+  {
+    "id": "fantom",
+    "name": "Fantom Opera",
+    "family": "evm",
+    "chainId": 250,
+    "native": {
+      "symbol": "FTM",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 1,
+    "explorer": "https://ftmscan.com",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://rpcapi.fantom.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xfa"
+        }
+      },
+      {
+        "url": "https://rpc.fantom.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xfa"
+        }
+      },
+      {
+        "url": "https://fantom.api.onfinality.io/public",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": "10 requests per minute (OnFinality public rate-limit exception for Fantom, documentation.onfinality.io/support/public-rate-limits)",
+        "getLogs": {
+          "allowed": null,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xfa"
+        }
+      },
+      {
+        "url": "https://fantom.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xfa"
+        }
+      },
+      {
+        "url": "https://fantom.drpc.org",
+        "wss": "wss://fantom.drpc.org",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0xfa"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/fantom/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/fantom/assets/{address}/logo.png"
+  },
+  {
+    "id": "robinhood",
+    "name": "Robinhood Chain",
+    "family": "evm",
+    "chainId": 4663,
+    "native": {
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 0.1,
+    "explorer": "https://robinhoodchain.blockscout.com",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://rpc.mainnet.chain.robinhood.com",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1237"
+        }
+      },
+      {
+        "url": "https://robinhood.api.pocket.network",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1237"
+        }
+      },
+      {
+        "url": "https://robinhood-rpc.publicnode.com",
+        "wss": "wss://robinhood-rpc.publicnode.com",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1237"
+        }
+      },
+      {
+        "url": "https://robinhood.drpc.org",
+        "wss": "wss://robinhood.drpc.org",
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x1237"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/robinhoodchain/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/robinhoodchain/assets/{address}/logo.png"
+  },
+  {
+    "id": "solana",
+    "name": "Solana",
+    "family": "solana",
+    "chainId": null,
+    "native": {
+      "symbol": "SOL",
+      "decimals": 9
+    },
+    "blockTimeSeconds": 0.4,
+    "explorer": "https://explorer.solana.com",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://api.mainnet-beta.solana.com",
+        "wss": "wss://api.mainnet-beta.solana.com",
+        "protocol": "solana-jsonrpc",
+        "limits": "100 requests/10 s/IP, 40/10 s/IP per method",
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "getSlot",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "getSlot ok"
+        }
+      },
+      {
+        "url": "https://solana-rpc.publicnode.com",
+        "wss": "wss://solana-rpc.publicnode.com",
+        "protocol": "solana-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "getSlot",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "getSlot ok; refuses getSupply, getTokenSupply, getTokenAccountsByOwner"
+        }
+      },
+      {
+        "url": "https://solana.api.pocket.network",
+        "wss": null,
+        "protocol": "solana-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "getSlot",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "getSlot, getTokenSupply, getTokenAccountsByOwner, getMultipleAccounts ok; getSupply timed out (>10 s)"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/solana/info/logo.png",
+    "logoSource": "trustwallet-assets",
+    "tokenLogo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/solana/assets/{address}/logo.png"
+  },
+  {
+    "id": "bitcoin",
+    "name": "Bitcoin",
+    "family": "bitcoin",
+    "chainId": null,
+    "native": {
+      "symbol": "BTC",
+      "decimals": 8
+    },
+    "blockTimeSeconds": 600,
+    "explorer": "https://mempool.space",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://mempool.space/api",
+        "wss": null,
+        "protocol": "esplora",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/blocks/tip/height",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "976503"
+        }
+      },
+      {
+        "url": "https://blockstream.info/api",
+        "wss": null,
+        "protocol": "esplora",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/blocks/tip/height",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "976503"
+        }
+      },
+      {
+        "url": "https://mempool.emzy.de/api",
+        "wss": null,
+        "protocol": "esplora",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/blocks/tip/height",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "976503"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/bitcoin/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "tron",
+    "name": "TRON",
+    "family": "tron",
+    "chainId": null,
+    "native": {
+      "symbol": "TRX",
+      "decimals": 6
+    },
+    "blockTimeSeconds": 3,
+    "explorer": "https://tronscan.org",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://api.trongrid.io",
+        "wss": null,
+        "protocol": "tron-http",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/wallet/getnowblock",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "88124083"
+        }
+      },
+      {
+        "url": "https://api.tronstack.io",
+        "wss": null,
+        "protocol": "tron-http",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/wallet/getnowblock",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "88124084"
+        }
+      },
+      {
+        "url": "https://tron-rpc.publicnode.com",
+        "wss": null,
+        "protocol": "tron-http",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/wallet/getnowblock",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "88124083"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/tron/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "ton",
+    "name": "Toncoin",
+    "family": "ton",
+    "chainId": null,
+    "native": {
+      "symbol": "TON",
+      "decimals": 9
+    },
+    "blockTimeSeconds": 5,
+    "explorer": "https://tonviewer.com",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://toncenter.com/api/v2",
+        "wss": null,
+        "protocol": "toncenter-v2",
+        "limits": "1 request/s without API key",
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/getMasterchainInfo",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "106330415"
+        }
+      },
+      {
+        "url": "https://ton.access.orbs.network/1/mainnet/toncenter-api-v2",
+        "wss": null,
+        "protocol": "toncenter-v2",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/getMasterchainInfo",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "106330415"
+        }
+      },
+      {
+        "url": "https://tonapi.io/v2",
+        "wss": null,
+        "protocol": "tonapi",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/blockchain/masterchain-head",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "106330415"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/ton/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "cosmos",
+    "name": "Cosmos Hub",
+    "family": "cosmos",
+    "chainId": "cosmoshub-4",
+    "native": {
+      "symbol": "ATOM",
+      "decimals": 6
+    },
+    "blockTimeSeconds": 6,
+    "explorer": "https://www.mintscan.io/cosmos",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://rpc.cosmoshub-main.ccvalidators.com:443",
+        "wss": null,
+        "protocol": "cometbft",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/status",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "cosmoshub-4"
+        }
+      },
+      {
+        "url": "https://rpc.cosmos.directory/cosmoshub",
+        "wss": null,
+        "protocol": "cometbft",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/status",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "cosmoshub-4"
+        }
+      },
+      {
+        "url": "https://rpc.lavenderfive.com/cosmoshub",
+        "wss": null,
+        "protocol": "cometbft",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/status",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "cosmoshub-4"
+        }
+      },
+      {
+        "url": "https://cosmos-rpc.publicnode.com",
+        "wss": null,
+        "protocol": "cometbft",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/status",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "cosmoshub-4"
+        }
+      },
+      {
+        "url": "https://cosmos.rpc.uquad.org:443",
+        "wss": null,
+        "protocol": "cometbft",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/status",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": false,
+          "result": "<urlopen error timed out>"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/cosmos/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "near",
+    "name": "NEAR Protocol",
+    "family": "near",
+    "chainId": "mainnet",
+    "native": {
+      "symbol": "NEAR",
+      "decimals": 24
+    },
+    "blockTimeSeconds": 1,
+    "explorer": "https://nearblocks.io",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://rpc.mainnet.near.org",
+        "wss": null,
+        "protocol": "near-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/status",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "mainnet"
+        }
+      },
+      {
+        "url": "https://rpc.mainnet.fastnear.com",
+        "wss": null,
+        "protocol": "near-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/status",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "mainnet"
+        }
+      },
+      {
+        "url": "https://free.rpc.fastnear.com",
+        "wss": null,
+        "protocol": "near-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/status",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "mainnet"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/near/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "sui",
+    "name": "Sui",
+    "family": "sui",
+    "chainId": null,
+    "native": {
+      "symbol": "SUI",
+      "decimals": 9
+    },
+    "blockTimeSeconds": 0.4,
+    "explorer": "https://suiscan.xyz/mainnet",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://fullnode.mainnet.sui.io:443",
+        "protocol": "sui-grpc",
+        "wss": null,
+        "probe": "/sui.rpc.v2.LedgerService/GetServiceInfo",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "x-sui-chain=mainnet; x-sui-checkpoint-height=346743094"
+        }
+      },
+      {
+        "url": "https://graphql.mainnet.sui.io/graphql",
+        "wss": null,
+        "protocol": "sui-graphql",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "chainIdentifier and coinMetadata(coinType: Sui mainnet USDC)",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "Mainnet chain 4btiuiMPvEENsttpZC7CZ53DruC3MAgfznDbASZ7DR6S. USDC metadata returned name USDC, symbol USDC and 6 decimals."
+        }
+      },
+      {
+        "url": "https://sui-grpc.publicnode.com",
+        "protocol": "sui-grpc",
+        "wss": null,
+        "probe": "/sui.rpc.v2.LedgerService/GetServiceInfo",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "gRPC status 0, x-sui-chain=mainnet, checkpoint 346914943"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/sui/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "aptos",
+    "name": "Aptos",
+    "family": "aptos",
+    "chainId": 1,
+    "native": {
+      "symbol": "APT",
+      "decimals": 8
+    },
+    "blockTimeSeconds": 0.25,
+    "explorer": "https://explorer.aptoslabs.com",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://api.mainnet.aptoslabs.com/v1",
+        "wss": null,
+        "protocol": "aptos-rest",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "1"
+        }
+      },
+      {
+        "url": "https://fullnode.mainnet.aptoslabs.com/v1",
+        "wss": null,
+        "protocol": "aptos-rest",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "1"
+        }
+      },
+      {
+        "url": "https://aptos-mainnet-rpc.publicnode.com/v1",
+        "wss": null,
+        "protocol": "aptos-rest",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": false,
+          "result": "HTTP 404"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/aptos/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "xrpl",
+    "name": "XRP Ledger",
+    "family": "xrpl",
+    "chainId": null,
+    "native": {
+      "symbol": "XRP",
+      "decimals": 6
+    },
+    "blockTimeSeconds": 4,
+    "explorer": "https://livenet.xrpl.org",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://api.xrpscan.com/api/v1",
+        "protocol": "xrpscan-rest",
+        "wss": null,
+        "probe": "/network/server_info",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "mainnet validated ledger 108421375"
+        }
+      },
+      {
+        "url": "https://xrplcluster.com",
+        "protocol": "xrpl-jsonrpc",
+        "wss": "wss://xrplcluster.com",
+        "probe": "/health",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "validatedLedger=108421375"
+        }
+      },
+      {
+        "url": "https://s1.ripple.com:51234",
+        "wss": "wss://s1.ripple.com",
+        "protocol": "xrpl-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "server_info",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": false,
+          "result": "HTTP 400"
+        }
+      },
+      {
+        "url": "https://s2.ripple.com:51234",
+        "wss": "wss://s2.ripple.com",
+        "protocol": "xrpl-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "server_info",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": false,
+          "result": "HTTP 400"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/ripple/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "cardano",
+    "name": "Cardano",
+    "family": "cardano",
+    "chainId": null,
+    "native": {
+      "symbol": "ADA",
+      "decimals": 6
+    },
+    "blockTimeSeconds": 20,
+    "explorer": "https://cexplorer.io",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://api.koios.rest/api/v1",
+        "wss": null,
+        "protocol": "koios",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/tip",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "14218682"
+        }
+      },
+      {
+        "url": "https://api.blockchair.com/cardano",
+        "wss": null,
+        "protocol": "blockchair",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/stats",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "14218682"
+        }
+      },
+      {
+        "url": "https://guild.koios.rest/api/v1",
+        "wss": null,
+        "protocol": "koios",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/tip",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": false,
+          "result": "response did not contain the expected /tip result"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/cardano/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "dogecoin",
+    "name": "Dogecoin",
+    "family": "dogecoin",
+    "chainId": null,
+    "native": {
+      "symbol": "DOGE",
+      "decimals": 8
+    },
+    "blockTimeSeconds": 60,
+    "explorer": "https://dogechain.info",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://api.blockcypher.com/v1/doge/main",
+        "wss": null,
+        "protocol": "blockcypher",
+        "limits": "3 requests/s, 100 requests/hour without token",
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "6463382"
+        }
+      },
+      {
+        "url": "https://api.blockchair.com/dogecoin",
+        "wss": null,
+        "protocol": "blockchair",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/stats",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "6605421"
+        }
+      },
+      {
+        "url": "https://doge1.trezor.io",
+        "wss": null,
+        "protocol": "blockbook",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/api/v2",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": false,
+          "result": "HTTP 403"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/doge/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "litecoin",
+    "name": "Litecoin",
+    "family": "litecoin",
+    "chainId": null,
+    "native": {
+      "symbol": "LTC",
+      "decimals": 8
+    },
+    "blockTimeSeconds": 150,
+    "explorer": "https://blockchair.com/litecoin",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://api.blockcypher.com/v1/ltc/main",
+        "wss": null,
+        "protocol": "blockcypher",
+        "limits": "3 requests/s, 100 requests/hour without token",
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "3215433"
+        }
+      },
+      {
+        "url": "https://api.blockchair.com/litecoin",
+        "wss": null,
+        "protocol": "blockchair",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/stats",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": true,
+          "result": "3215223"
+        }
+      },
+      {
+        "url": "https://litecoinspace.org/api",
+        "wss": null,
+        "protocol": "esplora",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/blocks/tip/height",
+        "verified": {
+          "ok": true,
+          "date": "2026-11-19",
+          "result": "3215457"
+        }
+      },
+      {
+        "url": "https://ltc1.trezor.io",
+        "wss": null,
+        "protocol": "blockbook",
+        "limits": null,
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "probe": "/api/v2",
+        "verified": {
+          "date": "2026-11-18",
+          "ok": false,
+          "result": "HTTP 403"
+        }
+      }
+    ],
+    "logo": "https://raw.githubusercontent.com/trustwallet/assets/94b9767d4f0a1cd19c4f4063ca7956159451b355/blockchains/litecoin/info/logo.png",
+    "logoSource": "trustwallet-assets"
+  },
+  {
+    "id": "algorand",
+    "name": "Algorand",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "ALGO",
+      "decimals": 6
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://allo.info",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "bitcoin-cash",
+    "name": "Bitcoin Cash",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "BCH",
+      "decimals": 8
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://blockchair.com/bitcoin-cash",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "bittensor",
+    "name": "Bittensor",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "TAO",
+      "decimals": 9
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://taostats.io",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "ethereum-classic",
+    "name": "Ethereum Classic",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "ETC",
+      "decimals": 18
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://etc.blockscout.com",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "filecoin",
+    "name": "Filecoin",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "FIL",
+      "decimals": 18
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://filfox.info",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "hedera",
+    "name": "Hedera",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "HBAR",
+      "decimals": 8
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://hashscan.io/mainnet",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "hyperliquid",
+    "name": "Hyperliquid (HyperCore)",
+    "family": "hyperliquid",
+    "chainId": null,
+    "native": {
+      "symbol": "HYPE",
+      "decimals": 8
+    },
+    "blockTimeSeconds": 0.08,
+    "explorer": "https://app.hyperliquid.xyz/explorer",
+    "multicall3": null,
+    "endpoints": [
+      {
+        "url": "https://api.hyperliquid.xyz/info",
+        "wss": "wss://api.hyperliquid.xyz/ws",
+        "protocol": "hyperliquid-info",
+        "limits": "1200 weight per minute per IP",
+        "probe": "exchangeStatus",
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "exchangeStatus time 1795099463418"
+        }
+      },
+      {
+        "url": "https://api-ui.hyperliquid.xyz/info",
+        "wss": null,
+        "protocol": "hyperliquid-info",
+        "limits": null,
+        "probe": "exchangeStatus",
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "exchangeStatus time 1795099463789"
+        }
+      },
+      {
+        "url": "https://rpc.hyperliquid.xyz/explorer",
+        "wss": null,
+        "protocol": "hyperliquid-explorer",
+        "limits": null,
+        "probe": "blockDetails",
+        "getLogs": {
+          "allowed": false,
+          "maxRange": null
+        },
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "blockDetails height 1000000000"
+        }
+      }
+    ]
+  },
+  {
+    "id": "internet-computer",
+    "name": "Internet Computer",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "ICP",
+      "decimals": 8
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://dashboard.internetcomputer.org",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "kaspa",
+    "name": "Kaspa",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "KAS",
+      "decimals": 8
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://explorer.kaspa.org",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "monero",
+    "name": "Monero",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "XMR",
+      "decimals": 12
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://xmrchain.net",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "pearl",
+    "name": "Pearl",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "PEARL",
+      "decimals": 8
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://explorer.pearlresearch.ai",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "pi",
+    "name": "Pi Network",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "PI",
+      "decimals": 7
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://blockexplorer.minepi.com",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "polkadot",
+    "name": "Polkadot",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "DOT",
+      "decimals": 10
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://assethub-polkadot.subscan.io",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "stellar",
+    "name": "Stellar",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "XLM",
+      "decimals": 7
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://stellar.expert/explorer/public",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "terra-classic",
+    "name": "Terra Classic",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "LUNC",
+      "decimals": 6
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://finder.terra.money/classic",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "zcash",
+    "name": "Zcash",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "ZEC",
+      "decimals": 8
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://mainnet.zcashexplorer.app",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "zilliqa",
+    "name": "Zilliqa",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "ZIL",
+      "decimals": 12
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://viewblock.io/zilliqa",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "whitechain",
+    "name": "Whitechain",
+    "family": "cex-only",
+    "chainId": null,
+    "native": {
+      "symbol": "WBT",
+      "decimals": 18
+    },
+    "blockTimeSeconds": null,
+    "explorer": "https://explorer.whitechain.io",
+    "multicall3": null,
+    "endpoints": []
+  },
+  {
+    "id": "hyperevm",
+    "name": "HyperEVM",
+    "family": "evm",
+    "chainId": 999,
+    "native": {
+      "symbol": "HYPE",
+      "decimals": 18
+    },
+    "blockTimeSeconds": 1,
+    "explorer": "https://hyperevmscan.io",
+    "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+    "endpoints": [
+      {
+        "url": "https://rpc.hyperliquid.xyz/evm",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 128
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x3e7"
+        }
+      },
+      {
+        "url": "https://hyperliquid-rpc.publicnode.com",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x3e7"
+        }
+      },
+      {
+        "url": "https://hyperliquid.drpc.org",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 100
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x3e7"
+        }
+      },
+      {
+        "url": "https://rpc.hypurrscan.io",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 1000
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x3e7"
+        }
+      },
+      {
+        "url": "https://rpc.purroofgroup.com",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": null
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x3e7"
+        }
+      },
+      {
+        "url": "https://hyperliquid-json-rpc.stakely.io",
+        "wss": null,
+        "protocol": "evm-jsonrpc",
+        "limits": null,
+        "getLogs": {
+          "allowed": true,
+          "maxRange": 1000
+        },
+        "probe": "eth_chainId",
+        "verified": {
+          "date": "2026-11-19",
+          "ok": true,
+          "result": "0x3e7"
+        }
+      }
+    ]
+  }
+]

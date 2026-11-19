@@ -1,0 +1,1293 @@
+[
+  {
+    "id": "llama-prices",
+    "name": "DefiLlama current token prices",
+    "base": "https://coins.llama.fi",
+    "path": "/prices/current/{coins}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://defillama.com/terms",
+      "redistribution": "restricted",
+      "note": "The terms require permission to republish data or resell access."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://coins.llama.fi/prices/current/ethereum:0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        }
+      ]
+    },
+    "limitNote": "No fixed public quota confirmed for this route."
+  },
+  {
+    "id": "llama-historical",
+    "name": "DefiLlama historical prices",
+    "base": "https://coins.llama.fi",
+    "path": "/prices/historical/{unixSeconds}/{coins}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://defillama.com/terms",
+      "redistribution": "restricted",
+      "note": "The terms require permission to republish data or resell access."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://coins.llama.fi/prices/historical/1700000000/ethereum:0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        }
+      ]
+    },
+    "limitNote": "No fixed public quota confirmed for this route."
+  },
+  {
+    "id": "llama-block",
+    "name": "DefiLlama block by timestamp",
+    "base": "https://coins.llama.fi",
+    "path": "/block/{chain}/{unixSeconds}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://defillama.com/terms",
+      "redistribution": "restricted",
+      "note": "The terms require permission to republish data or resell access."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://coins.llama.fi/block/ethereum/1700000000"
+        }
+      ]
+    },
+    "limitNote": "No fixed public quota confirmed for this route."
+  },
+  {
+    "id": "bitcoin-fees",
+    "name": "mempool.space recommended Bitcoin fee rates",
+    "base": "https://mempool.space",
+    "path": "/api/v1/fees/recommended",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://mempool.space/terms",
+      "redistribution": "unclear",
+      "note": "A grant for onward distribution of these API responses has not been established."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://mempool.space/api/v1/fees/recommended"
+        }
+      ]
+    },
+    "limitNote": "No fixed public quota confirmed for this route."
+  },
+  {
+    "id": "dexscreener",
+    "name": "DEX Screener token pools, prices and volume",
+    "base": "https://api.dexscreener.com",
+    "path": "/token-pairs/v1/{chain}/{address}",
+    "requestsPerMinute": 300,
+    "terms": {
+      "url": "https://docs.dexscreener.com/api/api-terms-and-conditions",
+      "redistribution": "restricted",
+      "note": "The API terms limit resale, transfer of API services and direct competition."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.dexscreener.com/token-pairs/v1/ethereum/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        }
+      ]
+    },
+    "limitNote": "Token-pairs route documents 300 requests per minute."
+  },
+  {
+    "id": "jupiter-lite",
+    "name": "Jupiter token prices",
+    "base": "https://lite-api.jup.ag",
+    "path": "/price/v3?ids={mints}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://github.com/jup-ag/docs/blob/main/legal/sdk-api-license-agreement.mdx",
+      "redistribution": "restricted",
+      "note": "Section 3 restricts sharing or transferring API content to third parties."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://lite-api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112"
+        }
+      ]
+    },
+    "limitNote": "Keyless response reported 3 remaining and 2 consumed, with a reset timestamp."
+  },
+  {
+    "id": "jupiter",
+    "name": "Jupiter token prices",
+    "base": "https://api.jup.ag",
+    "path": "/price/v3?ids={mints}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://github.com/jup-ag/docs/blob/main/legal/sdk-api-license-agreement.mdx",
+      "redistribution": "restricted",
+      "note": "Section 3 restricts sharing or transferring API content to third parties."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112"
+        }
+      ]
+    },
+    "limitNote": "Keyless response reported 4 remaining and 1 consumed, with a reset timestamp."
+  },
+  {
+    "id": "raydium",
+    "name": "Raydium pool directory",
+    "base": "https://api-v3.raydium.io",
+    "path": "/pools/info/list?poolType=all&poolSortField=liquidity&sortType=desc&pageSize={limit}&page={page}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://raydium.io/docs/disclaimer/",
+      "redistribution": "unclear",
+      "note": "The published disclaimer does not establish permission to republish pool API data."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api-v3.raydium.io/pools/info/list?poolType=all&poolSortField=liquidity&sortType=desc&pageSize=1&page=1"
+        }
+      ]
+    },
+    "limitNote": "No fixed public quota confirmed for this route."
+  },
+  {
+    "id": "orca",
+    "name": "Orca Whirlpools directory",
+    "base": "https://api.orca.so",
+    "path": "/v2/solana/pools?size={limit}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://www.orca.so/terms-of-use",
+      "redistribution": "unclear",
+      "note": "A grant for onward distribution of these API responses has not been established."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.orca.so/v2/solana/pools?size=1"
+        }
+      ]
+    },
+    "limitNote": "No fixed public quota confirmed for this route."
+  },
+  {
+    "id": "meteora",
+    "name": "Meteora DLMM pool directory",
+    "base": "https://dlmm.datapi.meteora.ag",
+    "path": "/pools?page={page}&page_size={limit}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://docs.meteora.ag/resources/legal/terms-of-service",
+      "redistribution": "unclear",
+      "note": "The terms license personal site and app use. A separate grant for API data redistribution is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://dlmm.datapi.meteora.ag/pools?page=1&page_size=1"
+        }
+      ]
+    },
+    "limitNote": "Public response reported a quota of 300 and an epoch reset timestamp."
+  },
+  {
+    "id": "growthepie-stablecoins",
+    "name": "growthepie per-chain circulating stablecoin supply",
+    "base": "https://api.growthepie.com",
+    "path": "/v1/quick-bites/stablecoins/chains/table_{chain}.json",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://www.growthepie.com/data-terms",
+      "redistribution": "allowed",
+      "note": "Source: growthepie (https://www.growthepie.com), CC BY 4.0. We use its on-chain token quantities, adjusted for bridges and known treasury balances, and combine them with local prices. Third-party prices and logos are excluded."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.growthepie.com/v1/quick-bites/stablecoins/chains/table_ethereum.json"
+        }
+      ]
+    },
+    "limitNote": "No fixed public quota confirmed. The node caches reads and shares the upstream host bucket."
+  },
+  {
+    "id": "ethereum-supply",
+    "name": "Ethereum Supply finalized mainnet issuance",
+    "base": "https://ethsupply.fyi",
+    "path": "/api/live",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://ethsupply.fyi/methodology/",
+      "redistribution": "unclear",
+      "note": "The public API documents execution and consensus accounting. An onward distribution grant has not been established. The node uses this result locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://ethsupply.fyi/api/live"
+        }
+      ]
+    },
+    "limitNote": "No fixed public quota confirmed. The node caches reads and shares the upstream host bucket."
+  },
+  {
+    "id": "tether-transparency",
+    "name": "Tether transparency report, USDT per chain",
+    "base": "https://app.tether.to",
+    "path": "/transparency.json",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://tether.to/en/legal/",
+      "redistribution": "unclear",
+      "note": "Issuer data: per chain, tokens issued minus authorized-but-not-issued and quarantined. No data licence found. The node uses this result locally and does not broadcast it."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://app.tether.to/transparency.json"
+        }
+      ]
+    },
+    "limitNote": "No public quota documented. One request covers every chain; read hourly at most."
+  },
+  {
+    "id": "circle-stablecoins",
+    "name": "Circle USDC and EURC circulation per chain",
+    "base": "https://api.circle.com",
+    "path": "/v1/stablecoins",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://www.circle.com/legal",
+      "redistribution": "unclear",
+      "note": "Issuer data: native USDC and EURC circulation per chain with update times. No data licence found. The node uses this result locally and does not broadcast it."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.circle.com/v1/stablecoins"
+        }
+      ]
+    },
+    "limitNote": "No public quota documented. One request covers every chain; read hourly at most."
+  },
+  {
+    "id": "stellar-lumens",
+    "name": "Stellar Development Foundation lumen supply",
+    "base": "https://dashboard.stellar.org",
+    "path": "/api/v2/lumens",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://www.stellar.org/terms-of-service",
+      "redistribution": "unclear",
+      "note": "SDF states total and circulating XLM (total minus SDF mandate, upgrade reserve and fee pool). The node uses this result locally and does not broadcast it."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://dashboard.stellar.org/api/v2/lumens"
+        }
+      ]
+    },
+    "limitNote": "No public quota documented. Read hourly at most."
+  },
+  {
+    "id": "hyperliquid-token-details",
+    "name": "Hyperliquid token details (HYPE supply)",
+    "base": "https://api.hyperliquid.xyz",
+    "path": "/info",
+    "requestsPerMinute": 1200,
+    "terms": {
+      "url": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/spot",
+      "redistribution": "unclear",
+      "note": "POST {\"type\":\"tokenDetails\",\"tokenId\":\"0x0d01dc56dcaaca66ad901c959b4011ec\"}. Only maxSupply, totalSupply, circulatingSupply, nonCirculatingUserBalances and futureEmissions are used; prices and the genesis list are ignored. The node uses this result locally and does not broadcast it."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "POST",
+          "date": "2026-11-19",
+          "url": "https://api.hyperliquid.xyz/info"
+        }
+      ]
+    },
+    "limitNote": "Hyperliquid documents 1200 weight per minute per IP for all info requests; tokenDetails weighs 20. Stated in weight so the shared api.hyperliquid.xyz bucket keeps the exchange records’ rate. The reply is about 5.2 MB because it embeds the genesis balance list. One read per hour."
+  },
+  {
+    "id": "hyperliquid-spot",
+    "name": "Hyperliquid spot meta and asset contexts",
+    "base": "https://api.hyperliquid.xyz",
+    "path": "/info",
+    "requestsPerMinute": 1200,
+    "terms": {
+      "url": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/spot",
+      "redistribution": "unclear",
+      "note": "POST {\"type\":\"spotMetaAndAssetCtxs\"}. Only the HYPE circulating and total supply fields are used; prices are ignored. The node uses this result locally and does not broadcast it."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "POST",
+          "date": "2026-11-19",
+          "url": "https://api.hyperliquid.xyz/info"
+        }
+      ]
+    },
+    "limitNote": "Hyperliquid documents 1200 weight per minute per IP for all info requests; spotMetaAndAssetCtxs weighs 20. Stated in weight like the exchange records, because the shared api.hyperliquid.xyz bucket takes the lowest rate of everything using the host (60 here held both tickers to one request per 40 s). One read per hour."
+  },
+  {
+    "id": "bitcoin-cash-stats",
+    "name": "Blockchair Bitcoin Cash stats (tip height)",
+    "base": "https://api.blockchair.com",
+    "path": "/bitcoin-cash/stats",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://blockchair.com/api/docs",
+      "redistribution": "unclear",
+      "note": "Only best_block_height is used; the node derives issuance from the BCH subsidy schedule. The node uses this result locally and does not broadcast it."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.blockchair.com/bitcoin-cash/stats"
+        }
+      ]
+    },
+    "limitNote": "Keyless use is rate-limited by the provider. One read per hour."
+  },
+  {
+    "id": "bnb-burn",
+    "name": "BNBBurn post-burn BNB circulation",
+    "base": "https://www.bnbburn.info",
+    "path": "/api/getBnbSupply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://www.bnbchain.org/en/blog/tracking-bnb-burn",
+      "redistribution": "unclear",
+      "note": "The BNB Chain tracker reports post-fusion circulating BNB after Auto-Burn and real-time burns. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://www.bnbburn.info/api/getBnbSupply"
+        }
+      ]
+    },
+    "limitNote": "Public keyless read through the shared host and profile budgets."
+  },
+  {
+    "id": "tronscan-funds",
+    "name": "TRONSCAN native TRX circulation",
+    "base": "https://apilist.tronscan.org",
+    "path": "/api/funds",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://docs.tronscan.org/en/api/statistics/funds",
+      "redistribution": "unclear",
+      "note": "Use the explorer’s circulationSupply after burns and non-circulating balances. Independence Day burn, rewards and resource and fee burns are accounted for upstream. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://apilist.tronscan.org/api/funds"
+        }
+      ]
+    },
+    "limitNote": "Public keyless read through the shared host and profile budgets."
+  },
+  {
+    "id": "avax-supply",
+    "name": "Avalanche Primary Network issuance and locks",
+    "base": "https://data-api.avax.network",
+    "path": "/v1/avax/supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://build.avax.network/docs/api-reference/data-api/avax-supply/getAvaxSupply",
+      "redistribution": "unclear",
+      "note": "Deduct reported locked AVAX from total supply net of P/C/X burns. Includes unlocked stake. This is an estimate. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://data-api.avax.network/v1/avax/supply"
+        }
+      ]
+    },
+    "limitNote": "Public keyless read through the shared host and profile budgets."
+  },
+  {
+    "id": "tontech-circulation",
+    "name": "TonTech current circulating TON",
+    "base": "https://tontech.io",
+    "path": "/api/current/cg-circulating-supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://t.me/tonblockchain/232",
+      "redistribution": "unclear",
+      "note": "The network’s adopted float policy excludes the Believers Fund, Telegram holdings and Foundation reserves. Read current circulation directly from TonTech. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://tontech.io/api/current/cg-circulating-supply"
+        }
+      ]
+    },
+    "limitNote": "Public keyless read through the shared host and profile budgets."
+  },
+  {
+    "id": "sui-circulation",
+    "name": "Sui Foundation monthly circulation schedule",
+    "base": "https://sui-circulation.suiexplorer.com",
+    "path": "/api/current_month_sui_circulation",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://www.sui.io/token-schedule",
+      "redistribution": "unclear",
+      "note": "Estimated end-of-month circulation excludes future release tranches. The current month’s figure expires at UTC month end. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://sui-circulation.suiexplorer.com/api/current_month_sui_circulation"
+        }
+      ]
+    },
+    "limitNote": "Public keyless read through the shared host and profile budgets."
+  },
+  {
+    "id": "ripple-distribution",
+    "name": "Ripple dated XRP distribution",
+    "base": "https://data.ripple.com",
+    "path": "/v2/network/xrp_distribution?descending=true&limit=1",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://data.ripple.com/v2/network/xrp_distribution?descending=true&limit=1",
+      "redistribution": "unclear",
+      "note": "Distributed XRP excludes XRP in escrow and Ripple’s undistributed balance. Retain the report date. Maximum age is 35 days. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://data.ripple.com/v2/network/xrp_distribution?descending=true&limit=1"
+        }
+      ]
+    },
+    "limitNote": "Public keyless read through the shared host and profile budgets."
+  },
+  {
+    "id": "near-circulation",
+    "name": "NearBlocks dated NEAR circulation",
+    "base": "https://api.nearblocks.io",
+    "path": "/v1/legacy/circulating-supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://api.nearblocks.io/api-docs/legacy",
+      "redistribution": "unclear",
+      "note": "Powered by NearBlocks.io APIs. Use the dated circulating quantity in yoctoNEAR after lockups. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.nearblocks.io/v1/legacy/circulating-supply"
+        }
+      ]
+    },
+    "limitNote": "Public keyless read through the shared host and profile budgets."
+  },
+  {
+    "id": "aptos-circulation",
+    "name": "Aptos Foundation mainnet circulation",
+    "base": "https://aptos-supply.dev.gcp.aptosdev.com",
+    "path": "/supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://aptos.guide/network/nodes/networks",
+      "redistribution": "unclear",
+      "note": "Foundation circulation excludes amounts still locked under its monthly release schedule. The reply includes measurement time and ledger version. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://aptos-supply.dev.gcp.aptosdev.com/supply"
+        }
+      ]
+    },
+    "limitNote": "Public keyless read through the shared host and profile budgets."
+  },
+  {
+    "id": "kamino-circulation",
+    "name": "Kamino KMNO circulating supply",
+    "base": "https://api.kamino.finance",
+    "path": "/kmno/circulating-supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://docs.kamino.finance/kmno/token-info",
+      "redistribution": "unclear",
+      "note": "Issuer-reported released KMNO, excluding unreleased vesting allocations. Applies only to the canonical Solana mint. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.kamino.finance/kmno/circulating-supply"
+        }
+      ]
+    },
+    "limitNote": "Public keyless read through the shared host and profile budgets."
+  },
+  {
+    "id": "jup-circulation",
+    "name": "Jupiter JUP circulating and total supply",
+    "base": "https://fe-api.jup.ag",
+    "path": "/api/v1/jup/supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://jup.ag",
+      "redistribution": "unclear",
+      "note": "Issuer-reported circulating JUP excludes unreleased allocations. The total is reported separately for the same mint. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://fe-api.jup.ag/api/v1/jup/supply"
+        }
+      ]
+    },
+    "limitNote": "Public keyless read through the shared host and profile budgets."
+  },
+  {
+    "id": "aptos-usd1",
+    "name": "Aptos mainnet native USD1 issuance",
+    "base": "https://api.mainnet.aptoslabs.com",
+    "path": "/v1/view",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://www.bitgo.com/usd1-terms/",
+      "redistribution": "unclear",
+      "note": "Aptos fungible_asset::supply for the pinned six-decimal USD1 metadata object. Net minted USD1 on this network is a circulation estimate. Used locally."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "POST",
+          "date": "2026-11-19",
+          "url": "https://api.mainnet.aptoslabs.com/v1/view"
+        }
+      ]
+    },
+    "limitNote": "One keyless Move view read through the shared host and profile budgets."
+  },
+  {
+    "id": "zcash-ledger",
+    "name": "Zcash mainnet chain supply",
+    "base": "https://zcash-mainnet.gateway.tatum.io",
+    "path": "/",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://tatum.io/terms-of-use",
+      "redistribution": "unclear",
+      "note": "Net monitored ledger issuance including shielded pools, less the deferred-reward lockbox. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "POST",
+          "date": "2026-11-19",
+          "url": "https://zcash-mainnet.gateway.tatum.io/"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "etc-blockscout",
+    "name": "Ethereum Classic Blockscout issuance",
+    "base": "https://etc.blockscout.com",
+    "path": "/api?module=stats&action=coinsupply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://www.blockscout.com/terms-and-conditions",
+      "redistribution": "unclear",
+      "note": "Explorer native issuance in ETC; proxy for circulating supply. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://etc.blockscout.com/api?module=stats&action=coinsupply"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "monero-emission",
+    "name": "Monero Blocks net coinbase emission",
+    "base": "https://moneroblocks.info",
+    "path": "/api/get_stats",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://moneroblocks.info/api",
+      "redistribution": "unclear",
+      "note": "Mined XMR in atomic units, including tail rewards and excluding transaction fees. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://moneroblocks.info/api/get_stats"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "hedera-supply",
+    "name": "Hedera mainnet released HBAR",
+    "base": "https://mainnet-public.mirrornode.hedera.com",
+    "path": "/api/v1/network/supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://hedera.com/terms/",
+      "redistribution": "unclear",
+      "note": "Mirror node released HBAR; reserve still held by the council is excluded. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://mainnet-public.mirrornode.hedera.com/api/v1/network/supply"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "bittensor-issuance",
+    "name": "Bittensor Finney native issuance",
+    "base": "https://entrypoint-finney.opentensor.ai",
+    "path": "/",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://github.com/opentensor/subtensor",
+      "redistribution": "unclear",
+      "note": "Mainnet SubtensorModule.TotalIssuance including staked TAO; issuance proxy. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "POST",
+          "date": "2026-11-19",
+          "url": "https://entrypoint-finney.opentensor.ai/"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "icp-ledger",
+    "name": "ICP ledger circulating supply",
+    "base": "https://ledger-api.internetcomputer.org",
+    "path": "/supply/circulating/latest",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://docs.internetcomputer.org/references/ic-dashboard-api/",
+      "redistribution": "unclear",
+      "note": "Ledger dashboard dated circulating supply in e8s. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://ledger-api.internetcomputer.org/supply/circulating/latest"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "polkadot-issuance",
+    "name": "Polkadot Asset Hub DOT issuance",
+    "base": "https://assethub-polkadot.api.subscan.io",
+    "path": "/api/scan/token",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://support.subscan.io/",
+      "redistribution": "unclear",
+      "note": "Asset Hub native DOT issuance less its treasury; includes staked DOT. Estimated float. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "POST",
+          "date": "2026-11-19",
+          "url": "https://assethub-polkadot.api.subscan.io/api/scan/token"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "kaspa-supply",
+    "name": "Kaspa mainnet circulating KAS",
+    "base": "https://api.kaspa.org",
+    "path": "/info/coinsupply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://api.kaspa.org/docs",
+      "redistribution": "unclear",
+      "note": "The explorer provides circulating sompi separately from maximum issuance. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.kaspa.org/info/coinsupply"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "algorand-supply",
+    "name": "Algorand Foundation supply metrics",
+    "base": "https://metricsapi.algorand.foundation",
+    "path": "/v1/supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://algorand.co/metrics",
+      "redistribution": "unclear",
+      "note": "Foundation mainnet circulating quantity measured at the stated round, rounded down to whole ALGO. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://metricsapi.algorand.foundation/v1/supply"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "filfox-supply",
+    "name": "Filfox Filecoin circulation",
+    "base": "https://filfox.info",
+    "path": "/api/v1/overview",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://filfox.info",
+      "redistribution": "unclear",
+      "note": "Explorer VM circulating attoFIL, after pledge, locked and burnt balances, at the stated height. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://filfox.info/api/v1/overview"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "pi-mainnet-supply",
+    "name": "Pi Network mainnet supply",
+    "base": "https://socialchain.app",
+    "path": "/mainnet_supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://minepi.com/white-paper/",
+      "redistribution": "unclear",
+      "note": "Issuer-defined migrated and circulating Pi as of the report date. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://socialchain.app/mainnet_supply"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "pearl-blockbook",
+    "name": "Pearl Research Labs mainnet tip",
+    "base": "https://blockbook.pearlresearch.ai",
+    "path": "/api/v2",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://github.com/pearl-research-labs/pearl",
+      "redistribution": "unclear",
+      "note": "Scheduled issuance derived from the synchronized mainnet height; estimate before per-block rounding. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://blockbook.pearlresearch.ai/api/v2"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "zilliqa-supply",
+    "name": "Zilliqa mainnet issuance",
+    "base": "https://api.zilliqa.com",
+    "path": "/",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://dev.zilliqa.com/zilliqa2/api/apis/api/zilliqa/GetTotalCoinSupply/",
+      "redistribution": "unclear",
+      "note": "Current minted ZIL in whole-token units; issuance proxy. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "POST",
+          "date": "2026-11-19",
+          "url": "https://api.zilliqa.com/"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "lunc-bank",
+    "name": "Terra Classic bank issuance",
+    "base": "https://terra-classic-lcd.publicnode.com",
+    "path": "/cosmos/bank/v1beta1/supply/by_denom?denom=uluna",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://www.publicnode.com/terms",
+      "redistribution": "unclear",
+      "note": "Mainnet bank supply of uluna after burns, including staked balances; issuance proxy. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://terra-classic-lcd.publicnode.com/cosmos/bank/v1beta1/supply/by_denom?denom=uluna"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "bitfinex-leo",
+    "name": "Bitfinex LEO after burns",
+    "base": "https://api-pub.bitfinex.com",
+    "path": "/v2/stats1/leo.burn.supply:1d:val/last",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://leo.bitfinex.com/transparency",
+      "redistribution": "unclear",
+      "note": "Bitfinex daily remaining LEO across Ethereum and EOS after buybacks/burns. Count once. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api-pub.bitfinex.com/v2/stats1/leo.burn.supply:1d:val/last"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "chainlink-supply",
+    "name": "Chainlink circulating LINK",
+    "base": "https://supply.chain.link",
+    "path": "/supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://chain.link/terms",
+      "redistribution": "unclear",
+      "note": "Issuer method subtracts its non-circulating wallets from one billion LINK; locally checks the sum. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://supply.chain.link/supply"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "wlfi-supply",
+    "name": "World Liberty Financial circulating WLFI",
+    "base": "https://api.worldlibertyfinancial.com",
+    "path": "/v1/circulating-supply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://worldlibertyfinancial.com/terms",
+      "redistribution": "unclear",
+      "note": "Issuer-wide released WLFI across chains; vesting and locked balances excluded. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.worldlibertyfinancial.com/v1/circulating-supply"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "htx-tronscan",
+    "name": "Tronscan circulating HTX",
+    "base": "https://apilist.tronscan.org",
+    "path": "/api/token/fund?token={address}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://tronscan.org/aboutUs/termsOfService",
+      "redistribution": "unclear",
+      "note": "Explorer circulating HTX by contract, excluding unreleased balances. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://apilist.tronscan.org/api/token/fund?token={address}",
+          "address": "TUPM7K8REVzD2UdV4R5fe5M8XbnR2DdoJ6"
+        }
+      ]
+    },
+    "limitNote": "Anonymous reads have no guaranteed request rate. Use the shared host budget and back off on rate limits. https://support.tronscan.org/hc/en-us/articles/49272903085465"
+  },
+  {
+    "id": "jst-tronscan",
+    "name": "Tronscan circulating JST",
+    "base": "https://apilist.tronscan.org",
+    "path": "/api/token/fund?token={address}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://tronscan.org/aboutUs/termsOfService",
+      "redistribution": "unclear",
+      "note": "Explorer circulating JST by contract, excluding burn balances. No onward data grant established. Local only; maximum age two days."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://apilist.tronscan.org/api/token/fund?token={address}",
+          "address": "TCFLL5dx5ZJdKnWuesXxi1VPwjLVmWZZy9"
+        }
+      ]
+    },
+    "limitNote": "Anonymous reads have no guaranteed request rate. Use the shared host budget and back off on rate limits. https://support.tronscan.org/hc/en-us/articles/49272903085465"
+  },
+  {
+    "id": "render-foundation",
+    "name": "Render Network Dashboard circulation",
+    "base": "https://infra.shikumi.cc",
+    "path": "/api/v1/supplyInfo",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://stats.renderfoundation.com",
+      "redistribution": "unclear",
+      "note": "Dashboard per-chain circulating RENDER on Solana, excluding its locked balances. Two-day maximum age. Local only."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://infra.shikumi.cc/api/v1/supplyInfo"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "evaa-jetton",
+    "name": "EVAA TON jetton master",
+    "base": "https://tonapi.io",
+    "path": "/v2/jettons/EQBKMfjX_a_dsOLm-juxyVZytFP7_KKnzGv6J01kGc72gVBp",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://docs.tonconsole.com/tonapi/rest-api",
+      "redistribution": "unclear",
+      "note": "TON minted total only. Unreleased allocations and balances on BNB prevent using it as the global float. Local only."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://tonapi.io/v2/jettons/EQBKMfjX_a_dsOLm-juxyVZytFP7_KKnzGv6J01kGc72gVBp"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read, hourly for top assets or daily otherwise; shared profile and host budgets."
+  },
+  {
+    "id": "wbt-tronscan",
+    "name": "TRONSCAN WBT issuance",
+    "base": "https://apilist.tronscan.org",
+    "path": "/api/token/fund?token={address}",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://tronscan.org/aboutUs/termsOfService",
+      "redistribution": "unclear",
+      "note": "Remaining WBT on TRON, after migration burns. Local only; two-day maximum age."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://apilist.tronscan.org/api/token/fund?token={address}",
+          "address": "TFptbWaARrWTX5Yvy3gNG5Lm8BmhPx82Bt"
+        }
+      ]
+    },
+    "limitNote": "Anonymous reads have no guaranteed request rate. Use the shared host budget and back off on rate limits. https://support.tronscan.org/hc/en-us/articles/49272903085465"
+  },
+  {
+    "id": "whitechain-issuance",
+    "name": "Whitechain indexed native issuance",
+    "base": "https://explorer.whitechain.io",
+    "path": "/api?module=stats&action=ethsupply",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://docs.whitechain.io/general/architecture",
+      "redistribution": "unclear",
+      "note": "Explorer sum of native balances in wei. Deduct the unissued OP Stack native liquidity reserve. Local only; two-day maximum age."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://explorer.whitechain.io/api?module=stats&action=ethsupply"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read through the shared host and profile budgets."
+  },
+  {
+    "id": "whitechain-reserve",
+    "name": "Whitechain native asset liquidity reserve",
+    "base": "https://explorer.whitechain.io",
+    "path": "/api/v2/addresses/0x4200000000000000000000000000000000000029",
+    "requestsPerMinute": null,
+    "terms": {
+      "url": "https://docs.optimism.io/op-stack/features/custom-gas-token",
+      "redistribution": "unclear",
+      "note": "Indexed native balance of the NativeAssetLiquidity predeploy. Local only; two-day maximum age."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://explorer.whitechain.io/api/v2/addresses/0x4200000000000000000000000000000000000029"
+        }
+      ]
+    },
+    "limitNote": "Keyless public read through the shared host and profile budgets."
+  },
+  {
+    "id": "binance-products",
+    "name": "Binance product list (circulating supply per listed asset)",
+    "base": "https://www.binance.com",
+    "path": "/bapi/asset/v2/public/asset-service/product/get-products?includeEtf=false",
+    "requestsPerMinute": 2,
+    "terms": {
+      "url": "https://www.binance.com/en/terms",
+      "redistribution": "unclear",
+      "note": "Public website endpoint; circulating supply as reported by Binance. The node uses it locally only and never shares the figure."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://www.binance.com/bapi/asset/v2/public/asset-service/product/get-products?includeEtf=false"
+        }
+      ]
+    },
+    "limitNote": "One request per refresh (every 6 h); about 0.7 MB."
+  },
+  {
+    "id": "coinbase-assets",
+    "name": "Coinbase listed assets (circulating supply per listed asset)",
+    "base": "https://www.coinbase.com",
+    "path": "/api/v2/assets/search?base=USD&filter=listed&include_prices=false&resolution=day&limit=100",
+    "requestsPerMinute": 6,
+    "terms": {
+      "url": "https://www.coinbase.com/legal/user_agreement",
+      "redistribution": "unclear",
+      "note": "Public website endpoint; circulating supply as reported by Coinbase. The node uses it locally only and never shares the figure."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://www.coinbase.com/api/v2/assets/search?base=USD&filter=listed&include_prices=false&resolution=day&limit=100"
+        }
+      ]
+    },
+    "limitNote": "Paged by cursor, at most 10 pages per refresh (every 6 h)."
+  },
+  {
+    "id": "subtensor-archive",
+    "name": "Bittensor Subtensor archive node (subnet pools, alpha supply, volume)",
+    "base": "https://archive.chain.opentensor.ai",
+    "path": "/",
+    "requestsPerMinute": 30,
+    "terms": {
+      "url": "https://docs.learnbittensor.org/",
+      "redistribution": "unclear",
+      "note": "Public archive RPC run by the Opentensor Foundation. The node reads chain state at the finalized block and 24 h back."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "POST",
+          "date": "2026-11-19",
+          "url": "https://archive.chain.opentensor.ai/"
+        }
+      ]
+    },
+    "limitNote": "Six JSON-RPC calls every five minutes."
+  }
+]

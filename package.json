@@ -1,0 +1,15 @@
+{
+  "name": "intercom-gator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Decentralized market data + social layer for agent harnesses on Intercom",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.13" },
+  "workspaces": ["packages/*"],
+  "bin": { "gator": "bin/gator.js" },
+  "scripts": {
+    "start": "node bin/gator.js start",
+    "test": "node --test \"packages/*/test/**/*.test.js\""
+  }
+}

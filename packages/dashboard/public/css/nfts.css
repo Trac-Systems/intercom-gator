@@ -1,0 +1,39 @@
+/* NFT collections (sale floors measured from sales) and Settings → Sources. */
+.eu{display:inline-flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+.eu b{font-weight:600}
+.eu small{font-size:12px;color:var(--ink3);font-weight:500}
+td.l .eu{align-items:flex-start}
+.nft-h{align-items:center;justify-content:flex-start}
+.nft-h .back{display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:50%;color:var(--ink2)}
+.nft-h .back:hover{background:var(--s2)}
+.nft-h .tok.big .nm h1{font-size:26px;line-height:30px}
+.nft-h .tok.big .nm span{font-size:13.5px;color:var(--ink3)}
+.nft-stats{flex-wrap:wrap;gap:22px 32px;margin:6px 0 16px}
+.nft-stats .stat .d{display:block;font-size:12px;color:var(--ink3);margin-top:3px;white-space:nowrap}
+.t-nft-sales tr.flagged td{opacity:.62}
+.bdg.warn{display:inline-block;margin:0;padding:1px 7px;border-radius:9px;font-size:11.5px;font-weight:600;background:color-mix(in oklab,var(--down) 14%,var(--bg));color:var(--down)}
+ul.collect{list-style:none;margin:10px auto 6px;padding:0;display:inline-flex;flex-direction:column;gap:4px;text-align:left;font-size:13.5px;color:var(--ink2)}
+ul.collect b{color:var(--ink);font-weight:620}
+details.collecting{margin:14px 0 4px;font-size:13.5px;color:var(--ink2)}
+details.collecting summary{cursor:pointer;color:var(--ink3);font-weight:540}
+details.collecting ul.collect{display:flex;margin:8px 0}
+/* Sources */
+.src-sum{display:flex;flex-wrap:wrap;gap:8px 18px;margin:4px 0 12px}
+.src-g{border-top:1px solid var(--line);padding:6px 0}
+.src-g>summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;cursor:pointer;padding:8px 0;font-weight:620;font-size:15px;list-style:none}
+.src-g>summary::-webkit-details-marker{display:none}
+.src-g>summary .i{width:16px;height:16px;transition:transform .15s;color:var(--ink3)}
+.src-g[open]>summary .i{transform:rotate(180deg)}
+.src-g>summary .cnts{display:inline-flex;gap:12px;font-size:12.5px;font-weight:520;color:var(--ink3)}
+table.src{width:100%;font-size:13.5px;table-layout:fixed}
+table.src td,table.src th{padding:7px 10px 7px 0;vertical-align:top;text-align:left;white-space:normal;overflow:visible;text-overflow:clip}
+table.src th{font-size:12px;color:var(--ink3);font-weight:560;line-height:1.25}
+table.src col.c1{width:30%}table.src col.c2{width:15%}table.src col.c3,table.src col.c4,table.src col.c5{width:11%}
+table.src col.c6{width:22%}
+table.src td b{font-weight:600}
+table.src .h{display:block;font-size:12px;color:var(--ink3);overflow-wrap:anywhere}
+table.src .r{text-align:right;white-space:nowrap}
+table.src .dotw{font-size:12.5px;white-space:nowrap}
+@media (max-width:720px){table.src .c-opt,table.src col.c6{display:none}table.src col.c1{width:36%}table.src col.c2{width:24%}
+  table.src col.c3,table.src col.c4,table.src col.c5{width:13.3%}table.src td,table.src th{padding-right:6px}
+  .t-nft-sales .c-tx,.t-nft-sales .c-flag{display:none}.t-nft-sales td,.t-nft-sales th{padding-left:4px;padding-right:4px}}

@@ -1,0 +1,44 @@
+name: RPC or data endpoint
+description: Submit a public endpoint for a chain, exchange or data source, or report one that is dead.
+title: "[endpoint] <chain or source>: <add | dead | limits>"
+labels: ["endpoint"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Agents and people can file this. Accepted endpoints ship in a release or in a root-signed bundle update that
+        nodes fetch between releases. Only keyless public endpoints: never paste an API key or a URL that contains one.
+  - type: dropdown
+    id: action
+    attributes:
+      label: Request
+      options: ["Add an endpoint", "Endpoint is dead", "Endpoint limits are wrong"]
+    validations: { required: true }
+  - type: input
+    id: target
+    attributes:
+      label: Chain, exchange or data source
+      description: As Gator names it (for example ethereum, solana, binance, llama-prices).
+    validations: { required: true }
+  - type: input
+    id: url
+    attributes:
+      label: Endpoint URL
+      placeholder: https://
+    validations: { required: true }
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: |
+        For an addition: the provider's documentation link, its rate limit, and the result of one request
+        (for EVM: eth_chainId and eth_blockNumber; say whether eth_getLogs works and over how many blocks).
+        For a dead endpoint: what failed, when, how often (several attempts over a few minutes), and the error.
+        An endpoint that fails part of the time is still useful; report it only when it no longer answers at all.
+      render: text
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes:
+      label: Gator version and bundle digest
+      description: From `node bin/gator.js status` or the MCP `node_status` tool.

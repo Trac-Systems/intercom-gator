@@ -1,0 +1,26 @@
+{
+  "source": "https://github.com/Trac-Systems/intercom.git",
+  "commit": "5fd766902346192b8cdfd250b71bc0bdf3a0c6ed",
+  "files": {
+    "index.js": {
+      "upstreamSha256": "789b560f7c3b2b99498524a9279f1c46b560d0e6cc721614e053d602c9b32aed",
+      "vendoredSha256": "23421abe326415651c5dd4969d9018d2c7cdc6fc9c1103a6f516cf4883f61fd9"
+    },
+    "managed.js": {
+      "upstreamSha256": "d989866543e8f8d15600d8aca31ee85eb6cdfffaf3ca62084e88572c5883141e",
+      "vendoredSha256": "a1e38b5997bee113acff329f64e59dbbd52ea5acb8dd4aa790d515c60f429906"
+    },
+    "channel-options.js": {
+      "upstreamSha256": "b6abc1eff47c4a9b82d14958a7ba422b818afb979242f3c453b0425fb6f64eca",
+      "vendoredSha256": "06c81fdee9a51bf6fd3d4cdbd96da0e621d23995d7b244d5afc327d859349fc4"
+    },
+    "pow.js": {
+      "upstreamSha256": "2dc5c4f92d884530337671a53afa1734f71b5ac8ba48608d2bea8dc7566715d6",
+      "vendoredSha256": "2dc5c4f92d884530337671a53afa1734f71b5ac8ba48608d2bea8dc7566715d6"
+    },
+    "seen.js": {
+      "upstreamSha256": "4802b0f3a5220cb7017c43f27c1c9da7af435304cdee97c8f1a6528fa3c340b3",
+      "vendoredSha256": "4802b0f3a5220cb7017c43f27c1c9da7af435304cdee97c8f1a6528fa3c340b3"
+    }
+  }
+}

@@ -1,0 +1,6099 @@
+[
+  {
+    "id": "aster",
+    "name": "Aster",
+    "kind": "derivatives",
+    "restBase": "https://fapi.asterdex.com",
+    "docs": "https://github.com/asterdex/api-docs",
+    "tickers": {
+      "method": "GET",
+      "path": "/fapi/v1/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": null,
+          "ask": null,
+          "change24h": "priceChangePercent",
+          "changeUnit": "percent",
+          "open24h": "openPrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://fapi.asterdex.com/fapi/v1/exchangeInfo",
+      "list": "symbols",
+      "symbol": "symbol",
+      "base": "baseAsset",
+      "quote": "quoteAsset"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/fapi/v1/klines?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "8h",
+        "12h",
+        "1d",
+        "3d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 1500,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://fstream.asterdex.com/ws",
+      "subscribe": {
+        "method": "SUBSCRIBE",
+        "params": [
+          "{lowerSymbol}@ticker"
+        ],
+        "id": 1
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": 2400,
+      "tickerWeight": 40,
+      "note": "Futures exchangeInfo weight budget. All-symbol response reported 40 weight."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://fapi.asterdex.com/fapi/v1/premiumIndex?symbol={symbol}",
+        "body": null,
+        "field": "lastFundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://fapi.asterdex.com/fapi/v1/openInterest?symbol={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://docs.asterdex.com/resources/terms-and-conditions",
+      "redistribution": "unclear",
+      "note": "The published trading terms contain no explicit grant identified for republishing market data."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://fapi.asterdex.com/fapi/v1/ticker/24hr"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.asterdex.com/fapi/v1/exchangeInfo"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.asterdex.com/fapi/v1/klines?symbol=BTCUSDT&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.asterdex.com/fapi/v1/premiumIndex?symbol=BTCUSDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.asterdex.com/fapi/v1/openInterest?symbol=BTCUSDT"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "backpack",
+    "name": "Backpack Exchange",
+    "kind": "both",
+    "restBase": "https://api.backpack.exchange",
+    "docs": "https://docs.backpack.exchange/#tag/Markets/operation/get_tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v1/tickers",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": null,
+          "ask": null,
+          "change24h": "priceChangePercent",
+          "changeUnit": "ratio",
+          "open24h": "firstPrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.backpack.exchange/api/v1/markets",
+      "list": ".",
+      "symbol": "symbol",
+      "base": "baseSymbol",
+      "quote": "quoteSymbol"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v1/klines?symbol={symbol}&interval={interval}&startTime={startSec}&endTime={endSec}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "8h",
+        "12h",
+        "1d",
+        "3d",
+        "1w",
+        "1month"
+      ],
+      "maxLimit": 2000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.backpack.exchange",
+      "subscribe": {
+        "method": "SUBSCRIBE",
+        "params": [
+          "ticker.{symbol}"
+        ],
+        "id": 1
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public endpoint limits vary by route. Observe HTTP 429 and Retry-After."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.backpack.exchange/api/v1/markPrices?symbol={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.backpack.exchange/api/v1/openInterest?symbol={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://support.backpack.exchange/legal/general-legal/user-agreement",
+      "redistribution": "unclear",
+      "note": "The user agreement index links jurisdiction-specific agreements; an applicable market-data grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.backpack.exchange/api/v1/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.backpack.exchange/api/v1/markets"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.backpack.exchange/api/v1/klines?symbol=SOL_USDC&interval=1m&startTime=1795046713&endTime=1795047013"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.backpack.exchange/api/v1/markPrices?symbol=BTC_USDC_PERP"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.backpack.exchange/api/v1/openInterest?symbol=BTC_USDC_PERP"
+        }
+      ]
+    },
+    "note": "Ticker feed includes perpetuals. Use market metadata for settlement and instrument type."
+  },
+  {
+    "id": "bigone",
+    "name": "BigONE",
+    "kind": "both",
+    "restBase": "https://big.one",
+    "docs": "https://open.big.one/docs/spot_tickers.html",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v3/asset_pairs/tickers",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "asset_pair_name",
+          "last": "close",
+          "baseVolume": "volume",
+          "quoteVolume": null,
+          "bid": "bid.price",
+          "ask": "ask.price",
+          "change24h": "daily_change",
+          "changeUnit": "absolute",
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "-",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v3/asset_pairs/{symbol}/candles?period={interval}&limit={limit}",
+      "intervals": [
+        "min1",
+        "min5",
+        "min15",
+        "min30",
+        "hour1",
+        "hour3",
+        "hour4",
+        "hour6",
+        "hour12",
+        "day1",
+        "week1",
+        "month1"
+      ],
+      "maxLimit": 500,
+      "body": null
+    },
+    "websocket": null,
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public ticker response reported a limit of 500 and X-RateLimit-Reset."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://big.one/api/contract/v2/instruments",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://big.one/api/contract/v2/instruments",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://bigone.zendesk.com/hc/en-us/articles/900000376246-BigONE-Perpetual-Futures-User-Agreement",
+      "redistribution": "unclear",
+      "note": "Section 3.1 permits downloading information for personal analysis. The agreement gives no clear downstream market-data grant."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://big.one/api/v3/asset_pairs/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://big.one/api/v3/asset_pairs/BTC-USDT/candles?period=min1&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://big.one/api/contract/v2/instruments"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "binance",
+    "name": "Binance",
+    "kind": "both",
+    "restBase": "https://api.binance.com",
+    "docs": "https://developers.binance.com/en/docs/catalog/core-trading-spot-trading/api/rest-api/market#ticker24hr",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v3/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bidPrice",
+          "ask": "askPrice",
+          "change24h": "priceChangePercent",
+          "changeUnit": "percent",
+          "open24h": "openPrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.binance.com/api/v3/exchangeInfo?symbolStatus=TRADING&showPermissionSets=false",
+      "list": "symbols",
+      "symbol": "symbol",
+      "base": "baseAsset",
+      "quote": "quoteAsset"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "8h",
+        "12h",
+        "1d",
+        "3d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://stream.binance.com:9443/ws",
+      "subscribe": {
+        "method": "SUBSCRIBE",
+        "params": [
+          "{lowerSymbol}@ticker"
+        ],
+        "id": 1
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 60000,
+      "weightPerMinute": 6000,
+      "tickerWeight": 80,
+      "note": "Spot exchangeInfo reports both quotas. All-symbol 24hr ticker costs 80 units."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://fapi.binance.com/fapi/v1/premiumIndex?symbol={symbol}",
+        "body": null,
+        "field": "lastFundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://fapi.binance.com/fapi/v1/openInterest?symbol={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://www.binance.com/en/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.binance.com/api/v3/ticker/24hr"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.binance.com/api/v3/exchangeInfo?symbol=BTCUSDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.binance.com/api/v3/exchangeInfo?symbolStatus=TRADING&showPermissionSets=false"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "binance-us",
+    "name": "Binance.US",
+    "kind": "spot",
+    "restBase": "https://api.binance.us",
+    "docs": "https://github.com/binance-us/binance-us-api-docs",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v3/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bidPrice",
+          "ask": "askPrice",
+          "change24h": "priceChangePercent",
+          "changeUnit": "percent",
+          "open24h": "openPrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.binance.us/api/v3/exchangeInfo",
+      "list": "symbols",
+      "symbol": "symbol",
+      "base": "baseAsset",
+      "quote": "quoteAsset"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "8h",
+        "12h",
+        "1d",
+        "3d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://stream.binance.us:9443/ws",
+      "subscribe": {
+        "method": "SUBSCRIBE",
+        "params": [
+          "{lowerSymbol}@ticker"
+        ],
+        "id": 1
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 60000,
+      "weightPerMinute": 6000,
+      "tickerWeight": 80,
+      "note": "Spot exchangeInfo reports both quotas. All-symbol 24hr ticker costs 80 units."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://www.binance.us/terms-of-use",
+      "redistribution": "unclear",
+      "note": "No explicit permission for onward distribution of market data was identified in the reviewed terms."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.binance.us/api/v3/ticker/24hr"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.binance.us/api/v3/exchangeInfo?symbol=BTCUSD"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.binance.us/api/v3/klines?symbol=BTCUSD&interval=1m&limit=2"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "bingx",
+    "name": "BingX",
+    "kind": "both",
+    "restBase": "https://open-api.bingx.com",
+    "docs": "https://bingx-api.github.io/docs-v3/#/en/Spot/Market%20Data/24hr%20Ticker%20Price%20Change%20Statistics",
+    "tickers": {
+      "method": "GET",
+      "path": "/openApi/spot/v1/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bidPrice",
+          "ask": "askPrice",
+          "change24h": "priceChangePercent",
+          "changeUnit": "percent-string",
+          "open24h": "openPrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "-",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/openApi/spot/v1/market/kline?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "12h",
+        "1d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://open-api-ws.bingx.com/market",
+      "subscribe": {
+        "id": "1",
+        "reqType": "sub",
+        "dataType": "{symbol}@ticker"
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 3000,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Spot ticker limit headers returned 499 requests remaining in 10 s."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://open-api.bingx.com/openApi/swap/v2/quote/premiumIndex?symbol={symbol}",
+        "body": null,
+        "field": "lastFundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://open-api.bingx.com/openApi/swap/v2/quote/openInterest?symbol={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://bingxservice.zendesk.com/hc/zh-tw/articles/11263322387471-Customer-Agreement",
+      "redistribution": "restricted",
+      "note": "The customer agreement requires written consent for commercial data feeds and streams that use BingX market data."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://open-api.bingx.com/openApi/spot/v1/ticker/24hr"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://open-api.bingx.com/openApi/spot/v1/market/kline?symbol=BTC-USDT&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://open-api.bingx.com/openApi/swap/v2/quote/premiumIndex?symbol=BTC-USDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://open-api.bingx.com/openApi/swap/v2/quote/openInterest?symbol=BTC-USDT"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "bit2me",
+    "name": "Bit2Me",
+    "kind": "spot",
+    "restBase": "https://gateway.bit2me.com",
+    "docs": "https://api.bit2me.com/docs/pro/api-reference/marketdata/v2/trading/tickers/get",
+    "tickers": {
+      "method": "GET",
+      "path": "/v2/trading/tickers",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "close",
+          "baseVolume": "baseVolume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": "percentage",
+          "changeUnit": "percent",
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "/",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v1/trading/candle?symbol={symbol}&interval={interval}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "4h",
+        "1d"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": null,
+    "rateLimit": {
+      "requestsPerMinute": 600,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Starter-tier public API budget."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://legal.bit2me.com/en/support/solutions/articles/35000292850-general-terms-and-conditions-for-bit2me-services",
+      "redistribution": "unclear",
+      "note": "The general service terms cover trading. An explicit right to redistribute market prices is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://gateway.bit2me.com/v2/trading/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://gateway.bit2me.com/v1/trading/candle?symbol=BTC%2FEUR&interval=1m"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "bitbank",
+    "name": "bitbank",
+    "kind": "spot",
+    "restBase": "https://public.bitbank.cc",
+    "docs": "https://github.com/bitbankinc/bitbank-api-docs/blob/master/public-api.md",
+    "tickers": {
+      "method": "GET",
+      "path": "/tickers",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "pair",
+          "last": "last",
+          "baseVolume": "vol",
+          "quoteVolume": null,
+          "bid": "buy",
+          "ask": "sell",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/{symbol}/candlestick/{interval}/{yyyymmdd}",
+      "intervals": [
+        "1min",
+        "5min",
+        "15min",
+        "30min",
+        "1hour",
+        "4hour",
+        "8hour",
+        "12hour",
+        "1day",
+        "1week"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://stream.bitbank.cc/socket.io/?EIO=4&transport=websocket",
+      "subscribe": [
+        "join-room",
+        "ticker_{symbol}"
+      ],
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 600,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public market data limit of 10 requests/s per IP."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://bitbank.cc/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://public.bitbank.cc/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://public.bitbank.cc/btc_jpy/candlestick/1min/20261119"
+        }
+      ]
+    },
+    "note": "Socket.IO join-room event. Intraday candlesticks use YYYYMMDD and daily or longer use YYYY."
+  },
+  {
+    "id": "bitfinex",
+    "name": "Bitfinex",
+    "kind": "both",
+    "restBase": "https://api-pub.bitfinex.com",
+    "docs": "https://docs.bitfinex.com/reference/rest-public-tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/v2/tickers?symbols=ALL",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "0",
+          "last": "7",
+          "baseVolume": "8",
+          "quoteVolume": null,
+          "bid": "1",
+          "ask": "3",
+          "change24h": "6",
+          "changeUnit": "ratio",
+          "open24h": null
+        },
+        "filter": {
+          "field": "0",
+          "startsWith": "t"
+        },
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "bitfinex"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v2/candles/trade:{interval}:{symbol}/hist?limit={limit}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "3h",
+        "6h",
+        "12h",
+        "1D",
+        "7D",
+        "14D",
+        "1M"
+      ],
+      "maxLimit": 10000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://api-pub.bitfinex.com/ws/2",
+      "subscribe": {
+        "event": "subscribe",
+        "channel": "ticker",
+        "symbol": "{symbol}"
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 90,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public tickers endpoint documents 90 requests/minute."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api-pub.bitfinex.com/v2/status/deriv?keys={symbol}",
+        "body": null,
+        "field": "12"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api-pub.bitfinex.com/v2/status/deriv?keys={symbol}",
+        "body": null,
+        "field": "18"
+      }
+    },
+    "terms": {
+      "url": "https://www.bitfinex.com/legal/exchange/terms/",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api-pub.bitfinex.com/v2/tickers?symbols=ALL"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-pub.bitfinex.com/v2/candles/trade:1m:tBTCUSD/hist?limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-pub.bitfinex.com/v2/status/deriv?keys=tBTCF0:USTF0"
+        }
+      ]
+    },
+    "note": "Use rows whose symbol starts with t. Funding indices describe the current derivatives status layout."
+  },
+  {
+    "id": "bitget",
+    "name": "Bitget",
+    "kind": "both",
+    "restBase": "https://api.bitget.com",
+    "docs": "https://www.bitget.com/api-doc/spot/market/Get-Tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v2/spot/market/tickers",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPr",
+          "baseVolume": "baseVolume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bidPr",
+          "ask": "askPr",
+          "change24h": "change24h",
+          "changeUnit": "ratio",
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.bitget.com/api/v2/spot/public/symbols",
+      "list": "data",
+      "symbol": "symbol",
+      "base": "baseCoin",
+      "quote": "quoteCoin"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v2/spot/market/candles?symbol={symbol}&granularity={interval}&limit={limit}",
+      "intervals": [
+        "1min",
+        "5min",
+        "15min",
+        "30min",
+        "1h",
+        "4h",
+        "6h",
+        "12h",
+        "1day",
+        "3day",
+        "1week",
+        "1M"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.bitget.com/v2/ws/public",
+      "subscribe": {
+        "op": "subscribe",
+        "args": [
+          {
+            "instType": "SPOT",
+            "channel": "ticker",
+            "instId": "{symbol}"
+          }
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 1200,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Classic spot tickers endpoint allows 20 requests/s per IP."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.bitget.com/api/v2/mix/market/current-fund-rate?symbol={symbol}&productType=usdt-futures",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.bitget.com/api/v2/mix/market/open-interest?symbol={symbol}&productType=usdt-futures",
+        "body": null,
+        "field": "size"
+      }
+    },
+    "terms": {
+      "url": "https://www.bitget.com/support/articles/360014944032-terms-of-use",
+      "redistribution": "restricted",
+      "note": "The terms license platform IP for personal noncommercial or internal business use."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.bitget.com/api/v2/spot/market/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bitget.com/api/v2/spot/public/symbols"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bitget.com/api/v2/spot/market/candles?symbol=BTCUSDT&granularity=1min&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bitget.com/api/v2/mix/market/current-fund-rate?symbol=BTCUSDT&productType=usdt-futures"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bitget.com/api/v2/mix/market/open-interest?symbol=BTCUSDT&productType=usdt-futures"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "bithumb",
+    "name": "Bithumb",
+    "kind": "spot",
+    "restBase": "https://api.bithumb.com",
+    "docs": "https://apidocs.bithumb.com/v1.2.0/reference/%ED%98%84%EC%9E%AC%EA%B0%80-%EC%A0%95%EB%B3%B4-%EC%A1%B0%ED%9A%8C-all",
+    "tickers": {
+      "method": "GET",
+      "path": "/public/ticker/ALL_KRW",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "object",
+        "fields": {
+          "symbol": "$key",
+          "last": "closing_price",
+          "baseVolume": "units_traded_24H",
+          "quoteVolume": "acc_trade_value_24H",
+          "bid": null,
+          "ask": null,
+          "change24h": "fluctate_rate_24H",
+          "changeUnit": "percent",
+          "open24h": null
+        },
+        "filter": {
+          "field": "$key",
+          "exceptValue": "date"
+        },
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "fixed-quote",
+      "quote": "KRW"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v1/candles/minutes/{interval}?market={symbol}&count={limit}",
+      "intervals": [
+        "1",
+        "3",
+        "5",
+        "10",
+        "15",
+        "30",
+        "60",
+        "240"
+      ],
+      "maxLimit": 200,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://pubwss.bithumb.com/pub/ws",
+      "subscribe": {
+        "type": "ticker",
+        "symbols": [
+          "{base}_{quote}"
+        ],
+        "tickTypes": [
+          "24H"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 9000,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public API limit of 150 requests/s per IP."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://www.bithumb.com/react/terms/service",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.bithumb.com/public/ticker/ALL_KRW"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bithumb.com/v1/candles/minutes/1?market=KRW-BTC&count=2"
+        }
+      ]
+    },
+    "note": "KRW market group. Ignore the scalar date member of data."
+  },
+  {
+    "id": "bitkub",
+    "name": "Bitkub",
+    "kind": "spot",
+    "restBase": "https://api.bitkub.com",
+    "docs": "https://github.com/bitkub/bitkub-official-api-docs",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v3/market/ticker",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "last",
+          "baseVolume": "base_volume",
+          "quoteVolume": "quote_volume",
+          "bid": "highest_bid",
+          "ask": "lowest_ask",
+          "change24h": "percent_change",
+          "changeUnit": "percent",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "https://api.bitkub.com/tradingview/history?symbol={symbol}&resolution={interval}&from={startSec}&to={endSec}",
+      "intervals": [
+        "1",
+        "5",
+        "15",
+        "30",
+        "60",
+        "240",
+        "1D"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://api.bitkub.com/websocket-api/market.ticker.{lowerSymbol}",
+      "subscribe": null,
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://www.bitkub.com/en/terms",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 403. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.bitkub.com/api/v3/market/ticker"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bitkub.com/tradingview/history?symbol=BTC_THB&resolution=1&from=1795046713&to=1795047013"
+        }
+      ]
+    },
+    "note": "The stream URL selects the subscription."
+  },
+  {
+    "id": "bitmex",
+    "name": "BitMEX",
+    "kind": "both",
+    "restBase": "https://www.bitmex.com",
+    "docs": "https://www.bitmex.com",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v1/instrument/active",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "homeNotional24h",
+          "quoteVolume": "foreignNotional24h",
+          "bid": "bidPrice",
+          "ask": "askPrice",
+          "change24h": "lastChangePcnt",
+          "changeUnit": "ratio",
+          "open24h": "prevPrice24h"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "fields",
+      "base": "underlying",
+      "quote": "quoteCurrency"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v1/trade/bucketed?binSize={interval}&symbol={symbol}&count={limit}&reverse=true",
+      "intervals": [
+        "1m",
+        "5m",
+        "1h",
+        "1d"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.bitmex.com/realtime",
+      "subscribe": {
+        "op": "subscribe",
+        "args": [
+          "instrument:{symbol}"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://www.bitmex.com/api/v1/instrument?symbol={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://www.bitmex.com/api/v1/instrument?symbol={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://www.bitmex.com/app/terms",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 302. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": []
+    },
+    "note": "Public GET probes returned HTTP 403 from the build location."
+  },
+  {
+    "id": "bitrue",
+    "name": "Bitrue",
+    "kind": "both",
+    "restBase": "https://openapi.bitrue.com",
+    "docs": "https://github.com/Bitrue-exchange/Spot-official-api-docs#24hr-ticker-price-change-statistics",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v1/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bidPrice",
+          "ask": "askPrice",
+          "change24h": "priceChangePercent",
+          "changeUnit": "percent",
+          "open24h": "openPrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://openapi.bitrue.com/api/v1/exchangeInfo",
+      "list": "symbols",
+      "symbol": "symbol",
+      "base": "baseAsset",
+      "quote": "quoteAsset"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v1/market/kline?symbol={symbol}&scale={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1H",
+        "2H",
+        "4H",
+        "12H",
+        "1D",
+        "1W"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.bitrue.com/market/ws",
+      "subscribe": {
+        "event": "sub",
+        "params": {
+          "channel": "market_{lowerSymbol}_ticker",
+          "cb_id": "{lowerSymbol}"
+        }
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://fapi.bitrue.com/fapi/v1/index?contractName={symbol}",
+        "body": null,
+        "field": "currentFundRate"
+      },
+      "openInterest": null
+    },
+    "terms": {
+      "url": "https://support.bitrue.com/hc/en-001/articles/4405473110681-Bitrue-Terms-of-Use",
+      "redistribution": "restricted",
+      "note": "The terms prohibit commercial use of Bitrue data, including copying and dissemination."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://openapi.bitrue.com/api/v1/ticker/24hr"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://openapi.bitrue.com/api/v1/exchangeInfo"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://openapi.bitrue.com/api/v1/market/kline?symbol=btcusdt&scale=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.bitrue.com/fapi/v1/index?contractName=E-BTC-USDT"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "bitso",
+    "name": "Bitso",
+    "kind": "spot",
+    "restBase": "https://api.bitso.com",
+    "docs": "https://bitso.com/api_info",
+    "tickers": {
+      "method": "GET",
+      "path": "/v3/ticker/",
+      "body": null,
+      "mapping": {
+        "list": "payload",
+        "rows": "array",
+        "fields": {
+          "symbol": "book",
+          "last": "last",
+          "baseVolume": "volume",
+          "quoteVolume": null,
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": "change_24",
+          "changeUnit": "absolute",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v3/ohlc/?book={symbol}&time_bucket={interval}&start={startMs}&end={endMs}",
+      "intervals": [
+        "60",
+        "300",
+        "900",
+        "1800",
+        "3600",
+        "14400",
+        "86400"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": null,
+    "rateLimit": {
+      "requestsPerMinute": 30,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public unauthenticated REST bucket per IP."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://bitso.com/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.bitso.com/v3/ticker/"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bitso.com/v3/ohlc/?book=btc_mxn&time_bucket=60&start=1795046713000&end=1795047013000"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "bitstamp",
+    "name": "Bitstamp",
+    "kind": "both",
+    "restBase": "https://www.bitstamp.net",
+    "docs": "https://www.bitstamp.net/api/#tag/Tickers/operation/GetCurrencyPairTickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v2/ticker/",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "market",
+          "last": "last",
+          "baseVolume": "volume",
+          "quoteVolume": null,
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": "percent_change_24",
+          "changeUnit": "percent",
+          "open24h": "open_24"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "/",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v2/ohlc/{symbol}/?step={interval}&limit={limit}",
+      "intervals": [
+        "60",
+        "180",
+        "300",
+        "900",
+        "1800",
+        "3600",
+        "7200",
+        "14400",
+        "21600",
+        "43200",
+        "86400",
+        "259200"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": null,
+    "rateLimit": {
+      "requestsPerMinute": 1000,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Shared 10,000 requests per 10 minutes with a 400 requests/s burst limit."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://www.bitstamp.net/api/v2/funding_rate/{symbol}/",
+        "body": null,
+        "field": "funding_rate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://www.bitstamp.net/api/v2/ticker/{symbol}/",
+        "body": null,
+        "field": "open_interest"
+      }
+    },
+    "terms": {
+      "url": "https://www.bitstamp.net/terms-of-use/",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://www.bitstamp.net/api/v2/ticker/"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=60&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://www.bitstamp.net/api/v2/funding_rate/btcusd-perp/"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://www.bitstamp.net/api/v2/ticker/btcusd-perp/"
+        }
+      ]
+    },
+    "note": "The OHLC route uses the lowercase market URL symbol without the display slash."
+  },
+  {
+    "id": "bittrade",
+    "name": "BitTrade",
+    "kind": "spot",
+    "restBase": "https://api-cloud.bittrade.co.jp",
+    "docs": "https://api-doc.bittrade.co.jp",
+    "tickers": {
+      "method": "GET",
+      "path": "/market/tickers",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "close",
+          "baseVolume": "amount",
+          "quoteVolume": "vol",
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api-cloud.bittrade.co.jp/v1/common/symbols",
+      "list": "data",
+      "symbol": "symbol",
+      "base": "base-currency",
+      "quote": "quote-currency"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/market/history/kline?symbol={symbol}&period={interval}&size={limit}",
+      "intervals": [
+        "1min",
+        "5min",
+        "15min",
+        "30min",
+        "60min",
+        "4hour",
+        "1day",
+        "1week",
+        "1mon"
+      ],
+      "maxLimit": 2000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://api-cloud.bittrade.co.jp/ws",
+      "subscribe": {
+        "sub": "market.{lowerSymbol}.detail",
+        "id": "1"
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://www.bittrade.co.jp/ja-jp/legal/",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-cloud.bittrade.co.jp/market/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-cloud.bittrade.co.jp/v1/common/symbols"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-cloud.bittrade.co.jp/market/history/kline?symbol=btcjpy&period=1min&size=2"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "bitunix",
+    "name": "Bitunix Futures",
+    "kind": "derivatives",
+    "restBase": "https://fapi.bitunix.com",
+    "docs": "https://openapidoc.bitunix.com/",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v1/futures/market/tickers",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "baseVol",
+          "quoteVolume": "quoteVol",
+          "bid": null,
+          "ask": null,
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://fapi.bitunix.com/api/v1/futures/market/trading_pairs",
+      "list": "data",
+      "symbol": "symbol",
+      "base": "base",
+      "quote": "quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v1/futures/market/kline?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "12h",
+        "1d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 200,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://fapi.bitunix.com/public",
+      "subscribe": {
+        "op": "subscribe",
+        "args": [
+          {
+            "symbol": "{symbol}",
+            "ch": "ticker"
+          }
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://fapi.bitunix.com/api/v1/futures/market/funding_rate?symbol={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": null
+    },
+    "terms": {
+      "url": "https://support.bitunix.com/hc/en-us/articles/16492827232921-Bitunix-Futures-Services-Agreement",
+      "redistribution": "unclear",
+      "note": "The futures agreement governs access to the trading system. Permission to redistribute public prices is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.bitunix.com/api/v1/futures/market/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.bitunix.com/api/v1/futures/market/trading_pairs?symbols=BTCUSDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.bitunix.com/api/v1/futures/market/kline?symbol=BTCUSDT&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.bitunix.com/api/v1/futures/market/funding_rate?symbol=BTCUSDT"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "bitvavo",
+    "name": "Bitvavo",
+    "kind": "spot",
+    "restBase": "https://api.bitvavo.com",
+    "docs": "https://docs.bitvavo.com/docs/rest-api/get-candlestick-data-24-h/",
+    "tickers": {
+      "method": "GET",
+      "path": "/v2/ticker/24h",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "market",
+          "last": "last",
+          "baseVolume": "volume",
+          "quoteVolume": "volumeQuote",
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "-",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v2/{symbol}/candles?interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "8h",
+        "12h",
+        "1d"
+      ],
+      "maxLimit": 1440,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.bitvavo.com/v2",
+      "subscribe": {
+        "action": "subscribe",
+        "channels": [
+          {
+            "name": "ticker24h",
+            "markets": [
+              "{symbol}"
+            ]
+          }
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": 1000,
+      "tickerWeight": 25,
+      "note": "Headers returned 1,000 points/minute and 975 remaining after all markets."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://bitvavo.com/en/user-agreement",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 403. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.bitvavo.com/v2/ticker/24h"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bitvavo.com/v2/BTC-EUR/candles?interval=1m&limit=2"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "blofin",
+    "name": "BloFin",
+    "kind": "derivatives",
+    "restBase": "https://openapi.blofin.com",
+    "docs": "https://blofin.com/docs#get-tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v1/market/tickers",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "instId",
+          "last": "last",
+          "baseVolume": "volCurrency24h",
+          "quoteVolume": null,
+          "bid": "bidPrice",
+          "ask": "askPrice",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open24h"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "-",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v1/market/candles?instId={symbol}&bar={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1H",
+        "2H",
+        "4H",
+        "6H",
+        "12H",
+        "1D",
+        "3D",
+        "1W",
+        "1M"
+      ],
+      "maxLimit": 100,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://openapi.blofin.com/ws/public",
+      "subscribe": {
+        "op": "subscribe",
+        "args": [
+          {
+            "channel": "tickers",
+            "instId": "{symbol}"
+          }
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://openapi.blofin.com/api/v1/market/funding-rate?instId={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://openapi.blofin.com/api/v1/market/open-interest?instId={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://blofin.com/en/support/Terms/7296238795279-TERMS-OF-USE",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 403. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://openapi.blofin.com/api/v1/market/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://openapi.blofin.com/api/v1/market/candles?instId=BTC-USDT&bar=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://openapi.blofin.com/api/v1/market/funding-rate?instId=BTC-USDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://openapi.blofin.com/api/v1/market/open-interest?instId=BTC-USDT"
+        }
+      ]
+    },
+    "note": "volCurrency24h is the underlying coin volume and vol24h is contracts."
+  },
+  {
+    "id": "btcturk",
+    "name": "BtcTurk",
+    "kind": "spot",
+    "restBase": "https://api.btcturk.com",
+    "docs": "https://docs.btcturk.com/public-endpoints/ticker",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v2/ticker",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "pair",
+          "last": "last",
+          "baseVolume": "volume",
+          "quoteVolume": null,
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": "dailyPercent",
+          "changeUnit": "percent",
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "fields",
+      "base": "numeratorSymbol",
+      "quote": "denominatorSymbol"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "https://graph-api.btcturk.com/v1/klines/history?symbol={symbol}&resolution={interval}&from={startSec}&to={endSec}",
+      "intervals": [
+        "1",
+        "15",
+        "30",
+        "60",
+        "240"
+      ],
+      "maxLimit": 11000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws-feed-pro.btcturk.com",
+      "subscribe": [
+        151,
+        {
+          "type": 151,
+          "channel": "ticker",
+          "event": "all",
+          "join": true
+        }
+      ],
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://www.btcturk.com/kullanici-sozlesmesi",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 403. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.btcturk.com/api/v2/ticker"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://graph-api.btcturk.com/v1/klines/history?symbol=BTCTRY&resolution=1&from=1795046713&to=1795047013"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "btse",
+    "name": "BTSE",
+    "kind": "both",
+    "restBase": "https://api.btse.com",
+    "docs": "https://docs.btse.com/markets/rest/get-24-hr-ticker/",
+    "tickers": {
+      "method": "GET",
+      "path": "/spot/api/v3.2/market_summary",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "last",
+          "baseVolume": "size",
+          "quoteVolume": "volume",
+          "bid": "highestBid",
+          "ask": "lowestAsk",
+          "change24h": "percentageChange",
+          "changeUnit": "percent",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "fields",
+      "base": "base",
+      "quote": "quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/public-api/market/v1/klines?symbol={symbol}&resolution={interval}&limit={limit}",
+      "intervals": [
+        "1",
+        "5",
+        "15",
+        "30",
+        "60",
+        "240",
+        "360",
+        "1440",
+        "10080",
+        "43200"
+      ],
+      "maxLimit": 300,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.btse.com/ws/spot",
+      "subscribe": {
+        "op": "subscribe",
+        "args": [
+          "ticker:{symbol}"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.btse.com/public-api/market/v1/ticker/24hr?symbol={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.btse.com/public-api/market/v1/ticker/24hr?symbol={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://www.btse.com/en/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.btse.com/spot/api/v3.2/market_summary"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.btse.com/public-api/market/v1/klines?symbol=BTC-USD&resolution=1&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.btse.com/public-api/market/v1/ticker/24hr?symbol=BTCPFC"
+        }
+      ]
+    },
+    "note": "size is base volume and volume is quote notional."
+  },
+  {
+    "id": "bybit",
+    "name": "Bybit",
+    "kind": "both",
+    "restBase": "https://api.bybit.com",
+    "docs": "https://bybit-exchange.github.io/docs/v5/market/tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/v5/market/tickers?category=spot",
+      "body": null,
+      "mapping": {
+        "list": "result.list",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume24h",
+          "quoteVolume": "turnover24h",
+          "bid": "bid1Price",
+          "ask": "ask1Price",
+          "change24h": "price24hPcnt",
+          "changeUnit": "ratio",
+          "open24h": "prevPrice24h"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.bybit.com/v5/market/instruments-info?category=spot",
+      "list": "result.list",
+      "symbol": "symbol",
+      "base": "baseCoin",
+      "quote": "quoteCoin"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v5/market/kline?category=spot&symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1",
+        "3",
+        "5",
+        "15",
+        "30",
+        "60",
+        "120",
+        "240",
+        "360",
+        "720",
+        "D",
+        "W",
+        "M"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://stream.bybit.com/v5/public/spot",
+      "subscribe": {
+        "op": "subscribe",
+        "args": [
+          "tickers.{symbol}"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 7200,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Shared IP limit of 600 HTTP requests per 5 s."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.bybit.com/v5/market/tickers?category=linear&symbol={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.bybit.com/v5/market/tickers?category=linear&symbol={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://www.bybit.com/en/terms-service/terms-of-service",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 301. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.bybit.com/v5/market/tickers?category=spot"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bybit.com/v5/market/instruments-info?category=spot&symbol=BTCUSDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bybit.com/v5/market/kline?category=spot&symbol=BTCUSDT&interval=1&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "cex-io",
+    "name": "CEX.IO",
+    "kind": "spot",
+    "restBase": "https://trade.cex.io",
+    "docs": "https://trade.cex.io/docs/",
+    "tickers": {
+      "method": "POST",
+      "path": "/api/spot/rest-public/get_ticker",
+      "body": {},
+      "mapping": {
+        "list": "data",
+        "rows": "object",
+        "fields": {
+          "symbol": "$key",
+          "last": "lastTradePrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bestBid",
+          "ask": "bestAsk",
+          "change24h": "priceChangePercentage",
+          "changeUnit": "percent",
+          "open24h": null,
+          "referencePrice": "last"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "-",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "https://cex.io/api/ohlcv/hd/{yyyymmdd}/{base}/{quote}",
+      "intervals": [
+        "1m",
+        "1h",
+        "1d"
+      ],
+      "body": null,
+      "maxLimit": null
+    },
+    "websocket": {
+      "url": "wss://ws.cex.io/ws",
+      "subscribe": {
+        "e": "subscribe",
+        "rooms": [
+          "tickers"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "A provider-issued limit for the public ticker is unconfirmed."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://cex.io/legal/terms",
+      "redistribution": "restricted",
+      "note": "The published terms prohibit copying and distributing covered site content, including by automated means."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://trade.cex.io/api/spot/rest-public/get_ticker"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://cex.io/api/tickers/USD/EUR/GBP/BTC/USDT"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://cex.io/api/ohlcv/hd/20261118/BTC/USD"
+        }
+      ]
+    },
+    "note": "The modern bulk call uses an empty request object. last is indicative. lastTradePrice and quoteVolume are optional. Historical GET candles are JSON strings in data1m, data1h and data1d using UTC YYYYMMDD."
+  },
+  {
+    "id": "coinbase",
+    "name": "Coinbase",
+    "kind": "both",
+    "restBase": "https://api.coinbase.com",
+    "docs": "https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/products/list-products",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v3/brokerage/market/products?product_type=SPOT&limit=100",
+      "body": null,
+      "mapping": {
+        "list": "products",
+        "rows": "array",
+        "fields": {
+          "symbol": "product_id",
+          "last": "price",
+          "baseVolume": "volume_24h",
+          "quoteVolume": "approximate_quote_24h_volume",
+          "bid": "best_bid_price",
+          "ask": "best_ask_price",
+          "change24h": "price_percentage_change_24h",
+          "changeUnit": "percent",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "fields",
+      "base": "base_currency_id",
+      "quote": "quote_currency_id"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v3/brokerage/market/products/{symbol}/candles?start={startSec}&end={endSec}&granularity={interval}&limit={limit}",
+      "intervals": [
+        "ONE_MINUTE",
+        "FIVE_MINUTE",
+        "FIFTEEN_MINUTE",
+        "THIRTY_MINUTE",
+        "ONE_HOUR",
+        "TWO_HOUR",
+        "FOUR_HOUR",
+        "SIX_HOUR",
+        "ONE_DAY"
+      ],
+      "maxLimit": 350,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://advanced-trade-ws.coinbase.com",
+      "subscribe": {
+        "type": "subscribe",
+        "product_ids": [
+          "{symbol}"
+        ],
+        "channel": "ticker"
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://drb.coinbase.com/api/v2/public/ticker?instrument_name={symbol}",
+        "body": null,
+        "field": "current_funding"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://drb.coinbase.com/api/v2/public/ticker?instrument_name={symbol}",
+        "body": null,
+        "field": "open_interest"
+      }
+    },
+    "terms": {
+      "url": "https://www.coinbase.com/en-de/legal/market_data",
+      "redistribution": "restricted",
+      "note": "The market-data terms restrict distributing market data and derived works outside the organization."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.coinbase.com/api/v3/brokerage/market/products?product_type=SPOT&limit=100"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.coinbase.com/api/v3/brokerage/market/products/BTC-USD/candles?start=1795046711&end=1795047011&granularity=ONE_MINUTE&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://drb.coinbase.com/api/v2/public/ticker?instrument_name=BTC-PERPETUAL"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.coinbase.com/api/v3/brokerage/market/products?product_type=SPOT&limit=1"
+        }
+      ]
+    },
+    "note": "Spot products use cursor pagination. Pass the response pagination.next_cursor as cursor. Derivatives use Coinbase’s Deribit endpoint."
+  },
+  {
+    "id": "coinone",
+    "name": "Coinone",
+    "kind": "spot",
+    "restBase": "https://api.coinone.co.kr",
+    "docs": "https://docs.coinone.co.kr/v1.0/reference/tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/public/v2/ticker_new/KRW",
+      "body": null,
+      "mapping": {
+        "list": "tickers",
+        "rows": "array",
+        "fields": {
+          "symbol": "target_currency",
+          "last": "last",
+          "baseVolume": "target_volume",
+          "quoteVolume": "quote_volume",
+          "bid": "best_bids.0.price",
+          "ask": "best_asks.0.price",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "first"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "fields",
+      "base": "target_currency",
+      "quote": "quote_currency"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/public/v2/chart/{quote}/{base}?interval={interval}&size={limit}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "10m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "1d",
+        "1w"
+      ],
+      "maxLimit": 500,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://stream.coinone.co.kr",
+      "subscribe": {
+        "request_type": "SUBSCRIBE",
+        "channel": "TICKER",
+        "topic": {
+          "quote_currency": "{quote}",
+          "target_currency": "{base}"
+        }
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 1200,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public headers advertise refill of 20/s and burst capacity 1,200."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://coinone.co.kr/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.coinone.co.kr/public/v2/ticker_new/KRW"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.coinone.co.kr/public/v2/chart/KRW/BTC?interval=1m&size=2"
+        }
+      ]
+    },
+    "note": "The group is the quote currency. Each row identifies its target currency."
+  },
+  {
+    "id": "coinsph",
+    "name": "Coins.ph",
+    "kind": "spot",
+    "restBase": "https://api.pro.coins.ph",
+    "docs": "https://docs.coins.ph/rest-api/#24hr-ticker-price-change-statistics",
+    "tickers": {
+      "method": "GET",
+      "path": "/openapi/quote/v1/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bidPrice",
+          "ask": "askPrice",
+          "change24h": "priceChangePercent",
+          "changeUnit": "ratio",
+          "open24h": "openPrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.pro.coins.ph/openapi/v1/exchangeInfo",
+      "list": "symbols",
+      "symbol": "symbol",
+      "base": "baseAsset",
+      "quote": "quoteAsset"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/openapi/quote/v1/klines?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "4h",
+        "1d"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": null,
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": 1,
+      "note": "The public response reported one unit in the IP weight window."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://www.coins.ph/en-ph/legal#user-agreement",
+      "redistribution": "unclear",
+      "note": "The user agreement restricts resale of services. An explicit license for downstream market data is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.pro.coins.ph/openapi/quote/v1/ticker/24hr"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.pro.coins.ph/openapi/v1/exchangeInfo"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.pro.coins.ph/openapi/quote/v1/klines?symbol=BTCPHP&interval=1m&limit=2"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "coinw",
+    "name": "CoinW",
+    "kind": "both",
+    "restBase": "https://api.coinw.com",
+    "docs": "https://github.com/Coinw-Api/websocket-client",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v1/public?command=returnTicker",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "object",
+        "fields": {
+          "symbol": "$key",
+          "last": "last",
+          "baseVolume": null,
+          "quoteVolume": null,
+          "bid": "highestBid",
+          "ask": "lowestAsk",
+          "change24h": "percentChange",
+          "changeUnit": "ratio",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v1/public?command=returnChartData&currencyPair={symbol}&period={interval}",
+      "intervals": [
+        "60",
+        "3600"
+      ],
+      "body": null,
+      "maxLimit": null
+    },
+    "websocket": {
+      "url": "wss://ws.futurescw.info?token={token}",
+      "subscribe": {
+        "event": "subscribe",
+        "data": "{\"args\":\"spot/market-api-ticker:{base}-{quote}\"}"
+      },
+      "bootstrap": {
+        "method": "GET",
+        "url": "https://www.coinw.com/pusher/public-token",
+        "endpointField": null,
+        "tokenField": "data.token"
+      }
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "No fixed keyless market-data budget confirmed."
+    },
+    "derivatives": {
+      "fundingRate": null,
+      "openInterest": null
+    },
+    "terms": {
+      "url": "https://www.coinw.com/front/userAgreement",
+      "redistribution": "unclear",
+      "note": "The agreement request returned HTTP 403. A grant covering onward market-data distribution is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-18",
+          "url": "https://api.coinw.com/api/v1/public?command=returnTicker"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.coinw.com/api/v1/public?command=returnChartData&currencyPair=BTC_USDT&period=60"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.coinw.com/api/v1/public?command=returnChartData&currencyPair=BTC_USDT&period=3600"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.coinw.com/v1/perpumPublic/tickers"
+        }
+      ]
+    },
+    "note": "BTC_USDT baseVolume is consistent with quote turnover. Its units across markets are unconfirmed. Candle periods are seconds. The issuer socket client emits a Socket.IO event with a JSON-string payload. The public futures ticker includes volume and fair price."
+  },
+  {
+    "id": "crypto-com",
+    "name": "Crypto.com Exchange",
+    "kind": "both",
+    "restBase": "https://api.crypto.com",
+    "docs": "https://exchange-docs.crypto.com/exchange/v1/rest-ws/index.html#public-get-tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/exchange/v1/public/get-tickers",
+      "body": null,
+      "mapping": {
+        "list": "result.data",
+        "rows": "array",
+        "fields": {
+          "symbol": "i",
+          "last": "a",
+          "baseVolume": "v",
+          "quoteVolume": null,
+          "usdVolume": "vv",
+          "bid": "b",
+          "ask": "k",
+          "change24h": "c",
+          "changeUnit": "ratio",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.crypto.com/exchange/v1/public/get-instruments",
+      "list": "result.data",
+      "symbol": "symbol",
+      "base": "base_ccy",
+      "quote": "quote_ccy"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/exchange/v1/public/get-candlestick?instrument_name={symbol}&timeframe={interval}&count={limit}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "12h",
+        "1D",
+        "7D",
+        "14D",
+        "1M"
+      ],
+      "maxLimit": 300,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://stream.crypto.com/exchange/v1/market",
+      "subscribe": {
+        "id": 1,
+        "method": "subscribe",
+        "params": {
+          "channels": [
+            "ticker.{symbol}"
+          ]
+        }
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.crypto.com/exchange/v1/public/get-valuations?instrument_name={symbol}&valuation_type=funding_rate&count=1",
+        "body": null,
+        "field": "v"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.crypto.com/exchange/v1/public/get-tickers?instrument_name={symbol}",
+        "body": null,
+        "field": "oi"
+      }
+    },
+    "terms": {
+      "url": "https://crypto.com/exchange/document/tnc",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.crypto.com/exchange/v1/public/get-tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.crypto.com/exchange/v1/public/get-instruments"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.crypto.com/exchange/v1/public/get-candlestick?instrument_name=BTC_USD&timeframe=1m&count=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.crypto.com/exchange/v1/public/get-valuations?instrument_name=BTCUSD-PERP&valuation_type=funding_rate&count=1"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.crypto.com/exchange/v1/public/get-tickers?instrument_name=BTCUSD-PERP"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "deepcoin",
+    "name": "Deepcoin",
+    "kind": "both",
+    "restBase": "https://api.deepcoin.com",
+    "docs": "https://www.deepcoin.com/docs/DeepCoinMarket/getMarketTickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/deepcoin/market/tickers?instType=SPOT",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "instId",
+          "last": "last",
+          "baseVolume": "vol24h",
+          "quoteVolume": "volCcy24h",
+          "bid": "bidPx",
+          "ask": "askPx",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open24h"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "-",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/deepcoin/market/candles?instId={symbol}&bar={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1H",
+        "4H",
+        "1D"
+      ],
+      "maxLimit": 300,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://stream.deepcoin.com/streamlet/trade/public/spot?platform=api",
+      "subscribe": {
+        "sendTopicAction": {
+          "Action": "1",
+          "FilterValue": "DeepCoin_{base}/{quote}",
+          "LocalNo": 1,
+          "ResumeNo": -1,
+          "TopicID": "7"
+        }
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 600,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Ticker response advertises 10 requests per one-second window."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.deepcoin.com/deepcoin/trade/fund-rate/current-funding-rate?instType=SwapU&instId={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.deepcoin.com/deepcoin/market/open-interest-volume?instId={symbol}",
+        "body": null,
+        "field": "oi"
+      }
+    },
+    "terms": {
+      "url": "https://www.deepcoin.com/terms",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 307. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.deepcoin.com/deepcoin/market/tickers?instType=SPOT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.deepcoin.com/deepcoin/market/candles?instId=BTC-USDT&bar=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.deepcoin.com/deepcoin/trade/fund-rate/current-funding-rate?instType=SwapU&instId=BTC-USDT-SWAP"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.deepcoin.com/deepcoin/market/open-interest-volume?instId=BTC-USDT-SWAP"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "deribit",
+    "name": "Deribit",
+    "kind": "derivatives",
+    "restBase": "https://www.deribit.com",
+    "docs": "https://docs.deribit.com/api-reference/market-data/public-get_book_summary_by_currency",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v2/public/get_book_summary_by_currency?currency={currency}&kind={kind}",
+      "body": null,
+      "mapping": {
+        "list": "result",
+        "rows": "array",
+        "fields": {
+          "symbol": "instrument_name",
+          "last": "last",
+          "baseVolume": "volume",
+          "quoteVolume": null,
+          "bid": "bid_price",
+          "ask": "ask_price",
+          "change24h": "price_change",
+          "changeUnit": "percent",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "fields",
+      "base": "base_currency",
+      "quote": "quote_currency"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v2/public/get_tradingview_chart_data?instrument_name={symbol}&resolution={interval}&start_timestamp={startMs}&end_timestamp={endMs}",
+      "intervals": [
+        "1",
+        "3",
+        "5",
+        "10",
+        "15",
+        "30",
+        "60",
+        "120",
+        "180",
+        "360",
+        "720",
+        "1D"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://www.deribit.com/ws/api/v2",
+      "subscribe": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "public/subscribe",
+        "params": {
+          "channels": [
+            "ticker.{symbol}.100ms"
+          ]
+        }
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Credit-based limits vary by method and tier. get_book_summary_by_currency has a distinct bucket."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://www.deribit.com/api/v2/public/ticker?instrument_name={symbol}",
+        "body": null,
+        "field": "current_funding"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://www.deribit.com/api/v2/public/ticker?instrument_name={symbol}",
+        "body": null,
+        "field": "open_interest"
+      }
+    },
+    "terms": {
+      "url": "https://www.deribit.com/pages/tos",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=future"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://www.deribit.com/api/v2/public/get_tradingview_chart_data?instrument_name=BTC-PERPETUAL&resolution=1&start_timestamp=1795046714000&end_timestamp=1795047014000"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://www.deribit.com/api/v2/public/ticker?instrument_name=BTC-PERPETUAL"
+        }
+      ]
+    },
+    "note": "Query one currency and kind at a time using public/get_currencies. volume_usd is USD turnover, not always quote turnover."
+  },
+  {
+    "id": "digifinex",
+    "name": "DigiFinex",
+    "kind": "both",
+    "restBase": "https://openapi.digifinex.com",
+    "docs": "https://docs.digifinex.com/en-ww/spot/v3/rest.html#ticker-price",
+    "tickers": {
+      "method": "GET",
+      "path": "/v3/ticker",
+      "body": null,
+      "mapping": {
+        "list": "ticker",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "last",
+          "baseVolume": "vol",
+          "quoteVolume": "base_vol",
+          "bid": "buy",
+          "ask": "sell",
+          "change24h": "change",
+          "changeUnit": "percent",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v3/kline?symbol={symbol}&period={interval}&start_time={startSec}&end_time={endSec}",
+      "intervals": [
+        "1",
+        "5",
+        "15",
+        "30",
+        "60",
+        "240",
+        "720",
+        "1D",
+        "1W"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://openapi.digifinex.com/ws/v1/",
+      "subscribe": {
+        "id": 1,
+        "method": "ticker.subscribe",
+        "params": [
+          "{symbol}"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://openapi.digifinex.com/swap/v2/public/funding_rate?instrument_id={symbol}",
+        "body": null,
+        "field": "funding_rate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://openapi.digifinex.com/swap/v2/public/ticker?instrument_id={symbol}",
+        "body": null,
+        "field": "open_interest"
+      }
+    },
+    "terms": {
+      "url": "https://www.digifinex.com/en-ww/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://openapi.digifinex.com/v3/ticker"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://openapi.digifinex.com/v3/kline?symbol=btc_usdt&period=1&start_time=1795046712&end_time=1795047012"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://openapi.digifinex.com/swap/v2/public/funding_rate?instrument_id=BTCUSDTPERP"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://openapi.digifinex.com/swap/v2/public/ticker?instrument_id=BTCUSDTPERP"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "dydx",
+    "name": "dYdX Chain",
+    "kind": "derivatives",
+    "restBase": "https://indexer.dydx.trade",
+    "docs": "https://docs.dydx.xyz/indexer-client/http#get-perpetual-markets",
+    "tickers": {
+      "method": "GET",
+      "path": "/v4/perpetualMarkets",
+      "body": null,
+      "mapping": {
+        "list": "markets",
+        "rows": "object",
+        "fields": {
+          "symbol": "ticker",
+          "last": null,
+          "baseVolume": null,
+          "quoteVolume": "volume24H",
+          "bid": null,
+          "ask": null,
+          "change24h": "priceChange24H",
+          "changeUnit": "absolute",
+          "open24h": null,
+          "referencePrice": "oraclePrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "-",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v4/candles/perpetualMarkets/{symbol}?resolution={interval}&limit={limit}",
+      "intervals": [
+        "1MIN",
+        "5MINS",
+        "15MINS",
+        "30MINS",
+        "1HOUR",
+        "4HOURS",
+        "1DAY"
+      ],
+      "maxLimit": 100,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://indexer.dydx.trade/v4/ws",
+      "subscribe": {
+        "type": "subscribe",
+        "channel": "v4_markets"
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Indexer reports ratelimit-limit 100; use its ratelimit-reset timestamp."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://indexer.dydx.trade/v4/perpetualMarkets?ticker={symbol}",
+        "body": null,
+        "field": "nextFundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://indexer.dydx.trade/v4/perpetualMarkets?ticker={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://dydx.trade/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://indexer.dydx.trade/v4/perpetualMarkets"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://indexer.dydx.trade/v4/candles/perpetualMarkets/BTC-USD?resolution=1MIN&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://indexer.dydx.trade/v4/perpetualMarkets?ticker=BTC-USD"
+        }
+      ]
+    },
+    "note": "oraclePrice is a reference price. The market summary does not provide the last trade."
+  },
+  {
+    "id": "gate",
+    "name": "Gate",
+    "kind": "both",
+    "restBase": "https://api.gateio.ws",
+    "docs": "https://www.gate.com/docs/developers/apiv4/en/#get-currency-pair-ticker-information",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v4/spot/tickers",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "currency_pair",
+          "last": "last",
+          "baseVolume": "base_volume",
+          "quoteVolume": "quote_volume",
+          "bid": "highest_bid",
+          "ask": "lowest_ask",
+          "change24h": "change_percentage",
+          "changeUnit": "percent",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v4/spot/candlesticks?currency_pair={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "10s",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "4h",
+        "8h",
+        "1d",
+        "7d",
+        "30d"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://api.gateio.ws/ws/v4/",
+      "subscribe": {
+        "time": "{unixSeconds}",
+        "channel": "spot.tickers",
+        "event": "subscribe",
+        "payload": [
+          "{symbol}"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 1200,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public spot group uses a 200-request window of 10 s."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.gateio.ws/api/v4/futures/usdt/contracts/{symbol}",
+        "body": null,
+        "field": "funding_rate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.gateio.ws/api/v4/futures/usdt/contracts/{symbol}",
+        "body": null,
+        "field": "position_size"
+      }
+    },
+    "terms": {
+      "url": "https://www.gate.com/user-agreement",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 403. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.gateio.ws/api/v4/spot/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.gateio.ws/api/v4/spot/candlesticks?currency_pair=BTC_USDT&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.gateio.ws/api/v4/futures/usdt/contracts/BTC_USDT"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "gemini",
+    "name": "Gemini",
+    "kind": "both",
+    "restBase": "https://api.gemini.com",
+    "docs": "https://docs.gemini.com/rest-api/#price-feed",
+    "tickers": {
+      "method": "GET",
+      "path": "/v1/pricefeed",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "pair",
+          "last": "price",
+          "baseVolume": null,
+          "quoteVolume": null,
+          "bid": null,
+          "ask": null,
+          "change24h": "percentChange24h",
+          "changeUnit": "ratio",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.gemini.com/v1/symbols/details/{lowerSymbol}",
+      "list": ".",
+      "symbol": "symbol",
+      "base": "base_currency",
+      "quote": "quote_currency"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v2/candles/{symbol}/{interval}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1hr",
+        "6hr",
+        "1day"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": null,
+    "rateLimit": {
+      "requestsPerMinute": 120,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public REST endpoints share the IP budget."
+    },
+    "derivatives": {
+      "fundingRate": null,
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.gemini.com/v1/riskstats/{symbol}",
+        "body": null,
+        "field": "open_interest"
+      }
+    },
+    "terms": {
+      "url": "https://www.gemini.com/legal/market-data-agreement",
+      "redistribution": "restricted",
+      "note": "The market data agreement requires a separate redistribution agreement for downstream distribution."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.gemini.com/v1/pricefeed"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.gemini.com/v1/symbols/details/btcusd"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.gemini.com/v2/candles/btcusd/1m"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.gemini.com/v1/riskstats/btcgusdperp"
+        }
+      ]
+    },
+    "note": "The fundingamount endpoint reports a currency amount per contract."
+  },
+  {
+    "id": "hashkey",
+    "name": "HashKey Global",
+    "kind": "both",
+    "restBase": "https://api-glb.hashkey.com",
+    "docs": "https://hashkeyglobal-apidoc.readme.io/reference/get-24hr-ticker-price-change",
+    "tickers": {
+      "method": "GET",
+      "path": "/quote/v1/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "s",
+          "last": "c",
+          "baseVolume": "v",
+          "quoteVolume": "qv",
+          "bid": null,
+          "ask": null,
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "o"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api-glb.hashkey.com/api/v1/exchangeInfo",
+      "list": "symbols",
+      "symbol": "symbol",
+      "base": "baseAsset",
+      "quote": "quoteAsset"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/quote/v1/klines?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "8h",
+        "12h",
+        "1d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://stream-glb.hashkey.com/quote/ws/v1",
+      "subscribe": {
+        "symbol": "{symbol}",
+        "topic": "realtimes",
+        "event": "sub"
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api-glb.hashkey.com/api/v1/futures/fundingRate?timestamp={unixMs}",
+        "body": null,
+        "field": "rate"
+      },
+      "openInterest": null
+    },
+    "terms": {
+      "url": "https://global.hashkey.com/en-US/legal/terms-of-use",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api-glb.hashkey.com/quote/v1/ticker/24hr"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-glb.hashkey.com/api/v1/exchangeInfo"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-glb.hashkey.com/quote/v1/klines?symbol=BTCUSDT&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-glb.hashkey.com/api/v1/futures/fundingRate?timestamp=1795047309852"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "hitbtc",
+    "name": "HitBTC",
+    "kind": "both",
+    "restBase": "https://api.hitbtc.com",
+    "docs": "https://api.hitbtc.com/#tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/3/public/ticker",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "object",
+        "fields": {
+          "symbol": "$key",
+          "last": "last",
+          "baseVolume": "volume",
+          "quoteVolume": "volume_quote",
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.hitbtc.com/api/3/public/symbol",
+      "list": ".",
+      "symbol": "$key",
+      "base": "base_currency",
+      "quote": "quote_currency"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/3/public/candles/{symbol}?period={interval}&limit={limit}",
+      "intervals": [
+        "M1",
+        "M3",
+        "M5",
+        "M15",
+        "M30",
+        "H1",
+        "H4",
+        "D1",
+        "D7",
+        "1M"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://api.hitbtc.com/api/3/ws/public",
+      "subscribe": {
+        "method": "subscribe",
+        "ch": "ticker/1s",
+        "params": {
+          "symbols": [
+            "{symbol}"
+          ]
+        },
+        "id": 1
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.hitbtc.com/api/3/public/futures/info/{symbol}",
+        "body": null,
+        "field": "funding_rate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.hitbtc.com/api/3/public/futures/info/{symbol}",
+        "body": null,
+        "field": "open_interest"
+      }
+    },
+    "terms": {
+      "url": "https://hitbtc.com/terms-of-use",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 403. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.hitbtc.com/api/3/public/ticker"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.hitbtc.com/api/3/public/symbol"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.hitbtc.com/api/3/public/candles/BTCUSDT?period=M1&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.hitbtc.com/api/3/public/futures/info/BTCUSDT_PERP"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "htx",
+    "name": "HTX",
+    "kind": "both",
+    "restBase": "https://api.huobi.pro",
+    "docs": "https://huobiapi.github.io/docs/spot/v1/en/#get-latest-tickers-for-all-pairs",
+    "tickers": {
+      "method": "GET",
+      "path": "/market/tickers",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "close",
+          "baseVolume": "amount",
+          "quoteVolume": "vol",
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.huobi.pro/v1/common/symbols",
+      "list": "data",
+      "symbol": "symbol",
+      "base": "base-currency",
+      "quote": "quote-currency"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/market/history/kline?symbol={symbol}&period={interval}&size={limit}",
+      "intervals": [
+        "1min",
+        "5min",
+        "15min",
+        "30min",
+        "60min",
+        "4hour",
+        "1day",
+        "1week",
+        "1mon"
+      ],
+      "maxLimit": 2000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://api.huobi.pro/ws",
+      "subscribe": {
+        "sub": "market.{lowerSymbol}.detail",
+        "id": "1"
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.hbdm.com/linear-swap-api/v1/swap_funding_rate?contract_code={symbol}",
+        "body": null,
+        "field": "funding_rate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.hbdm.com/linear-swap-api/v1/swap_open_interest?contract_code={symbol}",
+        "body": null,
+        "field": "volume"
+      }
+    },
+    "terms": {
+      "url": "https://www.htx.com/support/360000298561",
+      "redistribution": "unclear",
+      "note": "The platform user agreement is published. An explicit permission to redistribute ticker data is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.huobi.pro/market/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.huobi.pro/v1/common/symbols"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.huobi.pro/market/history/kline?symbol=btcusdt&period=1min&size=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.hbdm.com/linear-swap-api/v1/swap_funding_rate?contract_code=BTC-USDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.hbdm.com/linear-swap-api/v1/swap_open_interest?contract_code=BTC-USDT"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "hyperliquid",
+    "name": "Hyperliquid",
+    "kind": "derivatives",
+    "restBase": "https://api.hyperliquid.xyz",
+    "docs": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals",
+    "tickers": {
+      "method": "POST",
+      "path": "/info",
+      "body": {
+        "type": "metaAndAssetCtxs"
+      },
+      "mapping": {
+        "list": "1",
+        "rows": "array",
+        "fields": {
+          "symbol": "$join.name",
+          "last": null,
+          "baseVolume": "dayBaseVlm",
+          "quoteVolume": "dayNtlVlm",
+          "bid": null,
+          "ask": null,
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "prevDayPx",
+          "referencePrice": "markPx"
+        },
+        "filter": null,
+        "joinByIndex": "0.universe"
+      }
+    },
+    "symbols": {
+      "mode": "fixed-quote",
+      "quote": "USDC"
+    },
+    "candles": {
+      "method": "POST",
+      "path": "/info",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "8h",
+        "12h",
+        "1d",
+        "3d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 5000,
+      "body": {
+        "type": "candleSnapshot",
+        "req": {
+          "coin": "{symbol}",
+          "interval": "{interval}",
+          "startTime": "{startMs}",
+          "endTime": "{endMs}"
+        }
+      }
+    },
+    "websocket": {
+      "url": "wss://api.hyperliquid.xyz/ws",
+      "subscribe": {
+        "method": "subscribe",
+        "subscription": {
+          "type": "activeAssetCtx",
+          "coin": "{base}"
+        }
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": 1200,
+      "tickerWeight": 20,
+      "note": "IP weight budget. metaAndAssetCtxs is a 20-weight info request."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "POST",
+        "url": "https://api.hyperliquid.xyz/info",
+        "body": {
+          "type": "metaAndAssetCtxs"
+        },
+        "field": "funding"
+      },
+      "openInterest": {
+        "method": "POST",
+        "url": "https://api.hyperliquid.xyz/info",
+        "body": {
+          "type": "metaAndAssetCtxs"
+        },
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://app.hyperliquid.xyz/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "POST",
+          "url": "https://api.hyperliquid.xyz/info",
+          "date": "2026-11-19"
+        }
+      ]
+    },
+    "note": "Perpetual default DEX. Join the second response array by index to the first element’s universe. markPx is a reference price. Spot markets are the separate hyperliquid-spot record."
+  },
+  {
+    "id": "hyperliquid-spot",
+    "name": "Hyperliquid Spot",
+    "kind": "spot",
+    "restBase": "https://api.hyperliquid.xyz",
+    "docs": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/spot",
+    "tickers": {
+      "method": "POST",
+      "path": "/info",
+      "body": {
+        "type": "spotMetaAndAssetCtxs"
+      },
+      "mapping": {
+        "list": "1",
+        "rows": "array",
+        "fields": {
+          "symbol": "coin",
+          "last": "midPx",
+          "baseVolume": "dayBaseVlm",
+          "quoteVolume": "dayNtlVlm",
+          "bid": null,
+          "ask": null,
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "prevDayPx",
+          "referencePrice": "markPx"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "index-pairs",
+      "universe": "0.universe",
+      "tokens": "0.tokens"
+    },
+    "candles": {
+      "method": "POST",
+      "path": "/info",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "8h",
+        "12h",
+        "1d",
+        "3d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 5000,
+      "body": {
+        "type": "candleSnapshot",
+        "req": {
+          "coin": "{symbol}",
+          "interval": "{interval}",
+          "startTime": "{startMs}",
+          "endTime": "{endMs}"
+        }
+      }
+    },
+    "websocket": null,
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": 1200,
+      "tickerWeight": 20,
+      "note": "IP weight budget shared with the hyperliquid perpetuals record. spotMetaAndAssetCtxs is a 20-weight info request."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://app.hyperliquid.xyz/terms",
+      "redistribution": "restricted",
+      "note": "The public terms page did not expose a market-data redistribution grant (the perpetuals record says unclear). Spot observations and listings are kept local until a grant is established."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "POST",
+          "url": "https://api.hyperliquid.xyz/info",
+          "date": "2026-11-19"
+        }
+      ]
+    },
+    "note": "HyperCore spot order books. A context row names its pair in coin (PURR/USDC or @<pair index>); the pair’s two token indices resolve to names through spotMeta.tokens by their index field, not by array position. Rows whose coin is not a spot pair (#…) are skipped. midPx is the book mid; markPx is the fallback reference price. candleSnapshot takes the raw coin name."
+  },
+  {
+    "id": "indodax",
+    "name": "Indodax",
+    "kind": "spot",
+    "restBase": "https://indodax.com",
+    "docs": "https://github.com/btcid/indodax-official-api-docs/blob/master/Public-RestAPI.md#ticker-all",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/tickers",
+      "body": null,
+      "mapping": {
+        "list": "tickers",
+        "rows": "object",
+        "fields": {
+          "symbol": "$key",
+          "last": "last",
+          "baseVolume": "vol_{base}",
+          "quoteVolume": "vol_{quote}",
+          "bid": "buy",
+          "ask": "sell",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/tradingview/history_v2?symbol={symbol}&tf={interval}&from={startSec}&to={endSec}",
+      "intervals": [
+        "1",
+        "15",
+        "30",
+        "60",
+        "240",
+        "1D",
+        "3D",
+        "1W"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": null,
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://indodax.com/terms",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 302. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://indodax.com/api/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://indodax.com/tradingview/history_v2?symbol=BTCIDR&tf=1&from=1795046835&to=1795047135"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "kraken",
+    "name": "Kraken",
+    "kind": "both",
+    "restBase": "https://api.kraken.com",
+    "docs": "https://docs.kraken.com/api-reference/market-data/get-ticker-information",
+    "tickers": {
+      "method": "GET",
+      "path": "/0/public/Ticker",
+      "body": null,
+      "mapping": {
+        "list": "result",
+        "rows": "object",
+        "fields": {
+          "symbol": "$key",
+          "last": "c.0",
+          "baseVolume": "v.1",
+          "quoteVolume": null,
+          "bid": "b.0",
+          "ask": "a.0",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.kraken.com/0/public/AssetPairs",
+      "list": "result",
+      "symbol": "$key",
+      "base": "base",
+      "quote": "quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/0/public/OHLC?pair={symbol}&interval={interval}",
+      "intervals": [
+        "1",
+        "5",
+        "15",
+        "30",
+        "60",
+        "240",
+        "1440",
+        "10080",
+        "21600"
+      ],
+      "maxLimit": 720,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.kraken.com/v2",
+      "subscribe": {
+        "method": "subscribe",
+        "params": {
+          "channel": "ticker",
+          "symbol": [
+            "{wsSymbol}"
+          ]
+        }
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public OHLC and trades are throttled by IP and pair. Other public routes use IP."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://futures.kraken.com/derivatives/api/v3/tickers/{symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://futures.kraken.com/derivatives/api/v3/tickers/{symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://www.kraken.com/legal/global-terms",
+      "redistribution": "restricted",
+      "note": "Global terms restrict distributing or making Kraken content available to third parties."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.kraken.com/0/public/Ticker"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.kraken.com/0/public/AssetPairs"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=1"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://futures.kraken.com/derivatives/api/v3/tickers/PF_XBTUSD"
+        }
+      ]
+    },
+    "note": "AssetPairs keys match REST ticker keys. wsname provides display currency aliases."
+  },
+  {
+    "id": "kraken-futures",
+    "name": "Kraken Futures",
+    "kind": "derivatives",
+    "restBase": "https://futures.kraken.com",
+    "docs": "https://docs.kraken.com/api/docs/futures-api/trading/get-tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/derivatives/api/v3/tickers",
+      "body": null,
+      "mapping": {
+        "list": "tickers",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "last",
+          "baseVolume": null,
+          "quoteVolume": "volumeQuote",
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open24h"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "pair-field",
+      "field": "pair",
+      "separator": ":"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/charts/v1/trade/{symbol}/{interval}?from={startSec}&to={endSec}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "4h",
+        "12h",
+        "1d",
+        "1w"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://futures.kraken.com/ws/v1",
+      "subscribe": {
+        "event": "subscribe",
+        "feed": "ticker",
+        "product_ids": [
+          "{symbol}"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://futures.kraken.com/derivatives/api/v3/tickers/{symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://futures.kraken.com/derivatives/api/v3/tickers/{symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://www.kraken.com/legal/global-terms",
+      "redistribution": "restricted",
+      "note": "Global terms restrict distributing or making Kraken content available to third parties."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://futures.kraken.com/derivatives/api/v3/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://futures.kraken.com/api/charts/v1/trade/PI_XBTUSD/1m?from=1795046714&to=1795047014"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://futures.kraken.com/derivatives/api/v3/tickers/PF_XBTUSD"
+        }
+      ]
+    },
+    "note": "vol24h is a contract count. fundingRate is absolute funding per contract. relativeFundingRate is the corresponding fraction."
+  },
+  {
+    "id": "kucoin",
+    "name": "KuCoin",
+    "kind": "both",
+    "restBase": "https://api.kucoin.com",
+    "docs": "https://www.kucoin.com/docs-new/rest/spot-trading/market-data/get-all-tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v1/market/allTickers",
+      "body": null,
+      "mapping": {
+        "list": "data.ticker",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "last",
+          "baseVolume": "vol",
+          "quoteVolume": "volValue",
+          "bid": "buy",
+          "ask": "sell",
+          "change24h": "changeRate",
+          "changeUnit": "ratio",
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "-",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v1/market/candles?symbol={symbol}&type={interval}&startAt={startSec}&endAt={endSec}",
+      "intervals": [
+        "1min",
+        "3min",
+        "5min",
+        "15min",
+        "30min",
+        "1hour",
+        "2hour",
+        "4hour",
+        "6hour",
+        "8hour",
+        "12hour",
+        "1day",
+        "1week"
+      ],
+      "maxLimit": 1500,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://{instanceAuthorityAndPath}?token={token}&connectId={connectId}",
+      "subscribe": {
+        "id": "1",
+        "type": "subscribe",
+        "topic": "/market/ticker:all",
+        "response": true
+      },
+      "bootstrap": {
+        "method": "POST",
+        "url": "https://api.kucoin.com/api/v1/bullet-public",
+        "endpointField": "data.instanceServers.0.endpoint",
+        "tokenField": "data.token"
+      }
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": 4000,
+      "tickerWeight": 15,
+      "note": "Public pool returned 2,000 weight per 30 s. All tickers consumed 15."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api-futures.kucoin.com/api/v1/contracts/{symbol}",
+        "body": null,
+        "field": "fundingFeeRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api-futures.kucoin.com/api/v1/contracts/{symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://www.kucoin.com/legal/terms-of-use?lang=en_US&",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.kucoin.com/api/v1/market/allTickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.kucoin.com/api/v1/market/candles?symbol=BTC-USDT&type=1min&startAt=1795046712&endAt=1795047012"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-futures.kucoin.com/api/v1/contracts/XBTUSDTM"
+        }
+      ]
+    },
+    "note": "Public WebSocket bootstrap returns a short-lived token and exact instanceServers[].endpoint. Append token and connectId to that endpoint."
+  },
+  {
+    "id": "mexc",
+    "name": "MEXC",
+    "kind": "both",
+    "restBase": "https://api.mexc.com",
+    "docs": "https://www.mexc.com/api-docs/spot-v3/market-data-endpoints/api-24hr-ticker-price-change-statistics",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v3/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bidPrice",
+          "ask": "askPrice",
+          "change24h": "priceChangePercent",
+          "changeUnit": "ratio",
+          "open24h": "openPrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.mexc.com/api/v3/exchangeInfo",
+      "list": "symbols",
+      "symbol": "symbol",
+      "base": "baseAsset",
+      "quote": "quoteAsset"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "60m",
+        "4h",
+        "1d",
+        "1W",
+        "1M"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://wbs-api.mexc.com/ws",
+      "subscribe": {
+        "method": "SUBSCRIPTION",
+        "params": [
+          "spot@public.aggre.bookTicker.v3.api.pb@100ms@{symbol}"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.mexc.com/api/v1/contract/ticker?symbol={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.mexc.com/api/v1/contract/ticker?symbol={symbol}",
+        "body": null,
+        "field": "holdVol"
+      }
+    },
+    "terms": {
+      "url": "https://www.mexc.com/terms",
+      "redistribution": "restricted",
+      "note": "Commercial feeds or streaming services using MEXC market data require written consent."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.mexc.com/api/v3/ticker/24hr"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.mexc.com/api/v3/exchangeInfo?symbol=BTCUSDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.mexc.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.mexc.com/api/v1/contract/ticker?symbol=BTC_USDT"
+        }
+      ]
+    },
+    "note": "Spot book ticker stream uses binary Protobuf."
+  },
+  {
+    "id": "okx",
+    "name": "OKX",
+    "kind": "both",
+    "restBase": "https://www.okx.com",
+    "docs": "https://www.okx.com/docs-v5/en/#order-book-trading-market-data-get-tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v5/market/tickers?instType=SPOT",
+      "body": null,
+      "mapping": {
+        "list": "data",
+        "rows": "array",
+        "fields": {
+          "symbol": "instId",
+          "last": "last",
+          "baseVolume": "vol24h",
+          "quoteVolume": "volCcy24h",
+          "bid": "bidPx",
+          "ask": "askPx",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open24h"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "-",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v5/market/candles?instId={symbol}&bar={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1H",
+        "2H",
+        "4H",
+        "6H",
+        "12H",
+        "1D",
+        "1W",
+        "1M"
+      ],
+      "maxLimit": 300,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.okx.com:8443/ws/v5/public",
+      "subscribe": {
+        "op": "subscribe",
+        "args": [
+          {
+            "channel": "tickers",
+            "instId": "{symbol}"
+          }
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 600,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "20 requests per 2 s per IP for market/tickers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://www.okx.com/api/v5/public/funding-rate?instId={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId={symbol}",
+        "body": null,
+        "field": "oi"
+      }
+    },
+    "terms": {
+      "url": "https://www.okx.com/en-eu/help/okx-api-agreement",
+      "redistribution": "restricted",
+      "note": "Section 9.4 limits personal market-data use and requires written approval for redistribution."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://www.okx.com/api/v5/market/tickers?instType=SPOT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://www.okx.com/api/v5/market/candles?instId=BTC-USDT&bar=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USDT-SWAP"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://www.okx.com/api/v5/public/open-interest?instType=SWAP&instId=BTC-USDT-SWAP"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "ourbit",
+    "name": "Ourbit",
+    "kind": "both",
+    "restBase": "https://api.ourbit.com",
+    "docs": "https://github.com/ourbitdevelop/ourbit-api-postman",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v3/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bidPrice",
+          "ask": "askPrice",
+          "change24h": "priceChangePercent",
+          "changeUnit": "ratio",
+          "open24h": "openPrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.ourbit.com/api/v3/exchangeInfo",
+      "list": "symbols",
+      "symbol": "symbol",
+      "base": "baseAsset",
+      "quote": "quoteAsset"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "60m",
+        "1d"
+      ],
+      "body": null,
+      "maxLimit": null
+    },
+    "websocket": {
+      "url": "wss://wbs.ourbit.com/ws",
+      "subscribe": {
+        "method": "SUBSCRIPTION",
+        "params": [
+          "spot@public.bookTicker.v3.api@{symbol}"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "The public exchangeInfo response returned an empty rateLimits array."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://futures.ourbit.com/api/v1/contract/ticker?symbol={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://futures.ourbit.com/api/v1/contract/ticker?symbol={symbol}",
+        "body": null,
+        "field": "holdVol"
+      }
+    },
+    "terms": {
+      "url": "https://www.ourbit.com/terms",
+      "redistribution": "restricted",
+      "note": "The agreement requires written consent for commercial data feeds and streaming services based on Ourbit market data."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.ourbit.com/api/v3/ticker/24hr"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.ourbit.com/api/v3/exchangeInfo?symbol=BTCUSDT"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.ourbit.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=2"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.ourbit.com/api/v3/klines?symbol=BTCUSDT&interval=60m&limit=2"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.ourbit.com/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=2"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://futures.ourbit.com/api/v1/contract/ticker?symbol=BTC_USDT"
+        }
+      ]
+    },
+    "note": "The spot change field is a fraction. Use BTC_USDT-style symbols on the futures route."
+  },
+  {
+    "id": "p2b",
+    "name": "P2B",
+    "kind": "spot",
+    "restBase": "https://api.p2pb2b.com",
+    "docs": "https://github.com/P2B-team/p2b-api-docs/blob/master/api-doc.md",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v2/public/tickers",
+      "body": null,
+      "mapping": {
+        "list": "result",
+        "rows": "object",
+        "fields": {
+          "symbol": "$key",
+          "last": "ticker.last",
+          "baseVolume": "ticker.vol",
+          "quoteVolume": "ticker.deal",
+          "bid": "ticker.bid",
+          "ask": "ticker.ask",
+          "change24h": "ticker.change",
+          "changeUnit": "percent",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v2/public/market/kline?market={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "1h",
+        "1d"
+      ],
+      "body": null,
+      "maxLimit": 500
+    },
+    "websocket": {
+      "url": "wss://apiws.p2pb2b.com/",
+      "subscribe": {
+        "method": "state.subscribe",
+        "params": [
+          "{symbol}"
+        ],
+        "id": 1
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public market quota unconfirmed. The documented 10 requests per second applies to protected routes."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://p2pb2b.com/terms-of-use/",
+      "redistribution": "restricted",
+      "note": "The agreement prohibits republishing, transmitting or distributing site content without authorization."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "method": "GET",
+          "date": "2026-11-18",
+          "url": "https://api.p2pb2b.com/api/v2/public/tickers"
+        },
+        {
+          "method": "GET",
+          "date": "2026-11-19",
+          "url": "https://api.p2pb2b.com/api/v2/public/market/kline?market=BTC_USDT&interval=1m&limit=2"
+        }
+      ]
+    },
+    "note": "Candle limits round up in steps of 50 with a cap of 500."
+  },
+  {
+    "id": "paradex",
+    "name": "Paradex",
+    "kind": "derivatives",
+    "restBase": "https://api.prod.paradex.trade",
+    "docs": "https://docs.paradex.trade/api/prod/markets/get-markets-summary",
+    "tickers": {
+      "method": "GET",
+      "path": "/v1/markets/summary?market=ALL",
+      "body": null,
+      "mapping": {
+        "list": "results",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "last_traded_price",
+          "baseVolume": null,
+          "quoteVolume": "volume_24h",
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": "price_change_rate_24h",
+          "changeUnit": "ratio",
+          "open24h": null,
+          "referencePrice": "mark_price"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.prod.paradex.trade/v1/markets?asset_kind=PERP",
+      "list": "results",
+      "symbol": "symbol",
+      "base": "base_currency",
+      "quote": "quote_currency"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v1/markets/klines?symbol={symbol}&resolution={interval}&start_at={startMs}&end_at={endMs}",
+      "intervals": [
+        "1",
+        "3",
+        "5",
+        "15",
+        "30",
+        "60"
+      ],
+      "maxLimit": null,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.api.prod.paradex.trade/v1",
+      "subscribe": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "subscribe",
+        "params": {
+          "channel": "markets_summary"
+        }
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 3000,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Market summary returned 50 requests per one-second window."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.prod.paradex.trade/v1/markets/summary?market={symbol}",
+        "body": null,
+        "field": "funding_rate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.prod.paradex.trade/v1/markets/summary?market={symbol}",
+        "body": null,
+        "field": "open_interest"
+      }
+    },
+    "terms": {
+      "url": "https://paradex.trade/terms-of-service",
+      "redistribution": "unclear",
+      "note": "The terms restrict third-party access through a user. An explicit grant covering redistribution of prices is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.prod.paradex.trade/v1/markets/summary?market=ALL"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.prod.paradex.trade/v1/markets/summary?market=BTC-USD-PERP"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.prod.paradex.trade/v1/markets?market=BTC-USD-PERP"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.prod.paradex.trade/v1/markets/klines?symbol=BTC-USD-PERP&resolution=60&start_at=1794960000000&end_at=1795046400000"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.prod.paradex.trade/v1/markets?asset_kind=PERP"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "phemex",
+    "name": "Phemex",
+    "kind": "both",
+    "restBase": "https://api.phemex.com",
+    "docs": "https://phemex-docs.github.io/#query-24-hours-ticker-for-all-symbols-2",
+    "tickers": {
+      "method": "GET",
+      "path": "/md/v3/ticker/24hr/all",
+      "body": null,
+      "mapping": {
+        "list": "result",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastRp",
+          "baseVolume": "volumeRq",
+          "quoteVolume": "turnoverRv",
+          "bid": "bidRp",
+          "ask": "askRp",
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "openRp"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.phemex.com/public/products",
+      "list": "data.perpProductsV2",
+      "symbol": "symbol",
+      "base": "contractUnderlyingAssets",
+      "quote": "quoteCurrency"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/exchange/public/md/v2/kline/list?symbol={symbol}&resolution={interval}&from={startSec}&to={endSec}",
+      "intervals": [
+        "60",
+        "300",
+        "900",
+        "1800",
+        "3600",
+        "14400",
+        "86400",
+        "604800"
+      ],
+      "maxLimit": 2000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.phemex.com",
+      "subscribe": {
+        "id": 1,
+        "method": "perp_market24h_pack_p.subscribe",
+        "params": []
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.phemex.com/md/v3/ticker/24hr/all",
+        "body": null,
+        "field": "fundingRateRr"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.phemex.com/md/v3/ticker/24hr/all",
+        "body": null,
+        "field": "openInterestRv"
+      }
+    },
+    "terms": {
+      "url": "https://phemex.com/help-center/phemex-terms-of-use",
+      "redistribution": "restricted",
+      "note": "The terms prohibit passing on asset prices and require consent for retransmitting exchange information."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.phemex.com/md/v3/ticker/24hr/all"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.phemex.com/public/products"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.phemex.com/exchange/public/md/v2/kline/list?symbol=BTCUSDT&resolution=60&from=1795046835&to=1795047135"
+        }
+      ]
+    },
+    "note": "Bulk ticker covers linear perpetuals. Contract units are market-specific."
+  },
+  {
+    "id": "pionex",
+    "name": "Pionex",
+    "kind": "both",
+    "restBase": "https://api.pionex.com",
+    "docs": "https://pionex-doc.gitbook.io/apidocs",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v1/market/tickers",
+      "body": null,
+      "mapping": {
+        "list": "data.tickers",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "close",
+          "baseVolume": "volume",
+          "quoteVolume": "amount",
+          "bid": null,
+          "ask": null,
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v1/market/klines?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1M",
+        "5M",
+        "15M",
+        "30M",
+        "60M",
+        "4H",
+        "8H",
+        "12H",
+        "1D"
+      ],
+      "maxLimit": 500,
+      "body": null
+    },
+    "websocket": null,
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "IP bucket reports remaining tokens and the last consumption time."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.pionex.com/api/v1/market/fundingRates?symbol={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": null
+    },
+    "terms": {
+      "url": "https://www.pionex.com/en/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.pionex.com/api/v1/market/tickers"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.pionex.com/api/v1/market/klines?symbol=BTC_USDT&interval=1M&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.pionex.com/api/v1/market/fundingRates?symbol=BTC_USDT_PERP"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "poloniex",
+    "name": "Poloniex",
+    "kind": "both",
+    "restBase": "https://api.poloniex.com",
+    "docs": "https://api-docs.poloniex.com/spot/api/public/market-data#ticker",
+    "tickers": {
+      "method": "GET",
+      "path": "/markets/ticker24h",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "close",
+          "baseVolume": "quantity",
+          "quoteVolume": "amount",
+          "bid": "bid",
+          "ask": "ask",
+          "change24h": "dailyChange",
+          "changeUnit": "ratio",
+          "open24h": "open"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/markets/{symbol}/candles?interval={interval}&limit={limit}",
+      "intervals": [
+        "MINUTE_1",
+        "MINUTE_5",
+        "MINUTE_10",
+        "MINUTE_15",
+        "MINUTE_30",
+        "HOUR_1",
+        "HOUR_2",
+        "HOUR_4",
+        "HOUR_6",
+        "HOUR_12",
+        "DAY_1",
+        "DAY_3",
+        "WEEK_1",
+        "MONTH_1"
+      ],
+      "maxLimit": 500,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws.poloniex.com/ws/public",
+      "subscribe": {
+        "event": "subscribe",
+        "channel": [
+          "ticker"
+        ],
+        "symbols": [
+          "{symbol}"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.poloniex.com/v3/market/fundingRate?symbol={symbol}",
+        "body": null,
+        "field": "fR"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api.poloniex.com/v3/market/openInterest?symbol={symbol}",
+        "body": null,
+        "field": "oInterest"
+      }
+    },
+    "terms": {
+      "url": "https://www.poloniex.com/support/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.poloniex.com/markets/ticker24h"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.poloniex.com/markets/BTC_USDT/candles?interval=MINUTE_1&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.poloniex.com/v3/market/fundingRate?symbol=BTC_USDT_PERP"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.poloniex.com/v3/market/openInterest?symbol=BTC_USDT_PERP"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "toobit",
+    "name": "Toobit",
+    "kind": "both",
+    "restBase": "https://api.toobit.com",
+    "docs": "https://api-docs.toobit.com/api/spot-market-data.html#_24hr-ticker-price-change-statistics",
+    "tickers": {
+      "method": "GET",
+      "path": "/quote/v1/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "s",
+          "last": "c",
+          "baseVolume": "v",
+          "quoteVolume": "qv",
+          "bid": null,
+          "ask": null,
+          "change24h": "pcp",
+          "changeUnit": "ratio",
+          "open24h": "o"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api.toobit.com/api/v1/exchangeInfo",
+      "list": "symbols",
+      "symbol": "symbol",
+      "base": "baseAsset",
+      "quote": "quoteAsset"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/quote/v1/klines?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "8h",
+        "12h",
+        "1d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://stream.toobit.com/quote/ws/v1",
+      "subscribe": {
+        "symbol": "{symbol}",
+        "topic": "realtimes",
+        "event": "sub",
+        "params": {
+          "realtimeInterval": "24h"
+        }
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public quota and weights vary by route and IP."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api.toobit.com/api/v1/futures/fundingRate?symbol={symbol}",
+        "body": null,
+        "field": "rate"
+      },
+      "openInterest": null
+    },
+    "terms": {
+      "url": "https://www.toobit.com/en-US/terms",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.toobit.com/quote/v1/ticker/24hr"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.toobit.com/api/v1/exchangeInfo"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.toobit.com/quote/v1/klines?symbol=BTCUSDT&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.toobit.com/api/v1/futures/fundingRate?symbol=BTC-SWAP-USDT"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "upbit",
+    "name": "Upbit",
+    "kind": "spot",
+    "restBase": "https://api.upbit.com",
+    "docs": "https://docs.upbit.com/kr/reference/list-tickers",
+    "tickers": {
+      "method": "GET",
+      "path": "/v1/ticker/all?quote_currencies=KRW,BTC,USDT",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "market",
+          "last": "trade_price",
+          "baseVolume": "acc_trade_volume_24h",
+          "quoteVolume": "acc_trade_price_24h",
+          "bid": null,
+          "ask": null,
+          "change24h": null,
+          "changeUnit": null,
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "-",
+      "order": "quote-base"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v1/candles/minutes/{interval}?market={symbol}&count={limit}",
+      "intervals": [
+        "1",
+        "3",
+        "5",
+        "10",
+        "15",
+        "30",
+        "60",
+        "240"
+      ],
+      "maxLimit": 200,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://api.upbit.com/websocket/v1",
+      "subscribe": [
+        {
+          "ticket": "market-data"
+        },
+        {
+          "type": "ticker",
+          "codes": [
+            "{symbol}"
+          ]
+        }
+      ],
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 600,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Ticker group shares 10 requests per second per IP."
+    },
+    "derivatives": null,
+    "terms": {
+      "url": "https://www.upbit.com/terms_of_service/open_api",
+      "redistribution": "unclear",
+      "note": "The public terms page did not expose a market-data redistribution grant in its readable text."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://api.upbit.com/v1/ticker/all?quote_currencies=KRW,BTC,USDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api.upbit.com/v1/candles/minutes/1?market=KRW-BTC&count=2"
+        }
+      ]
+    },
+    "note": "signed_change_rate uses the previous daily close. Volume fields use the rolling 24-hour window."
+  },
+  {
+    "id": "weex",
+    "name": "WEEX",
+    "kind": "both",
+    "restBase": "https://api-spot.weex.com",
+    "docs": "https://www.weex.com/api-doc/spot/MarketDataAPI/GetAllTickerInfo",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v3/market/ticker/24hr",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "array",
+        "fields": {
+          "symbol": "symbol",
+          "last": "lastPrice",
+          "baseVolume": "volume",
+          "quoteVolume": "quoteVolume",
+          "bid": "bidPrice",
+          "ask": "askPrice",
+          "change24h": "priceChangePercent",
+          "changeUnit": "ratio",
+          "open24h": "openPrice"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://api-spot.weex.com/api/v3/exchangeInfo",
+      "list": "symbols",
+      "symbol": "symbol",
+      "base": "baseAsset",
+      "quote": "quoteAsset"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v3/market/klines?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "4h",
+        "1d"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://ws-spot.weex.com/v3/ws/public",
+      "subscribe": {
+        "method": "SUBSCRIBE",
+        "params": [
+          "{lowerSymbol}@ticker"
+        ],
+        "id": 1
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": 3000,
+      "tickerWeight": 2,
+      "note": "Spot ticker headers returned 2 used and 498 remaining per 10 seconds."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://api-contract.weex.com/capi/v3/market/premiumIndex?symbol={symbol}",
+        "body": null,
+        "field": "lastFundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://api-contract.weex.com/capi/v3/market/openInterest?symbol={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://weexsupport.zendesk.com/hc/zh-cn/articles/48675277893017",
+      "redistribution": "unclear",
+      "note": "The Chinese spot trading agreement covers exchange services. A downstream market-data grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-spot.weex.com/api/v3/market/ticker/24hr"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-spot.weex.com/api/v3/exchangeInfo"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-spot.weex.com/api/v3/market/klines?symbol=BTCUSDT&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-contract.weex.com/capi/v3/market/premiumIndex?symbol=BTCUSDT"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://api-contract.weex.com/capi/v3/market/openInterest?symbol=BTCUSDT"
+        }
+      ]
+    },
+    "note": null
+  },
+  {
+    "id": "whitebit",
+    "name": "WhiteBIT",
+    "kind": "both",
+    "restBase": "https://whitebit.com",
+    "docs": "https://docs.whitebit.com/public/http-v4/#market-activity",
+    "tickers": {
+      "method": "GET",
+      "path": "/api/v4/public/ticker",
+      "body": null,
+      "mapping": {
+        "list": ".",
+        "rows": "object",
+        "fields": {
+          "symbol": "$key",
+          "last": "last_price",
+          "baseVolume": "base_volume",
+          "quoteVolume": "quote_volume",
+          "bid": null,
+          "ask": null,
+          "change24h": "change",
+          "changeUnit": "percent",
+          "open24h": null
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "catalog",
+      "url": "https://whitebit.com/api/v4/public/markets",
+      "list": ".",
+      "symbol": "name",
+      "base": "stock",
+      "quote": "money"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/api/v1/public/kline?market={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "8h",
+        "12h",
+        "1d",
+        "3d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 1440,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://api.whitebit.com/ws",
+      "subscribe": {
+        "id": 1,
+        "method": "market_subscribe",
+        "params": [
+          "{symbol}"
+        ]
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": null,
+      "weightPerMinute": null,
+      "tickerWeight": null,
+      "note": "Public route quota is unconfirmed. Honor rate-limit and retry headers."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://whitebit.com/api/v4/public/futures",
+        "body": null,
+        "field": "funding_rate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://whitebit.com/api/v4/public/futures",
+        "body": null,
+        "field": "open_interest"
+      }
+    },
+    "terms": {
+      "url": "https://whitebit.com/terms",
+      "redistribution": "unclear",
+      "note": "Public terms check returned HTTP 403. An onward-distribution grant is unconfirmed."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://whitebit.com/api/v4/public/ticker"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://whitebit.com/api/v1/public/kline?market=BTC_USDT&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://whitebit.com/api/v4/public/futures"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://whitebit.com/api/v4/public/markets"
+        }
+      ]
+    },
+    "note": "Underscore-delimited _PERP symbols are derivatives and require the futures instrument metadata."
+  },
+  {
+    "id": "xt",
+    "name": "XT.COM",
+    "kind": "both",
+    "restBase": "https://sapi.xt.com",
+    "docs": "https://doc.xt.com/docs/spot/Market/Get24hStatisticsTicker",
+    "tickers": {
+      "method": "GET",
+      "path": "/v4/public/ticker/24h",
+      "body": null,
+      "mapping": {
+        "list": "result",
+        "rows": "array",
+        "fields": {
+          "symbol": "s",
+          "last": "c",
+          "baseVolume": "q",
+          "quoteVolume": "v",
+          "bid": null,
+          "ask": null,
+          "change24h": "cr",
+          "changeUnit": "ratio",
+          "open24h": "o"
+        },
+        "filter": null,
+        "joinByIndex": null
+      }
+    },
+    "symbols": {
+      "mode": "delimiter",
+      "separator": "_",
+      "order": "base-quote"
+    },
+    "candles": {
+      "method": "GET",
+      "path": "/v4/public/kline?symbol={symbol}&interval={interval}&limit={limit}",
+      "intervals": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "4h",
+        "6h",
+        "8h",
+        "12h",
+        "1d",
+        "3d",
+        "1w",
+        "1M"
+      ],
+      "maxLimit": 1000,
+      "body": null
+    },
+    "websocket": {
+      "url": "wss://stream.xt.com/public",
+      "subscribe": {
+        "method": "subscribe",
+        "params": [
+          "ticker@{symbol}"
+        ],
+        "id": "1"
+      },
+      "bootstrap": null
+    },
+    "rateLimit": {
+      "requestsPerMinute": 600,
+      "weightPerMinute": null,
+      "tickerWeight": 1,
+      "note": "Ticker headers advertise refill of 10/s, burst of 20, cost 1."
+    },
+    "derivatives": {
+      "fundingRate": {
+        "method": "GET",
+        "url": "https://fapi.xt.com/future/market/v1/public/q/funding-rate?symbol={symbol}",
+        "body": null,
+        "field": "fundingRate"
+      },
+      "openInterest": {
+        "method": "GET",
+        "url": "https://fapi.xt.com/future/market/v1/public/contract/open-interest?symbol={symbol}",
+        "body": null,
+        "field": "openInterest"
+      }
+    },
+    "terms": {
+      "url": "https://xtsupport.zendesk.com/hc/zh-cn/articles/900001631023",
+      "redistribution": "restricted",
+      "note": "Section 10.1 of the Chinese user agreement prohibits commercial copying or transmission of covered database materials."
+    },
+    "verified": {
+      "date": "2026-11-19",
+      "successful": [
+        {
+          "date": "2026-11-18",
+          "method": "GET",
+          "url": "https://sapi.xt.com/v4/public/ticker/24h"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://sapi.xt.com/v4/public/kline?symbol=btc_usdt&interval=1m&limit=2"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.xt.com/future/market/v1/public/q/funding-rate?symbol=btc_usdt"
+        },
+        {
+          "date": "2026-11-19",
+          "method": "GET",
+          "url": "https://fapi.xt.com/future/market/v1/public/contract/open-interest?symbol=btc_usdt"
+        }
+      ]
+    },
+    "note": null
+  }
+]

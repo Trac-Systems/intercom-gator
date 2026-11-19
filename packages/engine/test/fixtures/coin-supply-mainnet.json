@@ -1,0 +1,302 @@
+{
+  "zcash-ledger": {
+    "id": 1,
+    "result": {
+      "chain": "main",
+      "blocks": 3589807,
+      "headers": 3589807,
+      "chainSupply": {
+        "monitored": true,
+        "chainValueZat": 1705035387803970
+      },
+      "valuePools": [
+        {
+          "id": "transparent",
+          "monitored": true,
+          "chainValueZat": 1203894845911694
+        },
+        {
+          "id": "sprout",
+          "monitored": true,
+          "chainValueZat": 1222421094946
+        },
+        {
+          "id": "sapling",
+          "monitored": true,
+          "chainValueZat": 41786358097983
+        },
+        {
+          "id": "orchard",
+          "monitored": true,
+          "chainValueZat": 31976670248162
+        },
+        {
+          "id": "lockbox",
+          "monitored": true,
+          "chainValueZat": 7733862453597
+        },
+        {
+          "id": "ironwood",
+          "monitored": true,
+          "chainValueZat": 418421229997588
+        }
+      ]
+    }
+  },
+  "etc-blockscout": {
+    "message": "OK",
+    "result": "159075303.949153086677906799",
+    "status": "1"
+  },
+  "monero-emission": {
+    "height": 3809850,
+    "last_timestamp": 1795097124,
+    "total_emission": "18833085134928652887"
+  },
+  "hedera-supply": {
+    "released_supply": "4432761689703852297",
+    "timestamp": "1795096871.143158104",
+    "total_supply": "5000000000000000000"
+  },
+  "bittensor-issuance": {
+    "jsonrpc": "2.0",
+    "result": "0x6c12e9d265b72900",
+    "id": 1
+  },
+  "icp-ledger": [
+    1795096800,
+    "55905534580571279"
+  ],
+  "polkadot-issuance": {
+    "code": 0,
+    "generated_at": 1795097754,
+    "data": {
+      "detail": {
+        "DOT": {
+          "symbol": "DOT",
+          "asset_type": "native",
+          "token_decimals": 10,
+          "total_issuance": "17128453379603095631",
+          "treasury_balance": "214567945405165134"
+        }
+      }
+    }
+  },
+  "kaspa-supply": {
+    "circulatingSupply": "2781811590128163331",
+    "maxSupply": "2870403560500000000"
+  },
+  "algorand-supply": {
+    "Network": "mainnet",
+    "Round": 67105077,
+    "Datetime": "2026-11-19T14:10:00.901167Z",
+    "LiquidSupply": 9081580690133284,
+    "CirculatingSupply": 9081580690133284
+  },
+  "filfox-supply": {
+    "height": 6559699,
+    "timestamp": 1795097370,
+    "totalMaxSupply": "2000000000000000000000000000",
+    "circulatingSupply": "928004480724649128182862744"
+  },
+  "pi-mainnet-supply": {
+    "circulating_supply": 11401653831.367605,
+    "migrated_mining_rewards": 11401653831.367605,
+    "total_circulating_supply": 11401653831.367605,
+    "total_locked": 6022360080.148035,
+    "total_supply": 17541005894.4117,
+    "updated_at": "2026-11-19T13:51:24.291Z"
+  },
+  "pearl-blockbook": {
+    "blockbook": {
+      "coin": "Pearl",
+      "inSync": true,
+      "bestHeight": 145526,
+      "lastBlockTime": "2026-11-19T14:06:58.233937341Z"
+    },
+    "backend": {
+      "chain": "mainnet",
+      "blocks": 145526
+    }
+  },
+  "zilliqa-supply": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": "20650731367.226546319917"
+  },
+  "lunc-bank": {
+    "amount": {
+      "denom": "uluna",
+      "amount": "6442643078351400543"
+    }
+  },
+  "bitfinex-leo": [
+    1795046400000,
+    919857851.9
+  ],
+  "render-foundation": {
+    "solanaCirculatingSupply": 481144915.0816846,
+    "solanaSupply": 487199349.9195227,
+    "totalSupply": 562460114.0832435,
+    "maxSupply": 644168762
+  },
+  "chainlink-supply": {
+    "totalSupply": "1000000000000000000000000000",
+    "circulatingSupply": "766849970424883961240529443",
+    "balances": [
+      {
+        "address": "0x98C63b7B319dFBDF3d811530F2ab9DfE4983Af9D",
+        "balance": "26996168588819470557"
+      },
+      {
+        "address": "0x75398564ce69B7498dA10a11ab06Fd8fF549001c",
+        "balance": "777787700000000000"
+      },
+      {
+        "address": "0x5560d001f977df5e49ead7ab0bdd437c4ee3a99e",
+        "balance": "0"
+      },
+      {
+        "address": "0xbe6977e08d4479c0a6777539ae0e8fa27be4e9d6",
+        "balance": "0"
+      },
+      {
+        "address": "0xdAD22a85ef8310eF582b70e4051E543F3153e11F",
+        "balance": "0"
+      },
+      {
+        "address": "0xe0362f7445e3203a496f6f8b3d51cbb413b69be2",
+        "balance": "1698310000000000000"
+      },
+      {
+        "address": "0x5A8e77bC30948cc9A51aE4E042d96e145648BB4C",
+        "balance": "30000000001610000000000000"
+      },
+      {
+        "address": "0xe0b66bFc7344a80152BfeC954942E2926A6FcA80",
+        "balance": "29400000001610000000000000"
+      },
+      {
+        "address": "0xa42D0A18B834F52e41bEDdEaA2940165db3DA9a3",
+        "balance": "1704999970000000"
+      },
+      {
+        "address": "0x276F695b3B2C7f24E7CF5b9d24e416a7f357aDb7",
+        "balance": "0"
+      },
+      {
+        "address": "0x5Eab1966D5F61E52C22D0279F06f175e36A7181E",
+        "balance": "3000000001610000000000000"
+      },
+      {
+        "address": "0x959815462EeC5fFf387A2e8a6871d94323D371de",
+        "balance": "77787000000000000"
+      },
+      {
+        "address": "0xb9b012cad0A7C1b10CbE33a1B3F623b06fAD1c7C",
+        "balance": "0"
+      },
+      {
+        "address": "0xfB682b0dE4e0093835EA21cfABb5449cA9ac9e5e",
+        "balance": "1850000000000000"
+      },
+      {
+        "address": "0x3264225f2Fd3bb8D5DC50587EA7506aA8638B966",
+        "balance": "0"
+      },
+      {
+        "address": "0x8d34d66bDb2d1d6ACd788A2d73d68e62282332e7",
+        "balance": "1610000000000000"
+      },
+      {
+        "address": "0x4a87ecE3eFffCb012fbE491AA028032e07B6F6cF",
+        "balance": "1735000000000000"
+      },
+      {
+        "address": "0x57Ec4745258e5A4C73d1A82636dc0FE291e3eE9F",
+        "balance": "0"
+      },
+      {
+        "address": "0x37398A324d35c942574650B9eD2987BC640BAD76",
+        "balance": "1610000000000000"
+      },
+      {
+        "address": "0xD321948212663366503E8dCCDE39cc8e71C267c0",
+        "balance": "0"
+      },
+      {
+        "address": "0x55b0ba1994d68C2AB0C01C3332eC9473de296137",
+        "balance": "0"
+      },
+      {
+        "address": "0xD48133C96C5FE8d41D0cbD598F65bf4548941e27",
+        "balance": "0"
+      },
+      {
+        "address": "0x9c17f630DBde24eECe8fd248fAA2E51f690FF79B",
+        "balance": "40000000000000"
+      },
+      {
+        "address": "0x35a5dc3FD1210Fe7173aDD3C01144Cf1693B5E45",
+        "balance": "2022749970000000"
+      },
+      {
+        "address": "0x0DFfD343C2D3460a7EAD2797a687304Beb394ce0",
+        "balance": "28750000001610000000000000"
+      },
+      {
+        "address": "0x76287e0F7b107d1C9f8f01D5aFac314Ea8461a04",
+        "balance": "30000000001610000000000000"
+      },
+      {
+        "address": "0x9BBb46637A1Df7CADec2AFcA19C2920CdDCc8Db8",
+        "balance": "30000000001610000000000000"
+      },
+      {
+        "address": "0x7594Eb0ca0a7f313bEFD59AfE9e95c2201a443e4",
+        "balance": "30000000001610000000000000"
+      },
+      {
+        "address": "0x8652Fb672253607c0061677bDCaFb77a324DE081",
+        "balance": "30000000001610000000000000"
+      },
+      {
+        "address": "0x157235A3cc6011d9C26A010875c2550246aAbcCA",
+        "balance": "22000000001610000000000000"
+      },
+      {
+        "address": "0xa71bbBd288a4e288CfDC08bb2E70DCd74Da4486D",
+        "balance": "0"
+      },
+      {
+        "address": "0xEc640A90e9A30072158115B7C0253f2689ee6547",
+        "balance": "0"
+      },
+      {
+        "address": "0x2a6AB3B0C96377bd20AE47E50ae426A8546A4Ae9",
+        "balance": "0"
+      }
+    ]
+  },
+  "wlfi-supply": 31780562427,
+  "htx-tronscan": 888846370538192,
+  "jst-tronscan": 8018019892.341737,
+  "wbt-tronscan": 79375000,
+  "whitechain-issuance": {
+    "primary": {
+      "message": "OK",
+      "result": "273625000891750309520656226",
+      "status": "1"
+    },
+    "supplement": {
+      "hash": "0x4200000000000000000000000000000000000029",
+      "coin_balance": "200000000000000000000000000",
+      "implementations": [
+        {
+          "address_hash": "0xC0d3c0D3C0d3c0D3C0d3c0D3C0d3c0D3C0d30029",
+          "name": "NativeAssetLiquidity"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="64" height="64" role="img" aria-labelledby="t">
+<title id="t">intercom-gator mark, direction Clip</title>
+<style>.g{fill:#eae7ff}.a{fill:#6a35d9}.b{fill:#9e90e7}@media (prefers-color-scheme:dark){.g{fill:#2f264e}.a{fill:#a88fff}.b{fill:#7d6abf}}</style>
+<path class="g" d="M0 0H24L32 8V32H0Z"/>
+<path class="b" d="M0 22.5H12L14.5 20L17 22.5L19.5 20L22 22.5L24.5 20L27 22.5H28A4 4 0 0 1 24 26.5H0Z"/>
+<path class="a" fill-rule="evenodd" transform="rotate(-17 4 20.5)" d="M0 13.5H3A4 4 0 0 1 11 13.5H21A2 2 0 0 1 25 13.5A5 5 0 0 1 30 18.5H27L24.5 21L22 18.5L19.5 21L17 18.5L14.5 21L12 18.5H0ZM7 10.1A2.6 2.6 0 0 1 7 14.1A2.6 2.6 0 0 1 7 10.1Z"/>
+</svg>

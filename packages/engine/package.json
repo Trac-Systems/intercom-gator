@@ -1,0 +1,10 @@
+{
+  "name": "@gator/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "license": "MIT",
+  "dependencies": { "@gator/social": "0.1.0" },
+  "scripts": { "smoke:live": "node scripts/smoke-live.js" }
+}

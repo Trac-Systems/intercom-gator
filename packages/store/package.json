@@ -1,0 +1,8 @@
+{
+  "name": "@gator/store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "license": "MIT"
+}

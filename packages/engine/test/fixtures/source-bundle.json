@@ -1,0 +1,338 @@
+{
+  "chains": [
+    {
+      "id": "ethereum",
+      "name": "Ethereum Mainnet",
+      "family": "evm",
+      "chainId": 1,
+      "blockTimeSeconds": 12.0,
+      "multicall3": "0xca11bde05977b3631167028862be2a173976ca11",
+      "endpoints": [
+        {
+          "url": "https://1rpc.io/eth",
+          "wss": null,
+          "protocol": "evm-jsonrpc",
+          "limits": null,
+          "getLogs": {
+            "allowed": null,
+            "maxRange": null
+          },
+          "probe": "eth_chainId",
+          "verified": {
+            "date": "2026-11-18",
+            "ok": true,
+            "result": "0x1"
+          }
+        }
+      ]
+    }
+  ],
+  "exchanges": [
+    {
+      "id": "binance",
+      "name": "Binance",
+      "kind": "both",
+      "restBase": "https://api.binance.com",
+      "tickers": {
+        "method": "GET",
+        "path": "/api/v3/ticker/24hr",
+        "body": null,
+        "mapping": {
+          "list": ".",
+          "rows": "array",
+          "fields": {
+            "symbol": "symbol",
+            "last": "lastPrice",
+            "baseVolume": "volume",
+            "quoteVolume": "quoteVolume",
+            "bid": "bidPrice",
+            "ask": "askPrice",
+            "change24h": "priceChangePercent",
+            "changeUnit": "percent",
+            "open24h": "openPrice"
+          },
+          "filter": null,
+          "joinByIndex": null
+        }
+      },
+      "symbols": {
+        "mode": "catalog",
+        "url": "https://api.binance.com/api/v3/exchangeInfo",
+        "list": "symbols",
+        "symbol": "symbol",
+        "base": "baseAsset",
+        "quote": "quoteAsset"
+      },
+      "rateLimit": {
+        "requestsPerMinute": 60000,
+        "weightPerMinute": 6000,
+        "tickerWeight": 80,
+        "note": "Spot exchangeInfo reports both quotas. All-symbol 24hr ticker costs 80 units."
+      },
+      "candles": {
+        "method": "GET",
+        "path": "/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}",
+        "intervals": [
+          "1m",
+          "3m",
+          "5m",
+          "15m",
+          "30m",
+          "1h",
+          "2h",
+          "4h",
+          "6h",
+          "8h",
+          "12h",
+          "1d",
+          "3d",
+          "1w",
+          "1M"
+        ],
+        "maxLimit": 1000,
+        "body": null
+      },
+      "derivatives": null
+    },
+    {
+      "id": "bybit",
+      "name": "Bybit",
+      "kind": "both",
+      "restBase": "https://api.bybit.com",
+      "tickers": {
+        "method": "GET",
+        "path": "/v5/market/tickers?category=spot",
+        "body": null,
+        "mapping": {
+          "list": "result.list",
+          "rows": "array",
+          "fields": {
+            "symbol": "symbol",
+            "last": "lastPrice",
+            "baseVolume": "volume24h",
+            "quoteVolume": "turnover24h",
+            "bid": "bid1Price",
+            "ask": "ask1Price",
+            "change24h": "price24hPcnt",
+            "changeUnit": "ratio",
+            "open24h": "prevPrice24h"
+          },
+          "filter": null,
+          "joinByIndex": null
+        }
+      },
+      "symbols": {
+        "mode": "catalog",
+        "url": "https://api.bybit.com/v5/market/instruments-info?category=spot",
+        "list": "result.list",
+        "symbol": "symbol",
+        "base": "baseCoin",
+        "quote": "quoteCoin"
+      },
+      "rateLimit": {
+        "requestsPerMinute": 7200,
+        "weightPerMinute": null,
+        "tickerWeight": null,
+        "note": "Shared IP limit of 600 HTTP requests per 5 s."
+      },
+      "candles": null,
+      "derivatives": {
+        "fundingRate": {
+          "method": "GET",
+          "url": "https://api.bybit.com/v5/market/tickers?category=linear&symbol={symbol}",
+          "body": null,
+          "field": "fundingRate"
+        },
+        "openInterest": {
+          "method": "GET",
+          "url": "https://api.bybit.com/v5/market/tickers?category=linear&symbol={symbol}",
+          "body": null,
+          "field": "openInterest"
+        }
+      },
+      "verified": {
+        "successful": [
+          {
+            "date": "2026-11-19",
+            "method": "GET",
+            "url": "https://api.bybit.com/v5/market/tickers?category=linear&symbol=BTCUSDT"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hyperliquid",
+      "name": "Hyperliquid",
+      "kind": "derivatives",
+      "restBase": "https://api.hyperliquid.xyz",
+      "tickers": {
+        "method": "POST",
+        "path": "/info",
+        "body": {
+          "type": "metaAndAssetCtxs"
+        },
+        "mapping": {
+          "list": "1",
+          "rows": "array",
+          "fields": {
+            "symbol": "$join.name",
+            "last": null,
+            "baseVolume": "dayBaseVlm",
+            "quoteVolume": "dayNtlVlm",
+            "bid": null,
+            "ask": null,
+            "change24h": null,
+            "changeUnit": null,
+            "open24h": "prevDayPx",
+            "referencePrice": "markPx"
+          },
+          "filter": null,
+          "joinByIndex": "0.universe"
+        }
+      },
+      "symbols": {
+        "mode": "fixed-quote",
+        "quote": "USDC"
+      },
+      "rateLimit": {
+        "requestsPerMinute": null,
+        "weightPerMinute": 1200,
+        "tickerWeight": 20,
+        "note": "IP weight budget. metaAndAssetCtxs is a 20-weight info request."
+      },
+      "candles": null,
+      "derivatives": {
+        "fundingRate": {
+          "method": "POST",
+          "url": "https://api.hyperliquid.xyz/info",
+          "body": {
+            "type": "metaAndAssetCtxs"
+          },
+          "field": "funding"
+        },
+        "openInterest": {
+          "method": "POST",
+          "url": "https://api.hyperliquid.xyz/info",
+          "body": {
+            "type": "metaAndAssetCtxs"
+          },
+          "field": "openInterest"
+        }
+      }
+    },
+    {
+      "id": "kraken",
+      "name": "Kraken",
+      "kind": "both",
+      "restBase": "https://api.kraken.com",
+      "tickers": {
+        "method": "GET",
+        "path": "/0/public/Ticker",
+        "body": null,
+        "mapping": {
+          "list": "result",
+          "rows": "object",
+          "fields": {
+            "symbol": "$key",
+            "last": "c.0",
+            "baseVolume": "v.1",
+            "quoteVolume": null,
+            "bid": "b.0",
+            "ask": "a.0",
+            "change24h": null,
+            "changeUnit": null,
+            "open24h": null
+          },
+          "filter": null,
+          "joinByIndex": null
+        }
+      },
+      "symbols": {
+        "mode": "catalog",
+        "url": "https://api.kraken.com/0/public/AssetPairs",
+        "list": "result",
+        "symbol": "$key",
+        "base": "base",
+        "quote": "quote"
+      },
+      "rateLimit": {
+        "requestsPerMinute": null,
+        "weightPerMinute": null,
+        "tickerWeight": null,
+        "note": "Public OHLC and trades are throttled by IP and pair. Other public routes use IP."
+      },
+      "candles": null,
+      "derivatives": null
+    }
+  ],
+  "apis": [],
+  "tokens": {
+    "tokens": [
+      {
+        "id": "bitcoin:native",
+        "symbol": "BTC",
+        "name": "Bitcoin",
+        "decimals": 8,
+        "source": "protocol-native",
+        "links": []
+      },
+      {
+        "id": "ethereum:native",
+        "symbol": "ETH",
+        "name": "Ether",
+        "decimals": 18,
+        "source": "ethereum-lists",
+        "links": [
+          "arbitrum:native",
+          "base:native",
+          "blast:native",
+          "linea:native",
+          "optimism:native",
+          "robinhood:native",
+          "scroll:native",
+          "unichain:native",
+          "zksync:native"
+        ]
+      }
+    ]
+  },
+  "dex": {
+    "kinds": [
+      {
+        "id": "v4",
+        "events": [
+          "v4-init",
+          "v4-swap"
+        ]
+      }
+    ],
+    "events": [
+      {
+        "id": "v4-swap",
+        "signature": "Swap(bytes32,address,int128,int128,uint160,uint128,int24,uint24)",
+        "emitter": "manager",
+        "topic0": "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"
+      },
+      {
+        "id": "v4-init",
+        "signature": "Initialize(bytes32,address,address,uint24,int24,address,uint160,int24)",
+        "emitter": "manager",
+        "topic0": "0xdd466e674ea557f56295e2d0218a125ea4b4f0f6f3307b95f85e6110838d6438"
+      }
+    ],
+    "evm": [
+      {
+        "chain": "ethereum",
+        "deployments": [
+          {
+            "kind": "v4",
+            "name": "Uniswap V4",
+            "address": "0x000000000004444c5dc75cb358380d2e3de08a90"
+          }
+        ],
+        "quoteTokens": []
+      }
+    ],
+    "solana": []
+  }
+}

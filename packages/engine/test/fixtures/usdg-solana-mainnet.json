@@ -1,0 +1,43 @@
+{
+  "getTokenSupply": {
+    "context": {
+      "slot": 471335186
+    },
+    "value": {
+      "amount": "427590034385382",
+      "decimals": 6
+    }
+  },
+  "1nc1nerator11111111111111111111111111111111": {
+    "context": {
+      "slot": 471335186
+    },
+    "value": []
+  },
+  "75sq4xbQ1snnWKmwZ9sDZjzaLxgiZedPcegXwCCQ2bnp": {
+    "context": {
+      "slot": 471335186
+    },
+    "value": [
+      {
+        "pubkey": "EPcyVe3LTpcT2gtxiXbaJuJp2cSAWvkZYb6gkkgxsrJN",
+        "account": {
+          "data": {
+            "program": "spl-token-2022",
+            "parsed": {
+              "type": "account",
+              "info": {
+                "owner": "75sq4xbQ1snnWKmwZ9sDZjzaLxgiZedPcegXwCCQ2bnp",
+                "mint": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+                "tokenAmount": {
+                  "amount": "0",
+                  "decimals": 6
+                }
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

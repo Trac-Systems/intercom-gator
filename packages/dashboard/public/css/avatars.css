@@ -1,0 +1,66 @@
+/* Signed profile pictures and the list badges for hidden, unnamed and split entries (Part B).
+   Kept apart from keyprint.css and app.css so the icon work can change those files independently. */
+
+/* A picture takes the key-print's place, size and tag shape. */
+img.kp.av{object-fit:cover;background:var(--s2)}
+
+/* Settings → Profile: picture row and crop box */
+.av-now{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.av-now>.kp{width:64px;height:64px}
+.av-act{display:flex;gap:8px;flex-wrap:wrap}
+.av-act label.btn{cursor:pointer}
+.av-note{display:block;max-width:60ch;line-height:18px}
+.av-edit{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;margin-top:12px;padding:14px;background:var(--s2);
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%)}
+.av-edit[hidden]{display:none}
+.av-crop-w{position:relative;width:200px;height:200px;touch-action:none;cursor:grab}
+.av-crop-w:active{cursor:grabbing}
+.av-crop-w canvas{display:block;width:100%;height:100%;background:var(--s3)}
+/* The corner the tag shape cuts off, so the crop matches what others see. */
+.av-frame{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 1px var(--rule2);
+  background:linear-gradient(225deg,rgb(0 0 0 / .42) 0 13%,transparent 13%)}
+.av-side{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0}
+.av-side .lbl2{margin:0}
+.av-side input[type=range]{width:min(220px,100%)}
+.av-prevs{display:flex;align-items:flex-end;gap:12px}
+.av-prevs img{display:block}
+.av-prevs img+img{width:36px;height:36px}
+#av-size.err{color:var(--down)}
+@media (max-width:640px){
+  .av-edit{grid-template-columns:minmax(0,1fr)}
+  .av-crop-w{width:min(240px,100%);height:auto;aspect-ratio:1}
+}
+
+/* Part B: hidden entries, name warnings, unverified exchange volume */
+.hid-row{display:flex;justify-content:flex-end;padding:8px 0 0}
+.hid-t{font:inherit;font-size:12.5px;color:var(--ink3);background:none;border:0;padding:2px 0;cursor:pointer;
+  text-decoration:underline dotted;text-underline-offset:3px}
+.hid-t:hover,.hid-t:focus-visible{color:var(--ink)}
+.hid-t[aria-pressed=true]{color:var(--ink2)}
+.bdg{display:inline-flex;gap:4px;margin-left:6px;vertical-align:1px;flex-wrap:wrap}
+h1 .bdg{vertical-align:4px;margin-left:10px}
+.vis,.nflag{display:inline-block;height:18px;padding:0 6px;font-size:11px;font-weight:600;line-height:18px;border-radius:2px;
+  white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.vis{color:var(--ink2);background:var(--s2)}
+.vis-stale{color:var(--hold-t);background:color-mix(in oklch,var(--hold-dot) 16%,transparent)}
+.vis-dust{color:var(--ink3)}
+.nflag{color:var(--down-t);background:color-mix(in oklch,var(--down) 11%,transparent)}
+.nflag::before{content:"!";font-weight:800;margin-right:4px}
+.nflag.q{color:var(--ink2);background:var(--s2)}
+.nflag.q::before{content:none}
+.unv{display:block;font-size:11.5px;color:var(--ink3);margin-top:1px;white-space:nowrap}
+/* Settings → Network: ticker splits (overrides the right-aligned, no-wrap list tables) */
+table.splits{table-layout:fixed;font-size:13.5px}
+.splits th,.splits td{text-align:left;white-space:normal;height:auto;font-size:13.5px;padding:9px 12px 9px 0;vertical-align:top;border-bottom:1px solid var(--rule)}
+.splits th{font-size:12px;font-weight:560;color:var(--ink3);padding-top:6px;padding-bottom:6px}
+.splits th:nth-child(1){width:26%}.splits th:nth-child(2){width:12%}.splits th:nth-child(4){width:13%}.splits th:nth-child(5){width:11%}
+.splits td.n,.splits th.n{text-align:right}
+.splits td:last-child{white-space:nowrap}
+.splits .vn{display:block;color:var(--ink2);font-size:12.5px}
+.splits .mk{display:block;color:var(--ink3);font-size:12px;font-family:var(--mono);font-stretch:75%;overflow-wrap:anywhere}
+.splits td .vn+.mk{margin-bottom:4px}
+@media (max-width:640px){
+  table.splits{table-layout:auto}
+  .splits th:nth-child(n){width:auto}
+  .splits .mk{display:none}
+}

@@ -1,0 +1,31 @@
+name: New chain
+description: Ask for a chain Gator does not index yet.
+title: "[chain] <name>"
+labels: ["chain"]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Chain name and chain ID
+      placeholder: "Example: Sonic, 146"
+    validations: { required: true }
+  - type: textarea
+    id: endpoints
+    attributes:
+      label: Public keyless RPC endpoints (at least two)
+      description: Official documentation link for each, with rate limits if published.
+    validations: { required: true }
+  - type: textarea
+    id: markets
+    attributes:
+      label: Where its tokens trade
+      description: DEX factories or pool programs with their documentation, and exchanges that list the native coin.
+  - type: input
+    id: explorer
+    attributes:
+      label: Block explorer URL
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters
+      description: Volume, number of tokens, or what your project needs from it.

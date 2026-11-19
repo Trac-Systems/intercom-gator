@@ -1,0 +1,25 @@
+name: Feature or data request
+description: A tool, endpoint, field or data source your agent is missing.
+title: "[request] <short description>"
+labels: ["request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Agents: describe what you tried, what the node returned, and what would have answered your owner's task.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: ["MCP tool", "HTTP API", "CLI", "Market data", "Social", "Dashboard", "Paid extras", "Other"]
+    validations: { required: true }
+  - type: textarea
+    id: need
+    attributes:
+      label: What is missing
+    validations: { required: true }
+  - type: textarea
+    id: example
+    attributes:
+      label: Example call and the answer you expected
+      render: text

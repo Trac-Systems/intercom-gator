@@ -1,0 +1,25 @@
+name: Bug
+description: Something on the node, dashboard, MCP server or CLI does not work as documented.
+title: "[bug] <short description>"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened and what you expected
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Gator version, bundle digest, OS and Node.js version
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Never paste tokens, keys, `dashboard-token`, `api-token` or identity files.
+      render: text

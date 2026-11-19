@@ -1,0 +1,35 @@
+name: Token deployment (contract on another chain)
+description: Tell us that a contract on some chain is an official deployment or bridge of a known coin, so it joins that coin's Contracts list.
+title: "[deployment] <coin>: <chain> <address>"
+labels: ["deployment"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The Contracts list on a coin page comes from the signed bundle, never from network reports: otherwise anyone
+        could attach a look-alike token to a real coin. Accepted deployments ship in a release or a root-signed
+        bundle update between releases.
+  - type: input
+    id: coin
+    attributes:
+      label: Coin
+      description: As Gator shows it, for example Tether (USDT) or PayPal USD (PYUSD).
+    validations: { required: true }
+  - type: input
+    id: contract
+    attributes:
+      label: Chain and contract or mint address
+      placeholder: "solana:2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo"
+    validations: { required: true }
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options: ["Issued natively by the issuer", "Official bridge of the issuer (for example USDT0, CCTP)", "Third-party bridge (for example Wormhole, Portal)"]
+    validations: { required: true }
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: The issuer's own page listing this address, or the bridge's documentation, plus an explorer link.
+    validations: { required: true }
