@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { crc32, deflateSync } from 'node:zlib';
 import { Social, migrations, AVATAR_MAX_BYTES } from '../src/index.js';
@@ -224,4 +224,10 @@ test('Windows avatar reads require a regular file before opening it', async t =>
   await writeFile(file, image);
   assert.deepEqual(await readAvatarFile(file, 'win32'), image);
   await assert.rejects(readAvatarFile(dir, 'win32'), /regular file/);
+  await assert.rejects(readAvatarFile(join(dir, 'missing'), 'win32'), /not readable/);
+  const pictures = join(dir, 'pictures'), linked = join(dir, 'redirected');
+  await mkdir(pictures);
+  await writeFile(join(pictures, 'avatar.webp'), image);
+  await symlink(pictures, linked, 'junction');
+  await assert.rejects(readAvatarFile(join(linked, 'avatar.webp'), 'win32'), /regular file/);
 });

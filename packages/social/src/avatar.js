@@ -143,26 +143,30 @@ export function avatarRoom(card, channel, topics, limit) {
  * @param {unknown} path @param {string} [platform] @returns {Promise<Buffer>}
  */
 export async function readAvatarFile(path, platform = process.platform) {
-  const { constants } = await import('node:fs');
-  const { lstat, open } = await import('node:fs/promises');
   const { isAbsolute } = await import('node:path');
   if (typeof path !== 'string' || path.length > 1024 || !isAbsolute(path) || path.includes('\0')) {
     throw new TypeError('avatar: path must be an absolute file path');
   }
-  let handle, before;
   if (platform === 'win32') {
-    try { before = await lstat(path, { bigint: true }); }
-    catch { throw new TypeError('avatar: file not readable'); }
-    if (!before.isFile() || !before.ino) throw new TypeError('avatar: path is not a regular file');
+    const { openPrivateRead } = await import('../../net/src/private-file.js');
+    const { closeSync, fstatSync, readFileSync } = await import('node:fs');
+    let fd;
+    try { fd = openPrivateRead(path, platform); }
+    catch (error) { throw new TypeError(error.code ? 'avatar: file not readable' : 'avatar: path is not a regular file'); }
+    try {
+      if (fstatSync(fd).size > 64 * 1024) throw new TypeError(AVATAR_RULE);
+      return readFileSync(fd);
+    } finally { closeSync(fd); }
   }
   // O_NONBLOCK: a FIFO must not hang the caller.
-  try { handle = await open(path, constants.O_RDONLY | (before ? 0 : constants.O_NONBLOCK ?? 0)); }
+  const { constants } = await import('node:fs');
+  const { open } = await import('node:fs/promises');
+  let handle;
+  try { handle = await open(path, constants.O_RDONLY | (constants.O_NONBLOCK ?? 0)); }
   catch { throw new TypeError('avatar: file not readable'); }
   try {
-    const stat = await handle.stat({ bigint: !!before });
-    if (!stat.isFile() || (before && (stat.ino !== before.ino || stat.dev !== before.dev))) {
-      throw new TypeError('avatar: path is not a regular file');
-    }
+    const stat = await handle.stat();
+    if (!stat.isFile()) throw new TypeError('avatar: path is not a regular file');
     if (stat.size > 64 * 1024) throw new TypeError(AVATAR_RULE);
     return await handle.readFile();
   } finally { await handle.close(); }
