@@ -17,7 +17,7 @@ const DAY_TICK_MS = 2 * 3600_000
 const HISTORY_BREAK_FACTOR = 1.4
 const HISTORY_BREAK_MS = 600_000
 const HISTORY_RESET_GAP_MS = DAY
-const PROVEN = 3
+export const PROVEN = 3
 const COVERAGE_TTL_MS = 15_000
 const retaining = new WeakSet()
 

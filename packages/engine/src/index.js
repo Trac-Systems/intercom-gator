@@ -12,6 +12,7 @@ import { CATCHUP_JOB, PoolCatchup, POOL_CHANNEL } from './intel/pool-catchup.js'
 import { HttpSources } from './sources/http.js'
 import { derivativeJobs } from './sources/derivatives.js'
 import { fetchTickers, loadNextSymbol } from './sources/cex.js'
+import { DexCoverage } from './coverage/dex.js'
 import { EvmSource } from './sources/evm.js'
 import { checkSolanaPrice, fetchSolana } from './sources/solana.js'
 import { registerNamesJob } from './sources/metadata.js'
@@ -129,6 +130,7 @@ export class Engine extends EventEmitter {
       outliers: (asset) => this.book?.snapshots?.get(asset)?.why?.outliers,
     })
     this.queries = new Queries(this)
+    this.dexCoverage = new DexCoverage(this)
     this.evm = new Map()
     this.hints = new PoolHints({ book: this.book, clock, evm: this.evm, registry: this.registry,
       rpc: this.rpc.publicOnly, http: this.http, catalog: this.catalog, onConfirmed: pool => this.discovery(pool, true) })
@@ -187,7 +189,7 @@ export class Engine extends EventEmitter {
     for (const chain of this.catalog.chains) {
       if (chain.family !== 'evm' || !chain.deployments.length) continue
       const source = new EvmSource({ chain, store, rpc: this.rpc, registry, clock, publish, discover,
-        dex: this.bundle.dex, profile: this.profile })
+        dex: this.bundle.dex, profile: this.profile, coverage: this.dexCoverage })
       this.evm.set(chain.id, source)
       if (chain.deployments.some((d) => d.kind === 'v4'))
         this.scheduler.add({
@@ -204,9 +206,9 @@ export class Engine extends EventEmitter {
         run: () => source.logs(),
       })
       this.scheduler.add({ id: 'evm:' + chain.id + ':seed', interval: source.limits.period,
-        ready: () => source.seedWake <= clock(), run: () => source.seed() })
+        ready: () => source.seedReady(), run: () => source.seed() })
       this.scheduler.add({ id: 'evm:' + chain.id + ':trades', marketChain: chain.id, interval: source.limits.period,
-        ready: () => !!source.localPool.get(chain.id), run: () => source.trades() })
+        ready: () => source.hasPools(), run: () => source.trades() })
       this.scheduler.add({
         id: 'evm:' + chain.id + ':state',
         marketChain: chain.id,
