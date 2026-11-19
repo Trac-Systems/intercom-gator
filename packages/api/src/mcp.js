@@ -57,7 +57,7 @@ const listQuery = ({ include_hidden, ...q }) => (include_hidden ? { ...q, includ
 
 /** request(method,path,query,body) always executes under agent permissions. */
 export function createMcpServer(request) {
-  const server = new McpServer({ name: 'intercom-gator', version: '0.1.0' }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: 'intercom-gator', version: '0.1.1' }, { instructions: INSTRUCTIONS });
   function tool(name, description, schema, run, readOnly = true) {
     server.registerTool(name, { description, inputSchema: z.strictObject(schema),
       annotations: { readOnlyHint: readOnly } }, async args => {

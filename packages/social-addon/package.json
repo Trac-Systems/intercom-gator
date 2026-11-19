@@ -1,6 +1,6 @@
 {
   "name": "@gator/social-addon",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "gator-social: the shared social layer as a standalone program next to any harness's agent",
   "type": "module",
@@ -21,10 +21,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@gator/bundle": "0.1.0",
-    "@gator/net": "0.1.0",
-    "@gator/social": "0.1.0",
-    "@gator/store": "0.1.0"
+    "@gator/bundle": "0.1.1",
+    "@gator/net": "0.1.1",
+    "@gator/social": "0.1.1",
+    "@gator/store": "0.1.1"
   },
   "devDependencies": {
     "ws": "8.23.0"
