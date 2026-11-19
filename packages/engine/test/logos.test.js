@@ -319,3 +319,12 @@ test('startup makes references parked by v0.1.0 pressure eviction due again, onc
   assert.equal(await logos.fetchNext(), 'chain:ethereum', 'the pre-warm refetches them')
   assert.match(logos.chain('ethereum'), /^\/img\/[0-9a-f]{64}\.png$/)
 })
+
+test('the logo job keeps refilling on a busy node and yields only when the budget is nearly spent', async () => {
+  const { logoGate } = await import('../src/logos/index.js')
+  assert.equal(logoGate({ used: 523, limit: 900 }, false), true) // the owner's node right after the v0.1.1 update
+  assert.equal(logoGate({ used: 719, limit: 900 }, false), true)
+  assert.equal(logoGate({ used: 720, limit: 900 }, false), false)
+  assert.equal(logoGate({ used: 800, limit: 900 }, true), true) // logos on screen
+  assert.equal(logoGate({ used: 810, limit: 900 }, true), false)
+})

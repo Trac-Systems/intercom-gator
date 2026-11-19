@@ -335,9 +335,18 @@ export class Logos {
 }
 
 /**
+ * Whether the logo job may fetch now. Logos are tiny and capped at ~5% of the budget, so they yield to market work only
+ * when the budget is nearly spent: logos on screen up to 90% use, the background refill up to 80%. (The former 50% gate
+ * starved the refill on busy nodes: a v0.1.0 node upgraded to v0.1.1 sat near 55% and refetched ~1 logo a minute.)
+ */
+export function logoGate(budget, demanded) {
+  return budget.used < budget.limit * (demanded ? 0.9 : 0.8)
+}
+
+/**
  * Run the logo job on an Engine. It paces itself instead of joining the scheduler's background rotation (about a
  * hundred jobs share one oldest-first turn there, which left logos minutes apart). It is still low priority: one request
- * per tick, at most ~5% of the request budget, nothing while the budget is more than half used, and every request goes
+ * per tick, at most ~5% of the request budget, nothing once the budget is nearly spent (`logoGate`), and every request goes
  * through the shared budget and the per-host buckets. It runs only while the engine is active and, when the engine is
  * restricted to named background jobs (tests), only if `logos` is one of them.
  */
@@ -349,7 +358,7 @@ export function registerLogos(engine) {
   let timer = null
   const tick = async () => {
     let wait = share()
-    if (engine.active && allowed() && engine.budget.used < engine.budget.limit / 2) {
+    if (engine.active && allowed() && logoGate(engine.budget, logos.demanded.size > 0)) {
       try {
         await logos.fetchNext()
       } catch (error) {
