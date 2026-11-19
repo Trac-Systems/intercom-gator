@@ -11,8 +11,8 @@ server and no API key is needed.
 
 ## 1. Install and start
 
-Use Node.js 22.13 or newer, npm and tar on macOS, Linux or native Windows x64 (native Windows from v0.1.1; v0.1.0
-needs WSL). Prepare the latest published release, or the exact tag the owner names.
+Use Node.js 22.13 or newer, npm and tar on macOS, Linux or native Windows x64 (native Windows from v0.1.1 with
+Node.js 22.17 or newer; v0.1.0 needs WSL). Prepare the latest published release, or the exact tag the owner names.
 Both assets come from the same tag of `Trac-Systems/intercom-gator`. The checksum covers the downloaded tarball.
 After installation, `bundle verify` checks the signed source datasets against gator's compiled root public key.
 Stop on any failure, including a release missing either asset.

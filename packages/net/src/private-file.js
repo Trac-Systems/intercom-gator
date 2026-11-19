@@ -27,6 +27,15 @@ export function windowsLstat(file) {
   return stat;
 }
 
+/** Native Windows needs Node.js 22.17+: on older releases a new file's descriptor and path report different file IDs. */
+export const WINDOWS_MIN_NODE = '22.17';
+export function windowsNodeProblem(version = process.versions.node, platform = process.platform) {
+  if (platform !== 'win32') return null;
+  const [major, minor] = version.split('.').map(Number), [needMajor, needMinor] = WINDOWS_MIN_NODE.split('.').map(Number);
+  if (major > needMajor || (major === needMajor && minor >= needMinor)) return null;
+  return `native Windows needs Node.js ${WINDOWS_MIN_NODE} or newer (this is ${version}); install the current Node.js 22 LTS or use WSL`;
+}
+
 /** The private directory inherits its Windows ACL from the user's data directory. */
 export function windowsDirectory(dir) {
   const stat = windowsLstat(dir);

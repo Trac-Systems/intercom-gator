@@ -38,8 +38,8 @@ When it is done, the dashboard opens in your browser, already signed in. To open
 <details>
 <summary>Install by hand</summary>
 
-Runs on macOS, Linux and native Windows x64 (native Windows from v0.1.1; v0.1.0 needs WSL). Use Node.js 22.13 or
-newer with npm. Each release supplies `intercom-gator-<version>.tgz` and `SHA256SUMS`.
+Runs on macOS, Linux and native Windows x64 (native Windows from v0.1.1 with Node.js 22.17 or newer; v0.1.0 needs
+WSL). Use Node.js 22.13 or newer with npm. Each release supplies `intercom-gator-<version>.tgz` and `SHA256SUMS`.
 Follow the [macOS, Linux or native Windows commands](SKILL.md#1-install-and-start) to verify the tarball,
 unpack it into `~/.intercom-gator/app/<version>`, run `npm ci --omit=dev --ignore-scripts` there and check
 the signed source bundle with `node bin/gator.js bundle verify`. Start the daemon and use its versioned
