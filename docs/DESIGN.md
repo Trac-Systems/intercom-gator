@@ -371,6 +371,26 @@ insufficient. The sender attempts at most one record per minute and waits at lea
 The rotation and timing survive restart. Each receiver uses the existing public receipt verifier before it registers
 the market. Graduation and sender standing confer no authority to register it.
 
+#### Agent-added tokens
+
+The owner or any agent can add an EVM token by contract address: MCP `add_token { address, chain?, pool? }`,
+`POST /api/v1/tokens` (`GET /api/v1/tokens` lists them). Signed coin-list patches are not involved. The node checks
+contract code, ERC-20 `decimals()` (0 allowed, at most 77), `totalSupply()` and `allowance()`, and reads a sanitized
+`symbol()`/`name()`. Without `chain` it checks every bundle EVM chain. It then runs the seeder's deterministic keys
+for this one token (no rank cutoff): every signed deployment (V2, V3, Pancake V3, V4 standard no-hook keys incl.
+native currency, Velodrome/Aerodrome, Solidly, Slipstream) × the chain's signed quotes. `pool` takes a pool the keys
+cannot derive: a V4 pool ID is identified from its `Initialize` log, a pool contract must name a signed factory whose
+reverse lookup returns it. Balancer V2 has no token-to-pool index on-chain and Curve's PlainPoolDeployed has no
+indexed coins, so neither is probed. Pools register through the ordinary registry path at ≥ $100 measured depth
+(dust rules still hide them from ranked lists). For each registered pool a resumable search walks `eth_getLogs` back
+from the head (creation topic plus indexed tokens or pool ID; 1M-block first window, halved on provider limits,
+doubled on success) to find the creation transaction. A found creation is checked against its receipt and sent once
+as an ordinary `gator/new` `pool` record, which every version verifies unchanged. Pools of added tokens with at
+least $10k depth join the re-announce rotation. The catch-up index serves an added pool by its latest verification
+time (insert on find, refreshed on each successful re-announce receipt check). From this version a history
+requester accepts creation blocks older than the window; v0.1.1–v0.1.3 requesters treat them as inconclusive (no
+penalty). A node accepts 12 adds per hour and 60 per day, one at a time.
+
 #### Recent pool history on join
 
 An EVM node starts one catch-up pass on first use and after six hours offline. It records its last connected time

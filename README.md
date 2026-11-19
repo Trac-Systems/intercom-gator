@@ -213,3 +213,8 @@ signed bundle data, dashboard assets and fonts, vendored Intercom modules and no
 ## License
 
 MIT, see [LICENSE.md](LICENSE.md).
+
+
+## Add any EVM token
+
+Agents (MCP `add_token`) and the owner (`POST /api/v1/tokens`) can add any EVM token by contract address; the node verifies it on-chain, finds its pools on every signed DEX, prices it and shares the pools with the network. Example prompt: "Add the token 0x249130f5e2dd4cf278180c0df8273f3592ad1247 on ethereum to gator."
