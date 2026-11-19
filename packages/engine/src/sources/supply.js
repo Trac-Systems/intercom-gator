@@ -7,7 +7,7 @@ import { momentum, momentumTotal, priorityDeployments, quant, reserveAccounts, t
 import { ethereumSupply, growthepieChain, stablecoinRows, tableEligible, tableTokens, DAY } from './supply-api.js'
 import { SupplyClaims } from './supply-claims.js'
 import { ISSUERS, tetherRows, circleRows, issuerSiblings } from './supply-issuer.js'
-import { NATIVE_FEEDS } from './supply-feeds.js'
+import { NATIVE_FEEDS, tapMintedTotal } from './supply-feeds.js'
 import { COIN_FEEDS } from './supply-coin-feeds.js'
 import { HYPEREVM_FULL_SUPPLY } from './supply-hyperliquid.js'
 import { CIRCULATION_FEEDS, readCirculation } from './supply-circulation.js'
@@ -186,6 +186,20 @@ export function registerSupplyJobs(engine) {
         throw new Error('Invalid EVAA jetton supply')
       return { total: units(BigInt(r.total_supply), 9), method: 'ton-jetton-total', source: tonApi.id }
     }, terms(tonApi), 2)
+  }
+  // TAP Protocol's minted total takes two TAP reader calls (deployment max, mint allowance left).
+  const tapDeployment = api('tap-reader-deployment'), tapMintLeft = api('tap-reader-mint-left')
+  if (tapDeployment && tapMintLeft && registry.assets.has('tap-protocol:native')) {
+    let pending = null
+    nativeJob('tap-protocol:native', 'supply:tap-protocol', async () => {
+      const deployment = spec(tapDeployment), left = spec(tapMintLeft)
+      // Resume the second read after a shared-host budget deferral; the deployment record itself never changes.
+      if (!pending || clock() - pending.at > 60_000)
+        pending = { data: await http.get(deployment.url, deployment.rpm), at: clock() }
+      const result = tapMintedTotal(pending.data, await http.get(left.url, left.rpm), clock())
+      pending = null
+      return result
+    }, terms(tapDeployment) && terms(tapMintLeft), 2)
   }
   // Official keyless feeds for native coins whose chain has no bundled reader. Untested terms stay local.
   for (const feed of NATIVE_FEEDS) {

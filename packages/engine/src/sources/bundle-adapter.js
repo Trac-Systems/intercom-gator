@@ -85,6 +85,7 @@ export function adaptBundle(bundle) {
       rank: t.rank ?? null,
       supply: t.circulatingSupply ?? null,
       totalSupply: t.totalSupply ?? null,
+      ...(t.coin ? { coin: t.coin } : {}),
     }
   })
   const identities = new Set(assets.map((a) => a.id))

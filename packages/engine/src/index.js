@@ -23,6 +23,7 @@ import { SourceStats, sourcesReport } from './health/sources.js'
 import { CandleHistory } from './candles/index.js'
 import { migrations as coreMigrations } from './schema.js'
 import { BundlePatches, migrations as patchMigrations } from './patches/index.js'
+import { applyReleaseExtensions } from '../../bundle/src/extensions.js'
 import { settleWithin } from './grace.js'
 import { registerLogos } from './logos/index.js'
 import { registerFocus } from './focus/index.js'
@@ -39,8 +40,10 @@ export { RpcClient, Scheduler, seededRandom }
  * isFollowed?: (publicKey:string)=>boolean, metaFor?: (assetId:string, context:object)=>Promise<void>}} RpcConfig
  * @typedef {{bundle: object, transport: object, store: object, rpcConfig?: RpcConfig,
  * profile?: 'small'|'normal'|'large', backgroundJobs?: string[], clock?: () => number,
- * random?: (() => number)|number, patches?: {rootKey?: string, log?: (line: string) => void, patchFeed?: boolean|string}, nfts?: boolean,
- * readStaleMs?: number}} Options */
+ * random?: (() => number)|number, patches?: {rootKey?: string, log?: (line: string) => void, patchFeed?: boolean|string,
+ * snapshot?: string|false}, extensions?: object|null, nfts?: boolean, readStaleMs?: number}} Options
+ * `extensions` is the release extension (`@gator/bundle` loadReleaseExtensions): read on top of the effective signed
+ * bundle, never digested. `patches.snapshot` is the release's shipped feed file, applied once at startup. */
 export class Engine extends EventEmitter {
   /** @param {Options} options */
   constructor({
@@ -53,6 +56,7 @@ export class Engine extends EventEmitter {
     clock = Date.now,
     random = Math.random,
     patches = {},
+    extensions = null,
     // NFT sale collection stays off until the NFTs tab ships in a later update; it costs RPC requests.
     nfts = false,
     // How old a price-book rebuild a read may use while new observations arrive (the daemon passes a few seconds).
@@ -61,9 +65,9 @@ export class Engine extends EventEmitter {
     super()
     if (typeof clock !== 'function') clock = clock.now.bind(clock)
     if (!keyPattern.test(transport.publicKey)) throw new TypeError('Expected transport public key')
-    Object.assign(this, { bundle, transport, store, profile, clock, rpcConfig, nftsEnabled: nfts })
+    Object.assign(this, { bundle, transport, store, profile, clock, rpcConfig, nftsEnabled: nfts, extensions })
     this.patches = new BundlePatches(this, patches)
-    this.bundle = this.patches.restore()
+    this.bundle = this.extend(this.patches.restore())
     this.catalog = adaptBundle(this.bundle)
     this.registry = new Registry(store, this.catalog, this.bundle.tokens.sources)
     this.budget = new RequestBudget(profile, rpcConfig.requestsPerMinute, clock)
@@ -361,6 +365,17 @@ export class Engine extends EventEmitter {
     if (pool || this.registry.venues.get(exchange)?.publishMarketData) this.transport.send('gator/new', msg)
     if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + address, fromHint)
   }
+  /** What this node reads: an effective signed bundle plus the release extension (venue labels, coin groups).
+   * The digest, `obs.b` and every patch check use the signed bundle alone. A failing extension is left out. */
+  extend(bundle) {
+    if (!this.extensions) return bundle
+    try {
+      return applyReleaseExtensions(bundle, this.extensions).bundle
+    } catch {
+      this.patches.note('Release extensions could not be applied; using the signed bundle alone')
+      return bundle
+    }
+  }
   start() {
     const result = this.lifecycle.then(() => this.open())
     this.lifecycle = result.catch(() => {})
@@ -368,8 +383,9 @@ export class Engine extends EventEmitter {
   }
   async open() {
     if (this.active) return
+    // The signed (release + patch chain) digest; this.bundle may carry the release extension, which is never digested.
     const digest =
-      (this.patches.head ?? this.rpcConfig.bundleDigest)?.slice(0, 16) ?? (await digestPrefix(this.bundle))
+      (this.patches.head ?? this.rpcConfig.bundleDigest)?.slice(0, 16) ?? (await digestPrefix(this.patches.release))
     this.abort = new AbortController()
     this.http.signal = this.rpc.signal = this.abort.signal
     this.obs = new ObservationExchange({

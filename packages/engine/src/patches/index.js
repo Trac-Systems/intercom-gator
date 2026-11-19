@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto'
+import { readFileSync, statSync } from 'node:fs'
 import { applyPatch, bundleDigest, canonical } from '../../../bundle/src/index.js'
 import { ROOT_KEY } from '../../../bundle/src/root-key.js'
 import { adaptBundle } from '../sources/bundle-adapter.js'
 import { patchUrlProblem } from './urls.js'
 import { takeEffect } from './live.js'
-import { PatchFeed } from './feed.js'
+import { applyFeed, PatchFeed } from './feed.js'
+import { MAX_FEED_BYTES } from './feed-format.js'
 
 export { migrations } from './schema.js'
 export { publicHost, urlProblem, patchUrlProblem } from './urls.js'
@@ -119,10 +121,15 @@ export function replayChain(release, releaseDigest, messages, rootKey) {
  * payload), at most 32 lines per hour. `maxChain` is a test seam for the chain cap. */
 export class BundlePatches {
   /** @param {import('../index.js').Engine} engine
-   * @param {{rootKey?: string, log?: (line: string) => void, maxChain?: number, patchFeed?: boolean|string}} [options] */
-  constructor(engine, { rootKey = ROOT_KEY, log = (line) => process.emitWarning(line), maxChain = MAX_CHAIN, patchFeed } = {}) {
+   * `snapshot` is the release's shipped copy of its feed file (`patches/<release digest>.json` in the bundle data
+   * directory), applied at startup like a feed receipt when it is newer than the stored chain.
+   * @param {{rootKey?: string, log?: (line: string) => void, maxChain?: number, patchFeed?: boolean|string,
+   *   snapshot?: string|false}} [options] */
+  constructor(engine, { rootKey = ROOT_KEY, log = (line) => process.emitWarning(line), maxChain = MAX_CHAIN, patchFeed,
+    snapshot } = {}) {
     if (typeof rootKey !== 'string' || !hex64.test(rootKey)) throw new TypeError('Expected a root public key')
-    Object.assign(this, { engine, rootKey, log, maxChain })
+    Object.assign(this, { engine, rootKey, log, maxChain, snapshot })
+    this.snapshotState = { result: 'none', reason: null, appliedDigest: null }
     this.release = engine.bundle
     this.current = engine.bundle
     this.feed = new PatchFeed(this, patchFeed)
@@ -169,13 +176,19 @@ export class BundlePatches {
     const newChains = this.current.chains.map(c => c.id).filter(id => !active.has(id))
     const restart = newChains.length ? 'restart to use ' + newChains.length + ' new chain' + (newChains.length > 1 ? 's' : '') : null
     return { release: this.releaseDigest(), digest: this.digest(), patches: this.chain.length, seq: this.seq,
-      feed: { ...this.feed.state }, newChains, restart }
+      feed: { ...this.feed.state }, snapshot: { ...this.snapshotState }, newChains, restart }
   }
-  /** Startup: re-apply the stored chain on top of the release. Returns the effective bundle. */
+  /** Startup: re-apply the stored chain on top of the release, then the release's shipped feed snapshot.
+   * Returns the effective signed bundle. */
   restore() {
     if (!this.enabled) return this.release
+    this.replayStored()
+    this.applySnapshot()
+    return this.current
+  }
+  replayStored() {
     const rows = this.rows.all()
-    if (!rows.length) return this.release
+    if (!rows.length) return
     const messages = rows.map((row) => {
       try {
         return JSON.parse(row.message)
@@ -193,7 +206,34 @@ export class BundlePatches {
     }
     this.chain = chain
     this.current = bundle
-    return bundle
+  }
+  /** Fresh installs need not wait for the network feed: the release ships its feed file. It goes through the same
+   * checks as a feed or network receipt and only when it reaches beyond the stored chain. No file: nothing happens. */
+  applySnapshot() {
+    if (!this.snapshot) return
+    let feed
+    try {
+      if (statSync(this.snapshot).size > MAX_FEED_BYTES) throw new Rejected('size')
+      feed = JSON.parse(readFileSync(this.snapshot, 'utf8'))
+    } catch (error) {
+      if (error.code === 'ENOENT') return
+      Object.assign(this.snapshotState, { result: 'rejected', reason: error instanceof Rejected ? error.reason : 'json' })
+      this.note('Shipped bundle patch snapshot rejected: ' + this.snapshotState.reason)
+      return
+    }
+    const seqs = Array.isArray(feed?.envelopes) ? feed.envelopes.map(e => e?.message?.seq).filter(Number.isSafeInteger) : []
+    if (seqs.length && Math.max(...seqs) <= this.seq) {
+      Object.assign(this.snapshotState, { result: 'unchanged', reason: null })
+      return
+    }
+    this.restoring = true
+    try {
+      Object.assign(this.snapshotState, applyFeed(this, feed))
+    } finally {
+      this.restoring = false
+    }
+    if (this.snapshotState.reason)
+      this.note('Shipped bundle patch snapshot ' + this.snapshotState.result + ': ' + this.snapshotState.reason)
   }
   /** One `patch` message from `gator/ctl`. Returns true when it was applied. Never throws into the transport. */
   receive(env) {
@@ -246,17 +286,21 @@ export class BundlePatches {
       this.note('Bundle patch could not be stored; nothing changed')
       return false
     }
-    const before = this.current
+    const before = this.engine.bundle
     this.current = next
     if (rebase) this.chain = []
     this.chain.push({ seq, baseDigest: patch.baseDigest, newDigest: patch.newDigest })
+    // Startup (shipped snapshot): the engine builds its catalog from the restored bundle afterwards.
+    if (this.restoring) return true
     if (this.engine.obs) this.engine.obs.digest = patch.newDigest.slice(0, 16)
+    // The node reads the new signed bundle through this release's extension; digests stay those of the signed data.
+    const view = this.engine.extend?.(next) ?? next
     let restart
     try {
-      restart = takeEffect(this.engine, before, next).restart
+      restart = takeEffect(this.engine, before, view).restart
     } catch {
       // Stored and verified: the next start builds everything from the effective bundle.
-      this.engine.bundle = next
+      this.engine.bundle = view
       restart = ['all']
       this.note('Bundle patch stored; the live update failed and it takes effect at the next start')
     }

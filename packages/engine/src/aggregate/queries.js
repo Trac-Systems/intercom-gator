@@ -123,7 +123,10 @@ export class Queries {
     const group = this.groupOf(id)
     return group?.collapse ? group : undefined
   }
-  /** A group's cap: the signed coin's counted-once cap, else its largest member cap (bridged supply is escrowed). */
+  /**
+   * A group's cap: the signed coin's counted-once cap, else its largest member cap (bridged supply is escrowed).
+   * An escrow-backed deployment holds only the bridged share, so its own cap never stands in for the coin's.
+   */
   groupCap(group) {
     if (group.kind === 'coin') {
       const cap = this.coinValue(group).cap
@@ -132,6 +135,7 @@ export class Queries {
     const { snapshots } = this.engine.book
     let best = null
     for (const t of group.members) {
+      if (t.coinSupply === 'escrow-backed') continue
       const cap = snapshots.get(t.id)?.marketCap
       if (cap != null && (best == null || cap > best)) best = cap
     }

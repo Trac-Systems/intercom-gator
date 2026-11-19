@@ -37,7 +37,7 @@ function variants(d) {
 }
 
 /** Plan currency pairs and deployment methods separately so each job builds only one page of calldata. */
-function seedPlan(source) {
+export function seedPlan(source) {
   const { chain, registry } = source
   const max = source.limits.tokens
   const native = registry.assets.get(chain.id + ':native')
@@ -53,8 +53,12 @@ function seedPlan(source) {
     .map(a => registry.assets.get(a.id) ?? a)
     .filter(a => !a.rank || a.rank <= max)
     .sort((a,b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.address.localeCompare(b.address))
+  // Signed coin-group deployments are probed regardless of the rank cutoff: one may be its coin's only on-chain
+  // market (TAP on Ethereum beside the CEX-only TAP Protocol native) and cannot earn a rank without a price.
+  const members = registry.catalog.assets.filter(a => a.coin && a.id.startsWith(chain.id + ':') && address(a.address))
+    .map(a => a.address).sort()
   // Also cover signed quote deployments on chains whose token list contains only the native currency.
-  const currencies = [...new Set([...quotes, ...assets.slice(0, max).map(a => a.address)])]
+  const currencies = [...new Set([...quotes, ...assets.slice(0, max).map(a => a.address), ...members])]
   const pairs = new Map()
   const nativePairs = chain.deployments.some(d => d.kind === 'v4') && native
   const counterparts = nativePairs ? [...quotes, ZERO] : quotes

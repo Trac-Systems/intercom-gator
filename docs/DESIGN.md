@@ -63,7 +63,9 @@ Packages depend only on each other through the interfaces below.
   `bitcoin`, ...). Tickers are labels. Hyperliquid is two chains with one coin: `hyperliquid` (HyperCore; HYPE is
   `hyperliquid:native`, the identity CEX `HYPE` tickers bind to) and `hyperevm` (EVM 999). HyperEVM gas HYPE is HYPE
   moved from HyperCore (system address `0x2222…2222` holds the unbridged rest), so only `hyperliquid:native` carries
-  supply and the cap counts once.
+  supply and the cap counts once. `tap-protocol` (TAP Protocol, a Bitcoin ordinals metaprotocol whose ledger lives in
+  its indexer; TAP is `tap-protocol:native`) and `trac` (Trac Network; TNK is `trac:native`) are `cex-only` chains,
+  added by the shared root patch on the v0.1.0 release (§5.4 "Bundle patch feed").
 - Market id: `cex:<exchangeId>:<BASE>-<QUOTE>` (exchange symbols normalised to upper case) or `dex:<chainId>:<pool>`.
 
 ## 4. Transport interface (`packages/net`)
@@ -199,8 +201,9 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   `evm:<chain>:logs` (creation events only, `eth_getLogs` filtered by the signed factory/PoolManager addresses; never
   stalls: excess lag skips to a recent window and records the gap under `engine-gap/<chain>/<reason>`),
   `evm:<chain>:seed` (deterministic V2 `getPair`, V3/Pancake `getPool` per signed fee tier, Velodrome/Solidly
-  `getPool(a,b,stable)`, Slipstream spacings and the standard no-hook V4 keys for ranked bundle tokens × the chain's main
-  quotes, block-pinned multicalls, $10k depth floor, positive and negative results retried after 6 h),
+  `getPool(a,b,stable)`, Slipstream spacings and the standard no-hook V4 keys for ranked bundle tokens and every signed
+  coin-group deployment on the chain × the chain's main quotes, block-pinned multicalls, $10k depth floor, positive
+  and negative results retried after 6 h),
   `evm:<chain>:trades` (Swap/Sync logs only for a bounded tracked set — 32/128/256 pools per chain by profile, watched
   and held first, then depth/turnover — in address chunks; V4 by pool ID in topic 1; durable per-pool cursors),
   `evm:<chain>:state` (multicall pool state); `sol:<api>`, `meta:<asset>` (links/risk), `candles:<market>`.
@@ -243,7 +246,12 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   including deployments whose own quote has expired. Green wins a timestamp tie, then asset ID breaks the tie.
   A lock-and-mint destination identified as `escrow-backed` contributes a price only when its backing is already
   included at origin. Groups using net issuance per chain deduct the origin escrow before adding the destination
-  float. Independent third-party pegs have separate identities and valuations. Asset rows expose the coin ID
+  float. Independent third-party pegs have separate identities and valuations. Without a circulating figure a group
+  shows its largest member cap that is not escrow-backed (a bridged deployment holds only its share). From v0.1.1,
+  TAP is coin `tap-protocol-tap` (release extension): `tap-protocol:native` (issuance) and the bridged ERC-20
+  `ethereum:0x5e7f6e008c6d9d7ad4c7eb75bd4ce62864cc7454` (escrow-backed, the PaidExtras payment token, §8) with its
+  Uniswap V2 TAP/USDT pool. The signed data carries both as plain tokens, so v0.1.0 lists them as two standalone
+  assets and never takes the bridged share as TAP's cap. Asset rows expose the coin ID
   (`coin`) and group cap (`coinMarketCap`) alongside their own price and market cap. Standalone assets use
   their existing ID. Asset rows expose `visibility` as `live`, `stale`,
   `unconfirmed` or `dust`, in order of exclusion by staleness, confirmation and dust. An asset awaiting its first
@@ -301,6 +309,15 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
 - A signed `cex-only` chain has a native identity and an empty endpoint list. CEX labels resolve to the
   signed native asset before a generic token with the same ticker. Explicit venue exceptions and confirmed
   venue-specific splits still apply. These assets can use a keyless supply API independently of market indexing.
+  Explicit venue exceptions are an exchange's `symbolMap` in the release extension (venue label → asset ID; entries
+  whose asset the signed data does not define are skipped). Such markets keep the venue's label in their ID and are
+  never detached by a collision split: Gate `TAPPROTOCOL` and MEXC `TAP` are `tap-protocol:native`, both venues'
+  `TNK` is `trac:native` (identity from each venue's metadata: Gate "Tap Protocol" on chain BTCTAP / "Trac Network"
+  on TRAC, MEXC "TAP Protocol" / "Trac Network"). v0.1.0 has no extension: it binds MEXC `TAP` and both `TNK` labels
+  through the `cex-only` native rule, and Gate `TAPPROTOCOL` stays unresolved there.
+- TAP's supply (`supply:tap-protocol`): the TAP reader's `tap` deployment max less the open mint allowance
+  (`tap-minted-total`, two keyless reads, a total only, local: terms unclear), so its cap is "from total supply".
+  TNK has no public supply source and no cap.
 - ZEC uses mainnet issuance across all monitored pools less deferred rewards, ETC uses native explorer
   issuance, XMR uses mined emission, and HBAR uses the mirror node's released amount. Bitfinex reports post-burn LEO across both ledgers.
   Chainlink and World Liberty Financial report released LINK and WLFI. Quant uses its crowdsale and founder
@@ -353,6 +370,25 @@ client tries direct for 8 s, then a relay for 20 s, then the next relay. The rel
 makes a node with a public address serve as a relay, with Intercom's limits (1,024 clients, 512 pairs, 8 MiB/s).
 A node never relays through itself. `/api/v1/network` reports `blindRelay` (serving, relays, counters).
 
+#### Release data rule
+
+A release NEVER changes the signed base data. Every release ships the six data files and `bundle.sig` of v0.1.0
+byte-identical (release digest `2e7fd025868071e3a31a8dc5f6b8041f7e9a359dbacffc00bb43db39e721a7bb`; a test pins it).
+Different base data means a different digest, and `obs.b` then stops price sharing between versions. Coin-list
+changes go through the root-signed patch feed, which every version verifies and applies identically, so all
+versions share one effective digest. The bundle schema (`validateBundle`) and patch semantics therefore stay those
+of v0.1.0: a patch one version accepts must be accepted by all.
+
+Data that older schemas reject (new fields such as a venue `symbolMap`, or a coin group that older code would value
+wrongly) goes into the release extension `packages/bundle/data/release-extensions.json`:
+`{ v: 1, note?, symbolMap?: { <exchangeId>: { <LABEL>: <assetId> } }, coinGroups?: [{ id, source, members: { <assetId>:
+"issuance"|"escrow-backed" } }] }`. It is not one of the digest files and is never digested, signed or sent. A node
+reads its effective signed bundle (release + patch chain) through it, at startup and after each accepted patch.
+Entries naming an asset or venue the signed data does not (yet) define are skipped quietly. Signed data wins: a
+coin group the signed data already defines, or whose member already has a `coin`, is skipped. Coin groups must
+pass the bundle's coin rules. A malformed file is ignored with a warning, and the node then runs on the signed data
+alone. v0.1.1's extension holds the TAP/TNK venue labels and the TAP coin group.
+
 #### Bundle patch feed
 
 The root publishes one cumulative JSON file per signed release at `patches/<release-digest>.json` in the public repo.
@@ -381,6 +417,14 @@ gator root feed --data "$DIR" --out "patches/$DIGEST.json"
 ```
 
 Check that the export's final sequence matches the published sequence, then commit the file to the public repo.
+Also copy it into the next release as `packages/bundle/data/patches/<release digest>.json` (the release snapshot).
+At startup, after replaying the stored chain, a node reads that file once. It applies the file through the same
+checks as a feed receipt (file version, release digest, root envelope signature on `gator/ctl`, then sequence,
+base, shape, URL policy, patch signature, schema and digest), and only when the file reaches beyond the stored
+chain. Fresh installs therefore start on the current digest without waiting for the feed. A missing file changes
+nothing. A rejected file leaves the stored chain in place and logs one line. The patches status reports
+`snapshot: { result, reason, appliedDigest }`, where `result` is `none`, `applied`, `partial`, `unchanged` or
+`rejected`. The engine option is `patches.snapshot` (a file path; the daemon passes the release's own file).
 Export reads and verifies a snapshot of the stored chain and atomically replaces the output. Export needs no seed.
 For a rebase, use `root patch --from-release` with the complete changes since the release. A node upgraded from
 message-only storage can fill missing envelopes on redelivery or receive a new cumulative patch.
