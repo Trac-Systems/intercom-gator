@@ -234,7 +234,9 @@ test('a requester consults at most three responsive signers, stops at its durabl
 
 test('v0.1.0 migration queues registered recent candidates; legacy swaps and state-only rows stay out of replies', async t => {
   const f = fixture(t), dir = mkdtempSync(join(import.meta.dirname, 'history-upgrade-'))
-  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  let store
+  // Close before removing: Windows cannot unlink an open database.
+  t.after(() => { store?.close(); rmSync(dir, { recursive: true, force: true }) })
   const file = join(dir, 'node.db')
   const migrationId = 'engine-pool-catchup-v1'
   const old = openStore({ file, migrations: migrations.filter(m => m.id !== migrationId) })
@@ -247,8 +249,8 @@ test('v0.1.0 migration queues registered recent candidates; legacy swaps and sta
       .run('dex:ethereum:' + row.pool, row.chain, row.dex, 'ethereum:' + row.token0, 'ethereum:' + row.token1)
   }
   old.close()
-  const store = openStore({ file, migrations }), rows = store.reader.prepare('SELECT pool,verified FROM engine_pool_history ORDER BY pool')
-  t.after(() => store.close())
+  store = openStore({ file, migrations })
+  const rows = store.reader.prepare('SELECT pool,verified FROM engine_pool_history ORDER BY pool')
   assert.deepEqual(rows.all().map(r => [r.pool,r.verified]), [1,2].map(i => [f.ledger.record(i).pool,0]))
   const clock = () => f.time
   const engine = new Engine({ store, bundle, clock, transport: { publicKey: nkey(1), peerCount: () => 1, send: () => true },
