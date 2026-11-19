@@ -4,12 +4,13 @@ import { runtime } from './sale-runtime.js';
 import { decodeAggregate, encodeAggregate } from '../sources/evm-abi.js';
 
 export const UNKNOWN = 'unknown';
+// Read in this order, stopping at the first slot that holds an implementation (most proxies need one read).
 const proxySlots = {
   implementation: '0x' + word(BigInt(keccak256('eip1967.proxy.implementation')) - 1n),
-  beacon: '0x' + word(BigInt(keccak256('eip1967.proxy.beacon')) - 1n),
-  proxiable: keccak256('PROXIABLE'),
   // OpenZeppelin 2.x / ZeppelinOS AdminUpgradeabilityProxy (Circle's USDC FiatTokenProxy among others).
   zeppelinos: keccak256('org.zeppelinos.proxy.implementation'),
+  beacon: '0x' + word(BigInt(keccak256('eip1967.proxy.beacon')) - 1n),
+  proxiable: keccak256('PROXIABLE'),
 };
 /** Known entry points per capability. A `false` capability means: the token's dispatcher (its own code or its fixed or
  * slot-recorded implementation) was read completely and contains none of these selectors. */
