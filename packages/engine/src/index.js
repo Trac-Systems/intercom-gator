@@ -361,8 +361,9 @@ export class Engine extends EventEmitter {
       ? { t: 'pool', v: 1, chain, pool, dex, kind, token0, token1, block: block ?? null, tx: tx ?? null }
       : { t: 'listing', v: 1, exchange, symbol, firstSeen }
     this.emit('discovery', msg, data.firstSeen, fromHint, historyReporter)
-    if (!historyReporter && (pool || this.registry.venues.get(exchange)?.publishMarketData)) this.transport.send('gator/new', msg)
-    if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + address, fromHint, !!historyReporter)
+    if (historyReporter) return
+    if (pool || this.registry.venues.get(exchange)?.publishMarketData) this.transport.send('gator/new', msg)
+    if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + address, fromHint)
   }
   start() {
     const result = this.lifecycle.then(() => this.open())
@@ -507,8 +508,8 @@ export class Engine extends EventEmitter {
   registerJob(job) {
     this.scheduler.add(job)
   }
-  scheduleMeta(id, fromHint = false, fromHistory = false) {
-    this.names.enqueue(id, fromHint, fromHistory)
+  scheduleMeta(id, fromHint = false) {
+    this.names.enqueue(id, fromHint)
     // The optional operator hook is for other enrichment. Names and EVM totals use the durable batch job.
     const jobId = 'meta:' + id
     if (fromHint || !this.rpcConfig.metaFor || !this.registry.assets.has(id) || this.scheduler.jobs.has(jobId)) return

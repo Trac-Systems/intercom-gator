@@ -535,6 +535,7 @@ export class EvmSource {
       if (market) {
         this.saveParameters(pool)
         if (creation) this.saveCreation.run(chain, pool.pool, at)
+        history?.onRegistered(pool)
       }
       return market
     })

@@ -69,11 +69,15 @@ test('a late joiner pages tied creation times, skips known pools, and resumes a 
   await f.ledger.seed(sender, 18)
   assert.equal(sender.store.reader.prepare('SELECT count(*) n FROM engine_pool_history WHERE verified=1').get().n, 18)
   let receiver = await f.open(2)
+  const routesAtConfirmation = []
+  const nameRoute = receiver.store.reader.prepare('SELECT priority FROM engine_names WHERE asset=?')
+  receiver.on('discovery', m => routesAtConfirmation.push(nameRoute.get(m.chain + ':' + m.token0)?.priority))
   receiver.registry.pool(f.ledger.record(18))
   f.sent.length = 0
   f.offer(sender)
   for (let i = 0; i < 30 && poolCount(receiver) < 3; i++) await f.turn(receiver)
   assert.equal(poolCount(receiver), 3)
+  assert.deepEqual(routesAtConfirmation, [2,2], 'the committed name route already exists when discovery is emitted')
   assert.equal(receiver.catchup.state.page.rows.length, 8)
   await f.close(2)
   receiver = await f.open(2)

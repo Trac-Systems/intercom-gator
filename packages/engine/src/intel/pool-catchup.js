@@ -302,6 +302,11 @@ export class PoolCatchup {
       if (page) {
         const pool = await evm.get(row.chain).verifyPoolHint(hint, rpc, work.cache, {
           since: clock() - WEEK, wanted: () => this.active && this.state.page === page && !this.engine.book.muted(page.key),
+          // Persist the metadata route in the registration transaction. Even a crash before
+          // the local discovery event leaves both tokens on the quiet, public-only names job.
+          onRegistered: p => {
+            for (const token of [p.token0, p.token1]) this.engine.names.enqueue(p.chain + ':' + token, true, true)
+          },
         })
         if (this.state.page !== page || !this.active) return
         if (pool === false) hints.penalize(page.key)
@@ -311,7 +316,7 @@ export class PoolCatchup {
         if (this.active) this.checked.run(ok ? 1 : -1, row.chain, row.pool)
       }
     } catch (error) {
-      if (error instanceof RateLimited || !this.active) throw error
+      if (error instanceof RateLimited || error.code === 'ERR_SQLITE_ERROR' || !this.active) throw error
       // Endpoint failures are inconclusive. Back off the whole lane and release this record
       // after three failures so a broken provider cannot pin every chain behind it.
       this.nextRead = clock() + 15_000 * 2 ** work.failures
