@@ -7,6 +7,11 @@
   "license": "MIT",
   "engines": { "node": ">=22.13" },
   "workspaces": ["packages/*"],
+  "overrides": {
+    "@metamask/utils@11.12.1": {
+      "uuid": "11.1.1"
+    }
+  },
   "bin": { "gator": "bin/gator.js" },
   "scripts": {
     "start": "node bin/gator.js start",
