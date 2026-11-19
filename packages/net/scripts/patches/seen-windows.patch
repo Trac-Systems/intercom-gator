@@ -1,12 +1,12 @@
 diff --git a/seen.js b/seen.js
-index 618eed9..d6a9a5e 100644
+index 618eed9..47917fc 100644
 --- a/seen.js
 +++ b/seen.js
 @@ -4,6 +4,7 @@ import fs from 'fs';
  import path from 'path';
  import os from 'os';
  import { integer } from './channel-options.js';
-+import { openPrivateRead, windowsLstat } from '../../src/private-file.js';
++import { ensureWindowsDirectory, openPrivateRead, windowsDirectory, windowsLstat } from '../../src/private-file.js';
  
  const HOUR = 3_600_000;
  const HASH_BYTES = 32;
@@ -32,7 +32,7 @@ index 618eed9..d6a9a5e 100644
      this.lockPath = path.join(this.directory, '.writer.lock');
      this.lock = null;
      this.directoryFd = null;
-@@ -120,11 +125,15 @@ class HourFiles {
+@@ -120,16 +125,24 @@ class HourFiles {
  
    file(hour) { return path.join(this.directory, `seen-${hour}.bin`); }
  
@@ -52,7 +52,17 @@ index 618eed9..d6a9a5e 100644
      return stat;
    }
  
-@@ -157,15 +166,23 @@ class HourFiles {
+   acquire() {
+-    fs.mkdirSync(this.directory, { recursive: true, mode: 0o700 });
++    if (this.windows) {
++      const dir = path.dirname(this.directory), before = ensureWindowsDirectory(dir);
++      ensureWindowsDirectory(this.directory);
++      if (!sameFile(before, windowsDirectory(dir))) throw new Error('Seen parent directory changed before locking');
++    } else fs.mkdirSync(this.directory, { recursive: true, mode: 0o700 });
+     const parent = this.checkDirectory();
+     this.directoryFd = fs.openSync(this.directory, fs.constants.O_RDONLY | this.flags.safe);
+     try {
+@@ -157,15 +170,23 @@ class HourFiles {
        fs.mkdirSync(temp, { mode: 0o700 });
        let created;
        try {
@@ -78,7 +88,7 @@ index 618eed9..d6a9a5e 100644
          if (!this.exists(this.lockPath)) {
            try {
              fs.renameSync(temp, this.lockPath);
-@@ -196,7 +213,7 @@ class HourFiles {
+@@ -196,7 +217,7 @@ class HourFiles {
  
    exists(file) {
      try {
@@ -87,7 +97,7 @@ index 618eed9..d6a9a5e 100644
        return true;
      } catch (error) {
        if (error?.code === 'ENOENT') return false;
-@@ -205,18 +222,20 @@ class HourFiles {
+@@ -205,18 +226,20 @@ class HourFiles {
    }
  
    readLock(dir) {
@@ -114,7 +124,7 @@ index 618eed9..d6a9a5e 100644
        const valid = owner?.version === 1 && Number.isSafeInteger(owner.pid) && owner.pid > 0 &&
          typeof owner.host === 'string' && typeof owner.process === 'string' && typeof owner.token === 'string';
        return { stat, owner: valid ? owner : null };
-@@ -252,11 +271,11 @@ class HourFiles {
+@@ -252,11 +275,11 @@ class HourFiles {
    }
  
    removeLock(dir) {
@@ -129,7 +139,7 @@ index 618eed9..d6a9a5e 100644
        fs.unlinkSync(owner);
      }
      fs.rmdirSync(dir);
-@@ -280,17 +299,21 @@ class HourFiles {
+@@ -280,17 +303,21 @@ class HourFiles {
    }
  
    regular(file) {
@@ -154,7 +164,7 @@ index 618eed9..d6a9a5e 100644
          throw new Error('Seen file identity changed');
        }
        this.checkDirectory();
-@@ -301,27 +324,44 @@ class HourFiles {
+@@ -301,27 +328,44 @@ class HourFiles {
      }
    }
  
@@ -209,7 +219,7 @@ index 618eed9..d6a9a5e 100644
      }
    }
  
-@@ -375,7 +415,8 @@ class HourFiles {
+@@ -375,7 +419,8 @@ class HourFiles {
      const parts = [];
      for (const item of [current, ...future.sort((a, b) => a.hour - b.hour)]) {
        if (!item) continue;
@@ -219,7 +229,7 @@ index 618eed9..d6a9a5e 100644
        const keep = Math.min(this.capacity, aligned);
        if (!keep) continue;
        const fd = this.open(item.file, fs.constants.O_RDONLY, item.stat);
-@@ -418,19 +459,22 @@ class HourFiles {
+@@ -418,19 +463,22 @@ class HourFiles {
          if (observed >= hour) cleanup.push(item);
          continue;
        }
@@ -249,7 +259,7 @@ index 618eed9..d6a9a5e 100644
        }
        if (item.hour === hour) active = item.stat;
      }
-@@ -457,19 +501,22 @@ class HourFiles {
+@@ -457,19 +505,22 @@ class HourFiles {
      const file = this.file(this.hour);
      const hash = b4a.from(key, 'hex');
      const flags = fs.constants.O_RDWR | (this.active ? 0 : fs.constants.O_CREAT | this.flags.exclusive);

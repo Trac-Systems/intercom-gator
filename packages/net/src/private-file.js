@@ -34,6 +34,20 @@ export function windowsDirectory(dir) {
   return stat;
 }
 
+/** Create missing directories beneath a checked parent, tolerating a concurrent creator. */
+export function ensureWindowsDirectory(dir) {
+  try { return windowsDirectory(dir); }
+  catch (error) {
+    if (error.code !== 'ENOENT' || dir === dirname(dir)) throw error;
+  }
+  const parent = dirname(dir), before = ensureWindowsDirectory(parent);
+  try { fs.mkdirSync(dir, { mode: 0o700 }); }
+  catch (error) { if (error.code !== 'EEXIST') throw error; }
+  const created = windowsDirectory(dir);
+  if (!sameIdentity(before, windowsDirectory(parent))) throw new Error('Directory changed during create');
+  return created;
+}
+
 /** Keep the full Windows file ID; adjacent NTFS IDs can exceed Number's precision. */
 export function sameIdentity(a, b) {
   return a.dev === b.dev && a.ino === b.ino;

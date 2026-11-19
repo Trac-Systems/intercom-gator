@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { closeSync, fchmodSync, fstatSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { openPrivateRead, windowsDirectory } from '@gator/net/src/private-file.js';
+import { ensureWindowsDirectory, openPrivateRead } from '@gator/net/src/private-file.js';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -56,11 +56,12 @@ export function ensureToken(dir, filename) {
 
 /** An OS-released SQLite lock prevents two daemons sharing keys, config and seen files. */
 export function lockDirectory(dir) {
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const stat = process.platform === 'win32' ? windowsDirectory(dir) : lstatSync(dir);
-  if (!stat.isDirectory()) throw new Error('Expected a data directory');
-  if (process.platform !== 'win32' && (stat.mode & 0o077)) {
-    throw new Error('Data directory must be private (chmod 700)');
+  if (process.platform === 'win32') ensureWindowsDirectory(dir);
+  else {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const stat = lstatSync(dir);
+    if (!stat.isDirectory()) throw new Error('Expected a data directory');
+    if (stat.mode & 0o077) throw new Error('Data directory must be private (chmod 700)');
   }
   const { DatabaseSync } = process.getBuiltinModule('node:sqlite');
   const db = new DatabaseSync(join(dir, 'daemon.lock.db'));

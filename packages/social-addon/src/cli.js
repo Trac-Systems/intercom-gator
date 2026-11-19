@@ -1,11 +1,11 @@
-import { mkdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { ROOT_KEY } from '@gator/bundle/src/root-key.js';
 import { AVATAR_RULE, cardProblem, cleanTopics, editCard, identityLockDir, parseAvatar, proofSteps, readAvatarFile } from '@gator/social';
 import { PRODUCTS, startAddon } from './addon.js';
 import { proxyTools, socialClient } from './client.js';
-import { checkDataDir, defaultDataDir, readConfig, writeConfig } from './files.js';
+import { createDataDir, defaultDataDir, readConfig, writeConfig } from './files.js';
 import { importIdentity, ownPublicKey } from './identity.js';
 import { serveMcp } from './mcp.js';
 import { createTools, shownCard, UNTRUSTED } from './tools.js';
@@ -111,8 +111,7 @@ export async function main(argv, { env = process.env, stdout = process.stdout, s
       return result.sent ? 0 : 1;
     } catch (error) {
       if (!/not running/.test(error.message)) throw error;
-      mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-      checkDataDir(dataDir);
+      createDataDir(dataDir);
       const config = readConfig(dataDir);
       const key = await ownPublicKey(dataDir);
       if (!config.card && !patch.handle && !key) throw new TypeError('card needs --handle (no card and no identity yet)');

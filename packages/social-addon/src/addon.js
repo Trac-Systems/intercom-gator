@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT_KEY } from '@gator/bundle/src/root-key.js';
 import { BridgeTransport, loadOrCreateKey, SwarmTransport } from '@gator/net';
@@ -6,7 +6,7 @@ import { defaultHandle, identityLockDir, lockIdentity, migrations, Social, withH
 import { openStore } from '@gator/store';
 import { BridgeSession } from './bridge-session.js';
 import { startControl, TOKEN_FILES } from './control.js';
-import { acquireLock, checkDataDir, readConfig, readPrivate, writeConfig } from './files.js';
+import { acquireLock, createDataDir, readConfig, readPrivate, writeConfig } from './files.js';
 import { createTools, profileEditor } from './tools.js';
 
 export const PRODUCTS = ['dex', 'reset', 'dmw', 'gator'];
@@ -46,8 +46,7 @@ export async function startAddon({ dataDir, product = 'gator', transport, bridge
   if (typeof dataDir !== 'string' || !dataDir) throw new TypeError('Expected a data directory');
   if (!PRODUCTS.includes(product)) throw new TypeError('--product must be one of ' + PRODUCTS.join(', '));
   if (transport && bridge) throw new TypeError('Pass a transport or a bridge, not both');
-  mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-  checkDataDir(dataDir);
+  createDataDir(dataDir);
   const cleanup = [];
   const close = async () => {
     for (const step of cleanup.splice(0).reverse()) {

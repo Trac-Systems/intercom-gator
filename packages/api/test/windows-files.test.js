@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { readSeedFile } from '../../engine/src/patches/root.js';
-import { readPrivate } from '../../social-addon/src/files.js';
-import { readToken } from '../src/local.js';
+import { createDataDir, readPrivate } from '../../social-addon/src/files.js';
+import { lockDirectory, readToken } from '../src/local.js';
 
 test('Windows agent, add-on and seed readers use the checked regular file', t => {
   const root = fs.mkdtempSync(join(tmpdir(), 'gator-read-'));
@@ -24,6 +24,10 @@ test('Windows agent, add-on and seed readers use the checked regular file', t =>
     assert.throws(() => readToken(linked, 'fixture'), /plain file or directory/);
     assert.throws(() => readPrivate(join(linked, 'fixture')), /plain file or directory/);
     assert.throws(() => readSeedFile(join(linked, 'fixture')), /Cannot read the seed file/);
+    for (const create of [lockDirectory, createDataDir]) {
+      assert.throws(() => create(join(linked, 'missing', 'data')), /plain file or directory/);
+      assert.equal(fs.existsSync(join(real, 'missing')), false);
+    }
   } finally { Object.defineProperty(process, 'platform', platform); }
 });
 

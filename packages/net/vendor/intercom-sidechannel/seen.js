@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { integer } from './channel-options.js';
-import { openPrivateRead, windowsLstat } from '../../src/private-file.js';
+import { ensureWindowsDirectory, openPrivateRead, windowsDirectory, windowsLstat } from '../../src/private-file.js';
 
 const HOUR = 3_600_000;
 const HASH_BYTES = 32;
@@ -138,7 +138,11 @@ class HourFiles {
   }
 
   acquire() {
-    fs.mkdirSync(this.directory, { recursive: true, mode: 0o700 });
+    if (this.windows) {
+      const dir = path.dirname(this.directory), before = ensureWindowsDirectory(dir);
+      ensureWindowsDirectory(this.directory);
+      if (!sameFile(before, windowsDirectory(dir))) throw new Error('Seen parent directory changed before locking');
+    } else fs.mkdirSync(this.directory, { recursive: true, mode: 0o700 });
     const parent = this.checkDirectory();
     this.directoryFd = fs.openSync(this.directory, fs.constants.O_RDONLY | this.flags.safe);
     try {

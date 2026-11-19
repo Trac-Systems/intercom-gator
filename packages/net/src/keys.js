@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import DHT from 'hyperdht';
 import tracCrypto from 'trac-crypto-api';
 import PeerWallet from 'trac-wallet';
-import { openPrivateRead, sameIdentity, windowsDirectory, windowsLstat } from './private-file.js';
+import { ensureWindowsDirectory, openPrivateRead, sameIdentity, windowsDirectory, windowsLstat } from './private-file.js';
 
 // This is the synchronous construction path used by PeerWallet.fromKeyPair in 1.0.1.
 function walletFromPair(pair) {
@@ -79,11 +79,12 @@ export function readKey(file, label = 'peer') {
 function prepareKeys(dataDir) {
   const dir = join(dataDir, 'keys');
   if (process.platform === 'win32') {
-    mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-    windowsDirectory(dataDir);
+    const parent = ensureWindowsDirectory(dataDir), keys = ensureWindowsDirectory(dir);
+    if (!sameIdentity(parent, windowsDirectory(dataDir))) throw new Error('Key directory changed during create');
+    return keys;
   }
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  return process.platform === 'win32' ? windowsDirectory(dir) : null;
+  return null;
 }
 
 // On failure, close before unlinking (Windows sharing rules) and only remove

@@ -85,6 +85,21 @@ test('Windows refuses a junction as its seen directory', t => {
   assert.deepEqual(fs.readdirSync(target), []);
 });
 
+test('Windows creates nested seen directories and refuses a junction below which they would be created', t => {
+  const { root } = fixture(t);
+  const make = directory => new SeenCache(20, hour, { directory });
+  const cache = make(join(root, 'new', 'data', 'seen'));
+  try { cache.remember(receipt(1), hour); }
+  finally { cache.close(); }
+  const target = join(root, 'target'), link = join(root, 'redirected');
+  fs.mkdirSync(target);
+  fs.symlinkSync(target, link, 'junction');
+  for (const dir of [join(link, 'seen'), join(link, 'missing', 'seen')]) {
+    assert.throws(() => make(dir).prepare(hour), /plain file or directory/);
+  }
+  assert.deepEqual(fs.readdirSync(target), []);
+});
+
 test('Windows rejects a different open file identity before appending', t => {
   const { directory, cache } = fixture(t);
   const writer = cache(), bucket = join(directory, 'seen-1.bin');

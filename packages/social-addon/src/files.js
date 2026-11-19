@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { closeSync, fstatSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { openPrivateRead, windowsDirectory } from '@gator/net/src/private-file.js';
+import { ensureWindowsDirectory, openPrivateRead, windowsDirectory } from '@gator/net/src/private-file.js';
 import { processAlive } from '@gator/social/src/identity-lock.js';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -16,6 +16,12 @@ export function checkDataDir(dir) {
   if (process.platform !== 'win32' && (stat.mode & 0o077)) {
     throw new Error('Data directory must be private (chmod 700): ' + dir);
   }
+}
+
+export function createDataDir(dir) {
+  if (process.platform === 'win32') { ensureWindowsDirectory(dir); return; }
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  checkDataDir(dir);
 }
 
 /** Atomically replace a file only this user can read. */
