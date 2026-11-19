@@ -11,6 +11,7 @@ import { editedCard, patchConfig, profiles, rpcEndpoints, saveConfig } from './c
 import { check, HttpError } from './local.js';
 import { withLogos } from '../../engine/src/logos/rows.js';
 import { FocusError } from '../../engine/src/focus/index.js';
+import { AddTokenError } from '../../engine/src/intel/add-token.js';
 
 const socialWrites = ['posts','replies','likes','reposts','follow','unfollow','mute','unmute'];
 const AVATAR_HASH = /^[0-9a-f]{64}$/;
@@ -235,6 +236,7 @@ export function createRouter(app) {
       case 'directory': return people.directory(q);
       case 'watchlist': return watchRows();
       case 'focus': return engine.focus.list();
+      case 'tokens': if (parts.length === 1) return { items: engine.addTokens.list(Number(q.limit) || 100), limits: engine.addTokens.limits }; break;
       case 'portfolio': engine.book.refresh(); return withStates(account.portfolio(), 'holdings');
       case 'alerts': engine.book.refresh(); return withStates(account.alerts(), 'items');
       case 'extras': return extra.list(q.slot);
@@ -314,6 +316,18 @@ export function createRouter(app) {
       try { return await engine.focus.set(focusId(body.asset), body); }
       catch (error) {
         if (error instanceof FocusError) throw new HttpError(error.status, error.message);
+        throw error;
+      }
+    }
+    if (method === 'POST' && path === '/tokens') {
+      check(typeof body.address === 'string', 'address required');
+      try { return await engine.addTokens.add(body, { by: owner ? 'owner' : 'agent' }); }
+      catch (error) {
+        if (error instanceof AddTokenError) {
+          const e = new HttpError(error.status, error.message);
+          if (error.details) e.details = error.details;
+          throw e;
+        }
         throw error;
       }
     }

@@ -157,6 +157,13 @@ export function createMcpServer(request) {
   tool('watchlist',"The owner's watchlist with current prices and trust dots.", {}, () => get('/watchlist'));
   tool('focus','Collect more local evidence for an asset, including history, metadata, supply and eligible pools. Defaults to seven days.',
     { asset, hours: z.number().int().min(1).max(720).optional(), remove: z.boolean().optional() }, b => post('/focus',b), false);
+  tool('add_token','Add any EVM token by contract address. The node verifies it on-chain (contract code, ERC-20 decimals/symbol/name), '
+    + 'finds its pools on every signed DEX (Uniswap V2/V3/V4 incl. native-ETH pairs, PancakeSwap V3, Velodrome/Aerodrome, Solidly, Slipstream) '
+    + 'against the chain\'s quotes, prices it and shares the pools with the network once their creation transaction is found. '
+    + 'Omit chain to probe every EVM chain. pool: a pool address or V4 pool id the standard keys cannot derive (hooks, odd fees).',
+    { address: z.string().regex(/^0x[0-9a-fA-F]{40}$/), chain: z.string().max(32).optional(),
+      pool: z.string().regex(/^0x(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$/).optional() }, b => post('/tokens', b), false);
+  tool('added_tokens','Tokens added by address on this node, their pools and the creation-transaction search state.', {}, () => get('/tokens'));
   tool('focus_list','Active local focus entries, expiry, collection progress and coverage.', {}, () => get('/focus'));
   tool('watch',"Add an asset to the owner's local watchlist, or take it off with remove: true.",
     { asset, remove: z.boolean().optional() }, ({ asset: a, remove }) => post('/watchlist', { asset: a, on: !remove }), false);

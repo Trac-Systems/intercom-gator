@@ -344,4 +344,21 @@ export const migrations = [
         ORDER BY firstSeen DESC,chain,pool LIMIT 5000;`)
     },
   },
+  {
+    id: 'engine-022-added-tokens',
+    up(db) {
+      // Tokens the owner or an agent added by contract address (intel/add-token.js), and the creation-transaction
+      // search for their pools (resumable: nextBlock walks back from the head, span adapts to provider limits).
+      db.exec(`CREATE TABLE engine_added_tokens (
+        asset TEXT PRIMARY KEY, chain TEXT NOT NULL, address TEXT NOT NULL, addedAt INTEGER NOT NULL,
+        addedBy TEXT NOT NULL, symbol TEXT, name TEXT, decimals INTEGER
+      ) STRICT, WITHOUT ROWID;
+      CREATE TABLE engine_added_pools (
+        chain TEXT NOT NULL, pool TEXT NOT NULL, asset TEXT NOT NULL, dex TEXT, kind TEXT, token0 TEXT, token1 TEXT,
+        state TEXT NOT NULL, nextBlock INTEGER, span INTEGER, block INTEGER, tx TEXT, spacing INTEGER,
+        updatedAt INTEGER NOT NULL, retryAt INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(chain,pool)
+      ) STRICT, WITHOUT ROWID;
+      CREATE INDEX engine_added_pools_search ON engine_added_pools(state,retryAt,updatedAt);`)
+    },
+  },
 ]
