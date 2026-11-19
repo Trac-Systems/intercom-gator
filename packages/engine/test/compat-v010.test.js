@@ -32,6 +32,7 @@ class Transport extends EventEmitter {
 
 /** One node on the shipped release, as the daemon builds it (release digest in rpcConfig, root key seam for tests).
  * `v011` adds the release extension. Pass `store` to restart on the same data. */
+const teardowns = new WeakMap()
 async function node(t, { v011 = false, store } = {}) {
   const transport = new Transport()
   const own = !store
@@ -52,7 +53,14 @@ async function node(t, { v011 = false, store } = {}) {
     await intel.stop()
     await engine.stop()
   }
-  t.after(async () => { await stop(); if (own) store.close() })
+  // One teardown per test: stop every node first, then close the stores (a restarted node shares its store).
+  let down = teardowns.get(t)
+  if (!down) {
+    teardowns.set(t, down = { stops: [], stores: [] })
+    t.after(async () => { for (const s of down.stops) await s(); for (const s of down.stores) s.close() })
+  }
+  down.stops.push(stop)
+  if (own) down.stores.push(store)
   const envelope = (channel, message, from = peer) => ({ id: 'e' + Math.random(), channel, from, ts: now, message })
   const deliver = (channel, message, from) => transport.emit('message', channel, envelope(channel, message, from))
   return { engine, store, transport, intel, envelope, deliver, stop, now: () => now }
