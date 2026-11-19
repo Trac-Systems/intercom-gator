@@ -83,7 +83,7 @@ try {
   Invoke-WebRequest -UseBasicParsing "$base/SHA256SUMS" -OutFile $sums
   Invoke-WebRequest -UseBasicParsing "$base/$asset" -OutFile $archive
   $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
-  if ([IO.File]::ReadAllText($sums) -cne "$digest  $asset`n") { throw 'Release checksum mismatch' }
+  if ((Get-Content -Raw -LiteralPath $sums) -cne "$digest  $asset`n") { throw 'Release checksum mismatch' }
   New-Item -ItemType Directory -Force -Path (Join-Path $data 'app') | Out-Null
   New-Item -ItemType Directory -Path $app | Out-Null
   tar.exe -xzf $archive -C $app

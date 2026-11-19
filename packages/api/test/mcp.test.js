@@ -49,6 +49,10 @@ test('SDK client negotiates all tools, validates schemas and receives structured
     assert.ok(price.content[0].text.includes('Caveat: ' + price.structuredContent.caveat));
     assert.equal((await call('candles',{ asset:'BTC',tf:'what' })).isError,true);
     assert.match((await call('feed_post',{ text:'test' })).content[0].text,/disabled/);
+    // The profile tool had no text summary and fell through to "Risk observations for undefined." (fabermubai, 11-19).
+    const own = await call('profile', {});
+    assert.doesNotMatch(own.content[0].text, /undefined|Risk observations/);
+    assert.match(own.content[0].text, /\(you\) · \d+ posts/);
     assert.match((await call('profile_set',{ name:'Agent' })).content[0].text,/posting is disabled/);
     await owner('PUT','/settings',{},{ agent:{ agentPosting:true } });
     assert.match((await call('profile_set',{ topics:['two words'] })).content[0].text,/topics/);

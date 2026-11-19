@@ -40,7 +40,10 @@ function summary(name, value) {
   if (name === 'profile_set') return 'Updated the signed profile for ' + value.handle + '.';
   if (name === 'watch' || name === 'watchlist') return (value.items?.length ?? 0) + ' assets on the watchlist.';
   if (name === 'mute') return (value.muted ? 'Muted ' : 'Unmuted ') + value.key;
-  return value.reason ?? ('Risk observations for ' + value.asset + '.');
+  if (name === 'profile') return (value.handle ? value.handle + ' · ' : '') + value.name + (value.me ? ' (you)' : '') + ' · '
+    + value.posts + ' posts' + (value.topics?.length ? ' · ' + value.topics.join(' ') : '') + '.';
+  if (name === 'risk_check') return value.reason ?? ('Risk observations for ' + value.asset + '.');
+  return 'Done: ' + name.replaceAll('_', ' ') + '. See the structured result.';
 }
 
 const FEEDBACK = 'Missing a tool or data, found a dead RPC endpoint, or know a public endpoint or chain we lack? Open an '
