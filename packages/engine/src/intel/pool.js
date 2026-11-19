@@ -54,7 +54,9 @@ async function findCreationBlock(reader, pool) {
     if (i === undefined || log?.address?.toLowerCase() !== pool.factory.toLowerCase() ||
         typeof log.data !== 'string' || !/^0x(?:[\da-f]{64}){2}$/i.test(log.data)) continue;
     const pair = readAddress('0x' + log.data.slice(2 + i * 64, 66 + i * 64));
-    if (pair === pool.address.toLowerCase()) return Number(BigInt(receipt.blockNumber));
+    // The creating transaction's sender usually added the first liquidity: an LP holder candidate.
+    if (pair === pool.address.toLowerCase()) return { block: Number(BigInt(receipt.blockNumber)),
+      from: isAddress(receipt.from) ? receipt.from.toLowerCase() : null };
   }
   return null;
 }
@@ -113,7 +115,7 @@ async function lockStatus(reader, pool, lockers, extra) {
   const [supplyData, ...balanceData] = await callsOf(reader)([[pool.address, 'totalSupply()'],
     ...holders.map(h => [pool.address, 'balanceOf(address)', addressWord(h)])]);
   const supply = readUint(supplyData);
-  if (!supply) return { flag: UNKNOWN, reason: 'LP supply unavailable' };
+  if (!supply) return { flag: UNKNOWN, reason: supply === 0n ? 'no LP supply (empty pool)' : 'LP supply unavailable' };
   let locked = 0n, eoa = 0n, contracts = 0n, unread = 0n;
   const others = [];
   holders.forEach((holder, i) => {
@@ -147,6 +149,8 @@ async function usdReserves(reader, pool, a, b, v2, prices, reserves) {
     ...(v2 ? [] : [[a, 'balanceOf(address)', addressWord(pool.address)], [b, 'balanceOf(address)', addressWord(pool.address)]])]);
   const balances = v2 ? reserves : [readUint(balanceA), readUint(balanceB)];
   if (!balances) return null;
+  // An empty pool is worth $0 whatever the prices (launchpad pairs created before liquidity is added).
+  if (balances[0] === 0n && balances[1] === 0n) return { usd: 0, method: 'empty pool (no reserves)' };
   const sides = [a, b].map((token, i) => {
     const price = Number(prices[token]), decimals = readUint([decimalsA, decimalsB][i]);
     if (!positive(price) || balances[i] === null || decimals === null || decimals > 255n) return null;
@@ -168,8 +172,9 @@ export async function poolRisk(reader, token, pool, { at, prices, lockers, lowLi
   const all = reason => { for (const k of Object.keys(flags)) if (flags[k] === UNKNOWN) why[k] ??= reason; return { flags, evidence, why }; };
   if (!isAddress(pool?.address)) return all(reader.stats?.refused ? 'pool lookup refused (' + reader.stats.reasons.at(-1) + ')' : 'no pool found');
   const v2 = ['v2', 'uniswap-v2'].includes(pool.kind);
-  const [t0, t1, reservesData] = await callsOf(reader)([[pool.address, 'token0()'], [pool.address, 'token1()'],
-    ...(v2 ? [[pool.address, 'getReserves()']] : [])]);
+  // V2: the token's owner (Ownable or BEP-20 getOwner) is a likely LP holder; read with the pool state.
+  const [t0, t1, reservesData, ownerData, getOwnerData] = await callsOf(reader)([[pool.address, 'token0()'],
+    [pool.address, 'token1()'], ...(v2 ? [[pool.address, 'getReserves()'], [token, 'owner()'], [token, 'getOwner()']] : [])]);
   const [a, b] = [readAddress(t0), readAddress(t1)];
   if (!a || !b || a === b || ![a, b].includes(token)) {
     return all(t0 === null ? 'pool state unavailable (' + (reader.stats?.reasons.at(-1) ?? 'rpc') + ')' : 'pool does not hold this token');
@@ -187,7 +192,12 @@ export async function poolRisk(reader, token, pool, { at, prices, lockers, lowLi
     flags.lowLiquidity = liquidityUsd < threshold;
   } else why.lowLiquidity = evidence.liquidity ? 'only one side priced; lower bound below the threshold' : 'no USD price for either pool token';
 
-  if (pool.block == null && pool.discoveryTx && reader.block) pool = { ...pool, block: await findCreationBlock(reader, pool) };
+  const creators = [];
+  if (pool.block == null && pool.discoveryTx && reader.block) {
+    const created = await findCreationBlock(reader, pool);
+    pool = { ...pool, block: created?.block ?? null };
+    if (created?.from) creators.push(created.from);
+  }
   evidence.ageMs = await poolAge(reader, pool, at);
   if (evidence.ageMs !== null) {
     flags.veryNew = evidence.ageMs < veryNewMs;
@@ -198,7 +208,8 @@ export async function poolRisk(reader, token, pool, { at, prices, lockers, lowLi
   } else why.veryNew = 'creation not observed for a ' + pool.kind + ' pool';
 
   if (v2) {
-    evidence.lp = await lockStatus(reader, pool, lockers, holders);
+    const owners = [readAddress(ownerData), readAddress(getOwnerData)].filter(a => a && a !== ZERO);
+    evidence.lp = await lockStatus(reader, pool, lockers, [...(holders ?? []), ...owners, ...creators]);
     flags.lpUnlocked = evidence.lp.flag;
     if (evidence.lp.flag === UNKNOWN) why.lpUnlocked = evidence.lp.reason;
   } else why.lpUnlocked = 'liquidity positions of ' + pool.kind + ' pools are not fungible LP tokens (not inspected)';

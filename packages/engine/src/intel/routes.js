@@ -36,10 +36,16 @@ export async function findPool(reader, token, chain, dex, nativeSymbol) {
   const list = candidates.slice(0, reader.multicall ? 32 : 8);
   const results = reader.calls ? await reader.calls(list.map(c => c.call))
     : await Promise.all(list.map(c => reader.call(...c.call)));
+  const found = [];
   for (const [i, data] of results.entries()) {
     const address = readAddress(data), { d } = list[i];
-    if (address && address !== ZERO) return { address, kind: d.kind, routerKind: d.routerKind,
-      router: routerFor(chain, d), factory: d.address };
+    if (address && address !== ZERO && !found.some(p => p.address === address)) found.push({ address, kind: d.kind,
+      routerKind: d.routerKind, router: routerFor(chain, d), factory: d.address });
   }
-  return null;
+  if (found.length < 2 || !reader.multicall) return found[0] ?? null;
+  // Launchpads pre-create empty pairs while trading stays on their bonding curve: prefer a pool holding liquidity.
+  const state = await reader.calls(found.slice(0, 8).map(p => [p.address, V3_KINDS.has(p.kind) ? 'liquidity()' : 'getReserves()']));
+  const funded = found.find((p, i) => typeof state[i] === 'string' && /^0x[\da-f]{64,}$/i.test(state[i]) &&
+    BigInt(state[i].slice(0, 66)) > 0n);
+  return funded ?? found[0];
 }

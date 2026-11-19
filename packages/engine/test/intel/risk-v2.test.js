@@ -196,3 +196,27 @@ test('compat: a v2 result is a valid v0.1.0 message, and v1 hints are accepted q
   const v2 = again.comparisons.find(c => c.method === METHOD);
   assert.ok(v2.agrees.includes('ownerMint'));
 });
+
+test('a launchpad pair created before liquidity is an empty pool: $0, LP undecidable; a funded pool is preferred', async () => {
+  const { findPool } = await import('../../src/intel/routes.js');
+  const quote = '0x' + 'd'.repeat(40), empty = '0x' + '1'.repeat(40), funded = '0x' + '2'.repeat(40);
+  const reader = { block: '0x10', stats: { reasons: [] }, code: () => '0x', read: () => null, call(to, sig) {
+    if (sig === 'token0()') return '0x' + addressWord(token);
+    if (sig === 'token1()') return '0x' + addressWord(quote);
+    if (sig === 'getReserves()' || sig === 'totalSupply()') return '0x' + word(0).repeat(sig === 'getReserves()' ? 3 : 1);
+    if (sig === 'decimals()') return '0x' + word(18);
+    return null;
+  } };
+  const r = await poolRisk(reader, token, { address: empty, kind: 'v2' }, { at: 1 });
+  assert.equal(r.flags.lowLiquidity, true);
+  assert.equal(r.evidence.liquidity.method, 'empty pool (no reserves)');
+  assert.equal(r.flags.lpUnlocked, UNKNOWN);
+  assert.equal(r.why.lpUnlocked, 'no LP supply (empty pool)');
+  const dex = { quoteTokens: [{ symbol: 'WETH', address: quote }], deployments: [
+    { kind: 'v2', address: '0x' + '3'.repeat(40) }, { kind: 'v2', address: '0x' + '4'.repeat(40) }] };
+  const lookup = { multicall: true, async calls(list) {
+    return list.map(([to, sig]) => sig === 'getPair(address,address)' ? '0x' + addressWord(to === dex.deployments[0].address ? empty : funded)
+      : '0x' + word(to === funded ? 5 : 0) + word(0) + word(0));
+  } };
+  assert.equal((await findPool(lookup, token, 'bsc', dex, 'ETH')).address, funded);
+});
