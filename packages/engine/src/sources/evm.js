@@ -490,8 +490,7 @@ export class EvmSource {
   }
   /** Resolve the claimed pool from a canonical receipt with the public-only client.
    * Reuse completed reads when a later step hits an endpoint or profile rate limit. */
-  async verifyPoolHint(hint, rpc, cache, createdSince) {
-    const creationOnly = createdSince !== undefined
+  async verifyPoolHint(hint, rpc, cache, history) {
     const { chain, tx } = hint
     const once = (key, load) => readOnce(cache, key, load)
     const receipt = await once('receipt', () => rpc.call(chain, 'eth_getTransactionReceipt', [tx]))
@@ -509,7 +508,7 @@ export class EvmSource {
           uint(log.blockNumber) !== block) continue
       const swap = decodeEvent(log, event)
       if (!swap || (event.emitter !== 'pool' && !this.deployment(swap.emitter, event))) continue
-      if (creationOnly && swap.type !== 'pool' && swap.type !== 'curve-deployment') continue
+      if (history && swap.type !== 'pool' && swap.type !== 'curve-deployment') continue
       if (swap.pool === hint.pool || swap.type === 'curve-deployment') events.push({ log, event, swap })
     }
     if (!events.length) return false
@@ -517,7 +516,7 @@ export class EvmSource {
     if (uint(header?.number) !== block || uint(header?.timestamp) == null || header.hash !== receipt.blockHash)
       return null
     const at = uint(header.timestamp) * 1000
-    if (creationOnly && (receipt.status !== '0x1' || at < createdSince || at > this.clock() + 120_000)) return null
+    if (history && (receipt.status !== '0x1' || at < history.since || at > this.clock() + 120_000)) return null
     const read = (calls, at) => once(JSON.stringify([at, calls]), () => multiRead(rpc, this.chain, calls, hex(at)))
     const pools = await this.resolvePools(events, block, at, read)
     const pool = pools.get(hint.pool)
@@ -525,10 +524,10 @@ export class EvmSource {
     if (pool.token0 !== hint.token0 || pool.token1 !== hint.token1 ||
         pool.dex !== hint.dex || pool.kind !== hint.kind) return false
     const creation = events.some(e => this.matchesCreation(e, pool, header.hash))
-    if (creationOnly && !creation) return false
+    if (history && !creation) return false
     const decimals = await this.readDecimals([pool], block, read)
     // A live receipt or independent scan can finish during these public reads.
-    if (creationOnly && this.registry.markets.has('dex:' + chain + ':' + hint.pool)) return null
+    if (history && (!history.wanted() || this.registry.markets.has('dex:' + chain + ':' + hint.pool))) return null
     const registered = this.store.transaction(() => {
       const market = this.registry.pool(pool, {
         token0: { decimals: decimals.get(pool.token0) }, token1: { decimals: decimals.get(pool.token1) },

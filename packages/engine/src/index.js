@@ -8,6 +8,7 @@ import { MarketBook } from './aggregate/book.js'
 import { Queries } from './aggregate/queries.js'
 import { collisionReport } from './aggregate/collisions.js'
 import { PoolHints } from './sources/pool-hints.js'
+import { CATCHUP_JOB, PoolCatchup, POOL_CHANNEL } from './intel/pool-catchup.js'
 import { HttpSources } from './sources/http.js'
 import { derivativeJobs } from './sources/derivatives.js'
 import { fetchTickers, loadNextSymbol } from './sources/cex.js'
@@ -135,6 +136,7 @@ export class Engine extends EventEmitter {
     this.active = false
     this.control(store.getSetting('engine-settings'))
     this.installJobs()
+    this.catchup = new PoolCatchup(this)
   }
   installJobs() {
     const { registry, store, clock, http } = this
@@ -300,6 +302,7 @@ export class Engine extends EventEmitter {
   receive(channel, env) {
     if (env?.channel !== channel || !keyPattern.test(env.from) || env.message?.v !== 1) return
     const msg = env.message
+    if (channel === POOL_CHANNEL) return this.catchup.receive(env)
     if (channel === 'gator/ctl' && msg.t === 'patch') return void this.patches.receive(env)
     if (
       channel === 'gator/ctl' &&
@@ -352,14 +355,14 @@ export class Engine extends EventEmitter {
   verifyHint() {
     return this.hints.verifyNext()
   }
-  discovery(data, fromHint = false) {
+  discovery(data, fromHint = false, historyReporter) {
     const { pool, chain, dex, kind, token0, token1, block, tx, exchange, symbol, firstSeen } = data
     const msg = pool
       ? { t: 'pool', v: 1, chain, pool, dex, kind, token0, token1, block: block ?? null, tx: tx ?? null }
       : { t: 'listing', v: 1, exchange, symbol, firstSeen }
-    this.emit('discovery', msg, data.firstSeen, fromHint)
-    if (pool || this.registry.venues.get(exchange)?.publishMarketData) this.transport.send('gator/new', msg)
-    if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + address, fromHint)
+    this.emit('discovery', msg, data.firstSeen, fromHint, historyReporter)
+    if (!historyReporter && (pool || this.registry.venues.get(exchange)?.publishMarketData)) this.transport.send('gator/new', msg)
+    if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + address, fromHint, !!historyReporter)
   }
   start() {
     const result = this.lifecycle.then(() => this.open())
@@ -402,11 +405,13 @@ export class Engine extends EventEmitter {
       const failed = results.findIndex((r) => r.status === 'rejected' || r.value === false)
       if (failed >= 0) throw results[failed].reason ?? new Error('Cannot join ' + wanted[failed][0])
       this.active = true
+      if (this.evm.size) this.catchup.join(this.abort.signal)
       this.unregister = this.store.onPrune?.((db, { now }) => {
         for (const table of ['engine_trades', 'engine_derivatives', 'engine_references'])
           db.prepare('DELETE FROM ' + table + ' WHERE at<?').run(now - 86400_000)
         db.prepare('DELETE FROM engine_v4_lookup WHERE lastSeen<?').run(now - 86400_000)
         db.prepare('DELETE FROM engine_interest_history WHERE hour<?').run(now - 2 * 86400_000)
+        this.catchup.expire.run(now - 7 * 86400_000)
         this.focus.resize(now)
         this.book.dirty = true
       })
@@ -425,11 +430,13 @@ export class Engine extends EventEmitter {
     if (!this.active) return
     this.timer = setTimeout(
       () => {
-        if (this.active && this.inflight.size < (CONCURRENCY[this.profile] ?? CONCURRENCY.normal)) {
+        const slots = CONCURRENCY[this.profile] ?? CONCURRENCY.normal
+        if (this.active && this.inflight.size < slots) {
           const run = this.scheduler
-            .runOne()
+            .runOne({ allowIdle: this.inflight.size < slots - 1 })
             .then((id) => {
-              if (id) this.requestRefresh()
+              // Historical identities carry no new price observations.
+              if (id && id !== CATCHUP_JOB) this.requestRefresh()
             })
             .catch((err) => {
               if (this.active && !(err instanceof RateLimited))
@@ -482,7 +489,7 @@ export class Engine extends EventEmitter {
     this.nfts?.stop()
     this.abort?.abort()
     // Jobs see the abort signal through rpc/http; a read that ignores it gets a short grace, not the whole shutdown.
-    await settleWithin([this.patches.feed.stop(), this.pending, ...this.inflight])
+    await settleWithin([this.catchup.leave(), this.patches.feed.stop(), this.pending, ...this.inflight])
     this.unregister?.()
     this.transport.off('message', this.onMessage)
     await this.obs?.stop()
@@ -494,8 +501,8 @@ export class Engine extends EventEmitter {
   registerJob(job) {
     this.scheduler.add(job)
   }
-  scheduleMeta(id, fromHint = false) {
-    this.names.enqueue(id, fromHint)
+  scheduleMeta(id, fromHint = false, fromHistory = false) {
+    this.names.enqueue(id, fromHint, fromHistory)
     // The optional operator hook is for other enrichment. Names and EVM totals use the durable batch job.
     const jobId = 'meta:' + id
     if (fromHint || !this.rpcConfig.metaFor || !this.registry.assets.has(id) || this.scheduler.jobs.has(jobId)) return

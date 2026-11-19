@@ -10,6 +10,7 @@ import { flagReader } from './names/flags.js'
 const families = new Set(['evm', 'solana', 'tron', 'sui', 'aptos', 'ton', 'cosmos'])
 const day = 86_400_000
 const NAMES_TICK_MS = 3000
+const HISTORY_PRIORITY = 2
 
 /** @typedef {{name: string|null, symbol: string|null, decimals: number|null,
  * nameStatus: 'resolved'|'pending'|'unresolvable', nameSource: 'on-chain'|'contract-uri'|'bundle'|'registry'|'reported'|null,
@@ -18,7 +19,7 @@ const NAMES_TICK_MS = 3000
 /** One durable queue for discovery and restart recovery. Internal addresses and signed venue aliases
  * stay usable while the public projection can say precisely which labels the node has established.
  * @param {import('../index.js').Engine} engine
- * @returns {{enqueue(id: string, fromHint?: boolean): void, display(id: string): AssetNameView|null}} */
+ */
 export function registerNamesJob(engine) {
   const { registry, store, book, clock, rpc } = engine, db = store.writer
   const seeds = new Map(engine.catalog.assets.map(asset => [asset.id, asset]))
@@ -26,7 +27,7 @@ export function registerNamesJob(engine) {
   const cooldown = new Map(), rotation = new Map(), offchain = offchainReader(engine)
   const rowFor = db.prepare('SELECT * FROM engine_names WHERE asset=?')
   const insert = db.prepare(`INSERT INTO engine_names(asset,chain,publicOnly,priority,nextRetry) VALUES(?,?,?,?,?)
-    ON CONFLICT(asset) DO UPDATE SET publicOnly=0 WHERE excluded.publicOnly=0 AND publicOnly=1`)
+    ON CONFLICT(asset) DO UPDATE SET publicOnly=0,priority=excluded.priority WHERE excluded.publicOnly=0 AND publicOnly=1`)
   const head = db.prepare(`SELECT nextRetry FROM engine_names WHERE chain=? AND publicOnly=? AND priority=? AND nextRetry IS NOT NULL
     ORDER BY nextRetry,asset LIMIT 1`)
   const defer = db.prepare('UPDATE engine_names SET nextRetry=? WHERE asset=? AND publicOnly=? AND nextRetry IS NOT NULL')
@@ -45,16 +46,17 @@ export function registerNamesJob(engine) {
 
   // Separate startup seed checks from discovery and public-only work. A slow endpoint cannot occupy turns for other chains.
   const routes = new Map()
-  let selected, wakeAt = Infinity, changed = true
+  let changed = true, nextHistory = 0
+  const ordinary = {}, history = {}
   function routeFor(chainId, publicOnly, priority) {
     const key = chainId + ':' + publicOnly + ':' + priority
     if (!routes.has(key)) routes.set(key, { chainId, publicOnly, priority })
   }
 
-  function enqueue(id, fromHint = false) {
+  function enqueue(id, fromHint = false, fromHistory = false) {
     const a = registry.assets.get(id)
     if (!a || a.address === 'native' || a.kind === 'nft' || !families.has(registry.chains.get(a.chain)?.family)) return
-    const priority = Number(!!labels(seeds.get(id), a.address))
+    const priority = fromHistory ? HISTORY_PRIORITY : Number(!!labels(seeds.get(id), a.address))
     const result = insert.run(id, a.chain, Number(fromHint), priority, clock())
     if (result.changes) changed = true
     routeFor(a.chain, Number(fromHint), priority)
@@ -143,24 +145,24 @@ export function registerNamesJob(engine) {
     }
   }
 
-  function nextRoute() {
+  function nextRoute(lane = ordinary) {
     if (changed) {
       changed = false
-      selected = null
-      wakeAt = Infinity
+      for (const queue of [ordinary, history]) { queue.selected = null; queue.wakeAt = Infinity }
       const now = clock()
       for (const route of routes.values()) {
         const r = route.attempt ?? head.get(route.chainId, route.publicOnly, route.priority)
         if (!r) continue
-        const bothReady = r.nextRetry <= now && wakeAt <= now
-        if (bothReady && route.priority > selected.priority) continue
-        if (r.nextRetry < wakeAt || (bothReady && route.priority < selected.priority)) {
-          selected = route
-          wakeAt = r.nextRetry
+        const queue = route.priority === HISTORY_PRIORITY ? history : ordinary
+        const bothReady = r.nextRetry <= now && queue.wakeAt <= now
+        if (bothReady && route.priority > queue.selected.priority) continue
+        if (r.nextRetry < queue.wakeAt || (bothReady && route.priority < queue.selected.priority)) {
+          queue.selected = route
+          queue.wakeAt = r.nextRetry
         }
       }
     }
-    return clock() >= wakeAt ? selected : null
+    return clock() >= lane.wakeAt ? lane.selected : null
   }
 
   function nextBatch({ chainId, publicOnly, priority }) {
@@ -172,8 +174,7 @@ export function registerNamesJob(engine) {
     return { chain, publicOnly, assets, reads: {}, start: now }
   }
 
-  async function resolve({ chain, publicOnly, assets, reads }) {
-    const client = publicOnly ? rpc.publicOnly : rpc
+  async function resolve({ chain, publicOnly, assets, reads }, client = publicOnly ? rpc.publicOnly : rpc) {
     if (chain?.family === 'evm') return evmNames(chain, assets, client, reads, cooldown, clock())
     if (chain?.family === 'solana') return solanaNames(chain, assets, client)
     const raw = engine.bundle.chains.find(c => c.id === chain?.id)
@@ -194,7 +195,8 @@ export function registerNamesJob(engine) {
         const complete = name && symbol && decimals != null && method
         const failures = complete ? 0 : Math.min(32, old.failures + 1)
         const nextRetry = complete ? null : now + Math.min(day, 60_000 * 2 ** (failures - 1))
-        persist.run(name, symbol, decimals, method, block, now, failures, nextRetry, complete ? now : null, a.id)
+        const publishAt = complete && old.priority !== HISTORY_PRIORITY ? now : null
+        persist.run(name, symbol, decimals, method, block, now, failures, nextRetry, publishAt, a.id)
         const patch = {}
         if (name && symbol) {
           setLabels.run(name, symbol, a.id, name, symbol)
@@ -234,34 +236,43 @@ export function registerNamesJob(engine) {
     arm()
   }
   async function runOnce() {
-    {
-      await listen()
-      publish()
-      const route = nextRoute()
-      if (!route) return
-      const attempt = route.attempt ?? nextBatch(route)
-      changed = true
-      route.attempt = null
-      if (!attempt.assets.length) return
-      let results
-      try { results = await resolve(attempt) }
-      catch (error) {
-        if (engine.abort?.signal.aborted) throw error
-        if (error instanceof RateLimited) {
-          const now = clock(), retry = Math.max(now + 1000, Math.min(now + day, error.retryAt))
-          store.transaction(() => { for (const a of attempt.assets) defer.run(retry, a.id, route.publicOnly) })
-          // Preserve completed selectors across budget turns. Release stale partial reads so a persistently
-          // unavailable token cannot block the rest of its chain. A budget deferral never enables peer fallback.
-          if (now - attempt.start < 15 * 60_000) route.attempt = { ...attempt, nextRetry: retry }
-          changed = true
-          return
-        }
-        results = attempt.assets.map(() => null)
-      }
-      save(attempt.assets, results)
-      changed = true
-      publish()
-    }
+    await listen()
+    publish()
+    const route = nextRoute()
+    if (route) { await readRoute(route); publish() }
   }
-  return { enqueue, display }
+  async function readRoute(route, client) {
+    const attempt = route.attempt ?? nextBatch(route)
+    changed = true
+    route.attempt = null
+    if (!attempt.assets.length) return
+    let results
+    try { results = await resolve(attempt, client) }
+    catch (error) {
+      if (engine.abort?.signal.aborted) throw error
+      if (error instanceof RateLimited) {
+        const now = clock(), retry = Math.max(now + 1000, Math.min(now + day, error.retryAt))
+        store.transaction(() => { for (const a of attempt.assets) defer.run(retry, a.id, route.publicOnly) })
+        // Preserve completed selectors across budget turns. Release stale partial reads so a persistently
+        // unavailable token cannot block the rest of its chain. A budget deferral never enables peer fallback.
+        if (now - attempt.start < 15 * 60_000) route.attempt = { ...attempt, nextRetry: retry }
+        changed = true
+        return
+      }
+      results = attempt.assets.map(() => null)
+    }
+    save(attempt.assets, results)
+    changed = true
+  }
+  // Historical labels share the durable batch/validation path. Only the idle catch-up job
+  // runs these public reads, and locally resolved historical names stay out of the live outbox.
+  return { enqueue, display,
+    historyDue: () => clock() >= nextHistory && !!nextRoute(history),
+    async readHistory(client) {
+      const route = nextRoute(history)
+      if (!route) return
+      nextHistory = clock() + 10_000
+      await readRoute(route, client)
+    },
+  }
 }
