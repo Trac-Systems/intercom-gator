@@ -7,14 +7,15 @@ Intercom sidechannel transports for intercom-gator and the shared social layer: 
 
 `vendor/intercom-sidechannel/` holds `features/sidechannel/{index,managed,channel-options,pow,seen}.js` from
 Trac-Systems/intercom at the commit recorded in `VENDOR.json` (PR #43 head `5fd7669`). The files are byte-identical
-except for two import rewrites, and `VENDOR.json` records both SHA-256 digests for each file. `index.js` is the
+except for two import rewrites and the Windows filesystem patch for `seen.js`. `VENDOR.json` records the
+patch and both SHA-256 digests for each file. `index.js` is the
 unmodified 0.0.11 release module. Gator always builds the opt-in `ManagedSidechannel` from `managed.js`. To re-vendor:
 
 ```sh
 node packages/net/scripts/vendor-sync.mjs <intercom checkout> <commit>
 ```
 
-`test/vendor.test.js` reverses the rewrites and compares the result with the pinned upstream blobs.
+`test/vendor.test.js` reverses the patch and import rewrites and compares the result with the pinned upstream blobs.
 
 Gator's subclass (`src/sidechannel-transport.js`) adds three things on top of upstream:
 

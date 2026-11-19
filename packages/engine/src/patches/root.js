@@ -5,6 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { bundleDigest, canonical, patchDigest, signPatch, verifyBundleSignature } from '../../../bundle/src/index.js'
 import { MAX_CHAIN, patchShapeProblem, patchUrlProblem, replayChain } from './index.js'
 import { MAX_FEED_BYTES, verifiedPatchEnvelope } from './feed-format.js'
+import { openPrivateRead } from '../../../net/src/private-file.js'
 
 /** Root tool helpers behind `gator root patch` / `gator root publish`. The seed is read in-process into a Buffer,
  * never printed, logged or written anywhere, and no error message contains any part of it. */
@@ -23,7 +24,7 @@ export function readSeedFile(path) {
   let raw
   let tooOpen = false
   try {
-    const fd = openSync(path, constants.O_RDONLY | (constants.O_NONBLOCK ?? 0))
+    const fd = process.platform === 'win32' ? openPrivateRead(path) : openSync(path, constants.O_RDONLY | (constants.O_NONBLOCK ?? 0))
     try {
       const stat = fstatSync(fd)
       if (!stat.isFile() || stat.size > 1024) throw new Error()

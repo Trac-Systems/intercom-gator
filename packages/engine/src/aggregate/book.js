@@ -114,14 +114,14 @@ export class MarketBook {
         AND (l.reporter=? OR s.agreements>=?) GROUP BY market`)
     this.peers = db.prepare(`SELECT o.id,o.price,o.reporter,o.market,l.srcTs,o.ordinal,coalesce(o.seq,o.id) AS seq FROM engine_latest l JOIN obs o ON o.id=l.obsId
       WHERE l.market=? AND l.srcTs BETWEEN ? AND ? AND l.reporter<>?`)
-    this.check = db.prepare(`INSERT INTO engine_checks VALUES (?1,mark_receipt(NULL,?2))
-      ON CONFLICT(obsId) DO UPDATE SET hits=mark_receipt(hits,?2) WHERE NOT receipt_checked(hits,?2)`)
+    this.check = db.prepare(`INSERT INTO engine_checks VALUES (:id,mark_receipt(NULL,:ordinal))
+      ON CONFLICT(obsId) DO UPDATE SET hits=mark_receipt(hits,:ordinal) WHERE NOT receipt_checked(hits,:ordinal)`)
     this.spot = db.prepare(`INSERT INTO engine_spot_checks(localId,reporter,hits,srcTs,price)
-      VALUES (?1,?2,mark_receipt(NULL,?3),?4,?5) ON CONFLICT(localId,reporter) DO UPDATE SET
-      hits=mark_receipt(hits,?3),price=CASE WHEN excluded.srcTs>srcTs THEN excluded.price ELSE price END,
-      srcTs=max(srcTs,excluded.srcTs) WHERE NOT receipt_checked(hits,?3)`)
-    this.firstStrike = db.prepare(`UPDATE engine_spot_checks SET struck=mark_receipt(struck,?3)
-      WHERE localId=?1 AND reporter=?2 AND NOT receipt_checked(struck,?3)`)
+      VALUES (:localId,:reporter,mark_receipt(NULL,:ordinal),:srcTs,:price) ON CONFLICT(localId,reporter) DO UPDATE SET
+      hits=mark_receipt(hits,:ordinal),price=CASE WHEN excluded.srcTs>srcTs THEN excluded.price ELSE price END,
+      srcTs=max(srcTs,excluded.srcTs) WHERE NOT receipt_checked(hits,:ordinal)`)
+    this.firstStrike = db.prepare(`UPDATE engine_spot_checks SET struck=mark_receipt(struck,:ordinal)
+      WHERE localId=:localId AND reporter=:reporter AND NOT receipt_checked(struck,:ordinal)`)
     this.lastSpot = db.prepare(`INSERT INTO engine_last_spot VALUES (?,?,?,?,?) ON CONFLICT(market) DO UPDATE SET
       localId=excluded.localId,reporter=excluded.reporter,srcTs=excluded.srcTs,seq=excluded.seq
       WHERE (excluded.srcTs,excluded.seq)>(srcTs,seq)
@@ -194,11 +194,12 @@ export class MarketBook {
     const difference = deviation(row.price, local.price)
     const fresh = Math.abs(now - local.srcTs) <= 30_000
     if (difference > 0.03 + 1e-12) this.requestCheck(market, row, local)
-    const unchecked = this.check.run(row.id, row.ordinal).changes
-    const newSpot = this.spot.run(local.id, row.reporter, local.ordinal, local.srcTs, local.price).changes
+    const unchecked = this.check.run({ id: row.id, ordinal: row.ordinal }).changes
+    const spot = { localId: local.id, reporter: row.reporter, ordinal: local.ordinal }
+    const newSpot = this.spot.run({ ...spot, srcTs: local.srcTs, price: local.price }).changes
     if (newSpot) this.lastSpot.run(market, local.id, row.reporter, local.srcTs, local.seq)
     if (difference > 0.03 + 1e-12) {
-      if (!unchecked || !this.firstStrike.run(local.id, row.reporter, local.ordinal).changes) return
+      if (!unchecked || !this.firstStrike.run(spot).changes) return
       this.recordStrike.run(row.reporter, now + DAY)
       this.resetStanding.run(now, row.reporter)
     } else if (newSpot && fresh && row.seq < local.seq && difference <= 0.01 + 1e-12) {

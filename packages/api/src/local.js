@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, randomUUID } from 'node:crypto';
-import { chmodSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, fchmodSync, fstatSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { ensureWindowsDirectory, openPrivateRead } from '@gator/net/src/private-file.js';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -36,12 +37,15 @@ export function writePrivate(path, value) {
 
 export function readToken(dataDir, filename = 'api-token') {
   const file = join(dataDir, filename);
-  const stat = lstatSync(file);
-  if (!stat.isFile() || stat.size > 256) throw new Error('Invalid local credential');
-  if (process.platform !== 'win32' && (stat.mode & 0o077)) chmodSync(file, 0o600);
-  const value = readFileSync(file, 'utf8').trim();
-  if (!/^[a-zA-Z0-9_-]{32,128}$/.test(value)) throw new Error('Invalid local credential');
-  return value;
+  const fd = openPrivateRead(file);
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || stat.size > 256) throw new Error('Invalid local credential');
+    if (process.platform !== 'win32' && (stat.mode & 0o077)) fchmodSync(fd, 0o600);
+    const value = readFileSync(fd, 'utf8').trim();
+    if (!/^[a-zA-Z0-9_-]{32,128}$/.test(value)) throw new Error('Invalid local credential');
+    return value;
+  } finally { closeSync(fd); }
 }
 
 export function ensureToken(dir, filename) {
@@ -52,11 +56,12 @@ export function ensureToken(dir, filename) {
 
 /** An OS-released SQLite lock prevents two daemons sharing keys, config and seen files. */
 export function lockDirectory(dir) {
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const stat = lstatSync(dir);
-  if (!stat.isDirectory()) throw new Error('Expected a data directory');
-  if (process.platform !== 'win32' && (stat.mode & 0o077)) {
-    throw new Error('Data directory must be private (chmod 700)');
+  if (process.platform === 'win32') ensureWindowsDirectory(dir);
+  else {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const stat = lstatSync(dir);
+    if (!stat.isDirectory()) throw new Error('Expected a data directory');
+    if (stat.mode & 0o077) throw new Error('Data directory must be private (chmod 700)');
   }
   const { DatabaseSync } = process.getBuiltinModule('node:sqlite');
   const db = new DatabaseSync(join(dir, 'daemon.lock.db'));

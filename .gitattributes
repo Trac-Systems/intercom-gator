@@ -1,0 +1,3 @@
+# Vendor provenance is computed over the upstream bytes, including line endings.
+packages/net/vendor/intercom-sidechannel/*.js text eol=lf
+packages/net/scripts/patches/*.patch text eol=lf -whitespace

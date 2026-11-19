@@ -11,8 +11,11 @@ export function identityLockDir(env = process.env) {
   return resolve(env.GATOR_IDENTITY_LOCKS || join(homedir(), '.intercom-locks'));
 }
 
-function alive(pid) {
-  try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
+export function processAlive(pid) {
+  if (!Number.isInteger(pid) || pid < 1 || pid > 0x7fffffff) return false;
+  // Only ESRCH proves the process has exited. A denied or inconclusive
+  // Windows process query must leave the recorded owner's lock in place.
+  try { process.kill(pid, 0); return true; } catch (error) { return error.code !== 'ESRCH'; }
 }
 
 const held = new Map();
@@ -23,7 +26,7 @@ const held = new Map();
  * @param {string} publicKey @param {{dir?:string, harness?:string, dataDir?:string, isAlive?:(pid:number)=>boolean}} [options]
  * @returns {() => void} release
  */
-export function lockIdentity(publicKey, { dir = identityLockDir(), harness = 'unknown', dataDir = '', isAlive = alive } = {}) {
+export function lockIdentity(publicKey, { dir = identityLockDir(), harness = 'unknown', dataDir = '', isAlive = processAlive } = {}) {
   if (typeof publicKey !== 'string' || !/^[a-f0-9]{64}$/.test(publicKey)) throw new TypeError('Expected a public key');
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const stat = lstatSync(dir);

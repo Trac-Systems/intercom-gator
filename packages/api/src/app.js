@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { lstatSync, rmSync, rmdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { SwarmTransport, loadOrCreateKey } from '@gator/net';
+import { windowsDirectory } from '@gator/net/src/private-file.js';
 import { RELAYS } from '@gator/bundle/src/relays.js';
 import { Social, lockIdentity, migrations as socialMigrations } from '@gator/social';
 import { openStore } from '@gator/store';
@@ -16,19 +17,28 @@ import { CREDENTIALS, defaultDir, ensureToken, lockDirectory, readJson, writePri
 
 const HOUR = 3_600_000, MINUTE = 60_000;
 
-/** Start one peer, its signed sources, agent files and loopback API.
- * @param {{dataDir?:string, config?:object, bootstrap?:Array, transport?:object|Function, clock?:(()=>number)|{now:()=>number},
- * port?:number, release?:{dir:string,rootKey:string}, fetch?:Function, signals?:boolean}} options */
+function seenLockRecord(dataDir, platform) {
+  const seen = join(dataDir, 'seen'), lock = join(seen, '.writer.lock');
+  if (platform === 'win32') {
+    windowsDirectory(seen);
+    const stat = windowsDirectory(lock);
+    return { dev: String(stat.dev), ino: String(stat.ino), birthtimeNs: String(stat.birthtimeNs) };
+  }
+  const stat = lstatSync(lock);
+  if (!stat.isDirectory()) return null;
+  return { dev: stat.dev, ino: stat.ino, birthtimeMs: stat.birthtimeMs };
+}
+
 /** An unclean exit leaves Intercom's seen-list directory lock. Reclaim only the exact inode this daemon
  * acquired before (recorded in seen-writer.json), under the OS data-directory lock the caller holds. The lock
  * directory holds an `owner` record, so a killed daemon leaves it non-empty. */
-export function reclaimSeenLock(dataDir) {
-  const seenLock = join(dataDir, 'seen', '.writer.lock');
+export function reclaimSeenLock(dataDir, platform = process.platform) {
   const prior = readJson(join(dataDir, 'seen-writer.json'), null);
   if (!prior) return false;
   try {
-    const stat = lstatSync(seenLock);
-    if (!stat.isDirectory() || stat.dev !== prior.dev || stat.ino !== prior.ino || stat.birthtimeMs !== prior.birthtimeMs) return false;
+    const record = seenLockRecord(dataDir, platform);
+    if (!record || !Object.entries(record).every(([key, value]) => prior[key] === value)) return false;
+    const seenLock = join(dataDir, 'seen', '.writer.lock');
     rmSync(join(seenLock, 'owner'), { force: true });
     rmdirSync(seenLock);
     return true;
@@ -40,6 +50,9 @@ export function reclaimSeenLock(dataDir) {
 
 const named = (label, fn) => Object.assign(fn, { label });
 
+/** Start one peer, its signed sources, agent files and loopback API.
+ * @param {{dataDir?:string, config?:object, bootstrap?:Array, transport?:object|Function, clock?:(()=>number)|{now:()=>number},
+ * port?:number, release?:{dir:string,rootKey:string}, fetch?:Function, signals?:boolean}} options */
 export async function createGator(options = {}) {
   const dataDir = resolve(options.dataDir ?? defaultDir());
   const sourceClock = options.clock ?? Date.now;
@@ -84,7 +97,6 @@ export async function createGator(options = {}) {
     // Blind relay: the release's relays (replaceable by root network settings), local extras, and serving on request.
     const blindRelay = { serve: options.blindRelayServe === true, relays: options.blindRelays ?? [], defaults: RELAYS };
     const transportOptions = { dataDir, wallet, rootKey: release.rootKey, bootstrap: options.bootstrap, blindRelay };
-    const seenLock = join(dataDir, 'seen', '.writer.lock');
     const seenOwner = join(dataDir, 'seen-writer.json');
     if (!options.transport) reclaimSeenLock(dataDir);
     const transport = app.transport = typeof options.transport === 'function' ? options.transport(transportOptions)
@@ -99,8 +111,7 @@ export async function createGator(options = {}) {
     cleanups.push(named('social', () => social.close()));
     await social.ready;
     if (!options.transport) {
-      const { dev, ino, birthtimeMs } = lstatSync(seenLock);
-      writePrivate(seenOwner, JSON.stringify({ dev, ino, birthtimeMs }));
+      writePrivate(seenOwner, JSON.stringify(seenLockRecord(dataDir, process.platform)));
     }
     if (!social.profile(transport.publicKey)) {
       const handle = 'peer_' + transport.publicKey.slice(0, 12);

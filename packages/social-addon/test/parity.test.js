@@ -112,7 +112,7 @@ test('gator-social card edits offline with the same merge: links, proofs, avatar
 });
 
 /** A gator-like data directory: its keystore and the signed card copies `gator key export` puts in the file. */
-async function exported(t, net, name, card, topics) {
+async function exported(net, name, card, topics) {
   const source = join(net.dir, name);
   const wallet = await loadOrCreateKey(source);
   const transport = net.transport(wallet);
@@ -125,7 +125,7 @@ async function exported(t, net, name, card, topics) {
   const file = join(net.dir, name + '.identity.json');
   writeFileSync(file, JSON.stringify(identityDocument({ publicKey: social.publicKey, harness: 'gator',
     keystore: JSON.parse(readFileSync(join(source, 'keys', 'peer.json'), 'utf8')), card: sent.card, announce: sent.announce })), { mode: 0o600 });
-  t.after(async () => { await social.close(); store.close(); });
+  net.beforeRemove(async () => { await social.close(); store.close(); });
   return { file, wallet, social, publicKey: social.publicKey };
 }
 
@@ -133,7 +133,7 @@ test('key import: the add-on runs the exported identity and adopts its card inst
   const net = await network(t);
   const card = { handle: 'atlas', name: 'Atlas', bio: 'maker', harnesses: ['gator'], links: ['https://atlas.example/'],
     proofs: { dns: 'atlas.example', github: 'atlas' }, avatar: WEBP };
-  const gator = await exported(t, net, 'gator', card, ['makers']);
+  const gator = await exported(net, 'gator', card, ['makers']);
   const dir = join(net.dir, 'addon');
   await assert.rejects(main(['key', 'import', gator.file, '--data', dir], quiet), /add --yes/);
   const { io, json, out } = capture();
@@ -168,12 +168,12 @@ test('key import: the add-on runs the exported identity and adopts its card inst
 
 test('key import keeps a different existing identity aside only with --replace', async t => {
   const net = await network(t);
-  const gator = await exported(t, net, 'gator', { handle: 'atlas', harnesses: ['gator'] }, []);
+  const gator = await exported(net, 'gator', { handle: 'atlas', harnesses: ['gator'] }, []);
   const dir = join(net.dir, 'addon');
   const before = (await loadOrCreateKey(dir)).publicKey.toString('hex');
   writeFileSync(join(dir, 'config.json'), JSON.stringify({ card: { handle: 'old_me', harnesses: ['dex'] } }), { mode: 0o600 });
   writeFileSync(join(dir, 'social.db'), 'old feed');
-  chmodSync(dir, 0o700);
+  if (process.platform !== 'win32') chmodSync(dir, 0o700);
   await assert.rejects(main(['key', 'import', gator.file, '--data', dir, '--yes'], quiet), /--replace/);
   const { io, json } = capture();
   assert.equal(await main(['key', 'import', gator.file, '--data', dir, '--yes', '--replace'], io), 0);
@@ -188,8 +188,8 @@ test('key import keeps a different existing identity aside only with --replace',
   const broken = join(net.dir, 'broken.json');
   writeFileSync(broken, JSON.stringify(identityDocument({ publicKey: KEY_A, keystore: { nonce: 'x' } })), { mode: 0o600 });
   await assert.rejects(main(['key', 'import', broken, '--data', join(net.dir, 'b'), '--yes'], quiet), /no valid keystore/);
-  chmodSync(gator.file, 0o644);
   if (process.platform !== 'win32') {
+    chmodSync(gator.file, 0o644);
     await assert.rejects(main(['key', 'import', gator.file, '--data', join(net.dir, 'c'), '--yes'], quiet), /chmod 600/);
   }
 });
@@ -219,7 +219,7 @@ test('a card another harness of the identity publishes is adopted, and this prod
   const transport = net.transport(wallet);
   const store = openStore({ file: join(net.dir, 'gator.db'), profile: 'small', migrations });
   const gator = new Social({ transport, db: store, rootKey: ROOT, product: 'gator', dataDir: join(net.dir, 'g'), proofs: false });
-  t.after(async () => { await gator.close(); store.close(); });
+  net.beforeRemove(async () => { await gator.close(); store.close(); });
   await gator.ready;
   // gator edits the card (as editedCard does: it keeps tags) without knowing the add-on's topics.
   assert.equal(await gator.setCard({ handle: 'shared', name: 'From gator', harnesses: ['gator'] }), true);

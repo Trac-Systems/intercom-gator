@@ -150,3 +150,25 @@ test('identity file: signed card copies verify for the key, a forged copy is dro
   assert.throws(() => readIdentityDocument('{"format":"x"}', ROOT), /Not an identity file/);
   assert.throws(() => readIdentityDocument('nope', ROOT), /Not an identity file/);
 });
+
+test('identity locks only reclaim a PID that the OS reports missing', t => {
+  const dir = scratch(t), file = join(dir, createHash('sha256').update('intercom-gator/identity-lock/v1\n' + KEY).digest('hex').slice(0, 32) + '.lock');
+  const pid = 123456;
+  const record = JSON.stringify({ pid, harness: 'test' });
+  writeFileSync(file, record);
+  let code = 'EPERM';
+  t.mock.method(process, 'kill', (requested, signal) => {
+    assert.equal(requested, pid);
+    assert.equal(signal, 0);
+    throw Object.assign(new Error('process query'), { code });
+  });
+  for (const probe of ['EPERM', 'UNKNOWN']) {
+    code = probe;
+    assert.throws(() => lockIdentity(KEY, { dir }), /already runs/);
+    assert.equal(readFileSync(file, 'utf8'), record);
+  }
+  code = 'ESRCH';
+  const release = lockIdentity(KEY, { dir });
+  release();
+  assert.equal(existsSync(file), false);
+});

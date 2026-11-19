@@ -30,6 +30,7 @@ export async function network(t) {
   let n = 0;
   return {
     hub, dir,
+    beforeRemove(close) { running.push({ close }); },
     transport(wallet) {
       const transport = new MemoryTransport({ hub, skipPow: true, rootKey: ROOT, ...(wallet ? { wallet } : {}) });
       running.push({ close: () => transport.close() });

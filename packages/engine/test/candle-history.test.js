@@ -56,10 +56,11 @@ test('migration drops flat imported history of non-stable assets only', async (t
   const { openStore } = await import('./store-fixture.js')
   const { migrations } = await import('../src/schema.js')
   const dir = mkdtempSync(join(tmpdir(), 'dead-seed-')), file = join(dir, 'test.db')
-  t.after(() => rmSync(dir, { recursive: true, force: true }))
-  const before = openStore({ file, migrations: migrations.filter((m) => m.id !== 'engine-013-dead-seed-candles') })
-  for (const id of ['dead:native', 'stable:native', 'live:native']) before.upsertAsset({ id, symbol: id, name: id })
-  const insert = before.writer.prepare(`INSERT INTO candles(asset,tf,ts,open,high,low,close,samples,firstTs,firstId,lastTs,lastId)
+  let store
+  t.after(() => { try { store?.close() } finally { rmSync(dir, { recursive: true, force: true }) } })
+  store = openStore({ file, migrations: migrations.filter((m) => m.id !== 'engine-013-dead-seed-candles') })
+  for (const id of ['dead:native', 'stable:native', 'live:native']) store.upsertAsset({ id, symbol: id, name: id })
+  const insert = store.writer.prepare(`INSERT INTO candles(asset,tf,ts,open,high,low,close,samples,firstTs,firstId,lastTs,lastId)
     VALUES (?,'1h',?,?,?,?,?,1,?,0,?,0)`)
   for (const asset of ['dead:native', 'stable:native', 'live:native'])
     for (let i = 0; i < 20; i++) {
@@ -67,13 +68,12 @@ test('migration drops flat imported history of non-stable assets only', async (t
       insert.run(asset, ts, p, asset === 'live:native' ? String(11 + i) : p, p, p, ts, ts + HOUR - 1)
     }
   // A local bar of the dead asset (several samples, real span) stays.
-  before.writer.prepare(`INSERT INTO candles(asset,tf,ts,open,high,low,close,samples,firstTs,firstId,lastTs,lastId)
+  store.writer.prepare(`INSERT INTO candles(asset,tf,ts,open,high,low,close,samples,firstTs,firstId,lastTs,lastId)
     VALUES ('dead:native','1h',?,'3','3','3','3',4,?,0,?,0)`).run(to, to + 5, to + 600)
-  before.writer.prepare('INSERT INTO engine_asset_data(asset,stable) VALUES (?,1)').run('stable:native')
-  before.close()
-  const after = openStore({ file, migrations })
-  t.after(() => after.close())
-  const count = (asset) => after.reader.prepare("SELECT count(*) AS n FROM candles WHERE asset=? AND tf='1h'").get(asset).n
+  store.writer.prepare('INSERT INTO engine_asset_data(asset,stable) VALUES (?,1)').run('stable:native')
+  store.close()
+  store = openStore({ file, migrations })
+  const count = (asset) => store.reader.prepare("SELECT count(*) AS n FROM candles WHERE asset=? AND tf='1h'").get(asset).n
   assert.equal(count('dead:native'), 1)
   assert.equal(count('stable:native'), 20)
   assert.equal(count('live:native'), 20)

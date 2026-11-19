@@ -169,7 +169,10 @@ test('agent announcement travels over gator/new and appears on the receiving nod
     await client.connect(left);
     const result = await client.callTool({ name: 'announce_placement', arguments: args });
     assert.deepEqual(result.structuredContent, { ...args, chain: 'ethereum', announced: true }, result.content[0].text);
-    for (let i = 0; i < 100 && !late.store.getAsset(args.assetId); i++) await delay(10);
+    // The receiver independently verifies the token through rate-limited RPC reads.
+    const deadline = Date.now() + 15_000;
+    while (!late.store.getAsset(args.assetId) && Date.now() < deadline) await delay(25);
+    assert.ok(late.store.getAsset(args.assetId), 'Receiving node timed out verifying the placement');
     const detail = await api('GET', '/assets/' + encodeURIComponent(args.assetId));
     assert.deepEqual(detail.placement.active, { slot: args.slot, purchaseId: args.purchaseId, chain: 'ethereum',
       label: 'Promoted', until: end * 1000 });

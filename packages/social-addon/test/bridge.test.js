@@ -73,18 +73,22 @@ async function fakeHost(t) {
 
 async function scratch(t) {
   const dir = await mkdtemp(join(import.meta.dirname, 'scratch-'));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  const cleanups = [];
+  t.after(async () => {
+    try { for (const cleanup of cleanups.reverse()) await cleanup(); }
+    finally { await rm(dir, { recursive: true, force: true }); }
+  });
   const tokenFile = join(dir, 'bridge-token');
   writeFileSync(tokenFile, TOKEN + '\n', { mode: 0o600 });
-  return { dir, tokenFile };
+  return { dir, tokenFile, beforeRemove: fn => cleanups.push(fn) };
 }
 
 test('bridge mode uses the host peer key over SC-Bridge', async t => {
   const host = await fakeHost(t);
-  const { dir, tokenFile } = await scratch(t);
+  const { dir, tokenFile, beforeRemove } = await scratch(t);
   const addon = await startAddon({ dataDir: join(dir, 'data'), bridge: { url: host.url, tokenFile }, rootKey: ROOT,
     product: 'reset', agentPosting: true, proofs: false, profile: 'small' });
-  t.after(() => addon.close());
+  beforeRemove(() => addon.close());
   assert.equal(addon.mode, 'bridge');
   assert.equal(addon.publicKey, HOST);
   assert.equal(existsSync(join(dir, 'data', 'keys')), false); // no own key in bridge mode
@@ -163,15 +167,18 @@ test('`gator-social run --bridge … --mcp` end to end through the CLI', async t
 test('the bin as a child process stops when its parent closes stdin', { timeout: 60_000 }, async t => {
   const { spawn } = await import('node:child_process');
   const host = await fakeHost(t);
-  const { dir, tokenFile } = await scratch(t);
+  const { dir, tokenFile, beforeRemove } = await scratch(t);
   const data = join(dir, 'child');
   const child = spawn(process.execPath, [join(import.meta.dirname, '..', 'bin', 'gator-social.js'), 'run', '--data', data,
     '--product', 'dex', '--bridge', host.url, '--token-file', tokenFile, '--profile', 'small', '--exit-on-stdin-close'],
-  { stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: process.env.PATH, HOME: dir } });
-  t.after(() => child.kill('SIGKILL'));
+  { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GATOR_IDENTITY_LOCKS: join(dir, 'locks') } });
   let out = '';
   child.stdout.on('data', c => { out += c; });
   const exited = new Promise(resolve => child.once('exit', code => resolve(code)));
+  beforeRemove(async () => {
+    if (child.exitCode == null && child.signalCode == null) child.kill('SIGKILL');
+    await exited;
+  });
   await until(() => out.includes('gator-social running'), { timeout: 30_000 });
   assert.ok(existsSync(join(data, 'run.lock')));
   assert.ok(existsSync(join(data, 'control.json')));
@@ -183,12 +190,12 @@ test('the bin as a child process stops when its parent closes stdin', { timeout:
 
 test('run keeps serving its local feed and restores subscriptions on a new bridge connection', async t => {
   const host = await fakeHost(t);
-  const { dir, tokenFile } = await scratch(t);
+  const { dir, tokenFile, beforeRemove } = await scratch(t);
   const data = join(dir, 'lost'), stdin = new PassThrough(), client = socialClient(data);
   const run = main(['run', '--data', data, '--bridge', host.url, '--token-file', tokenFile,
     '--profile', 'small', '--agent-posting', '--exit-on-stdin-close'],
     { stdin, stdout: new PassThrough(), stderr: new PassThrough(), signals: false });
-  t.after(async () => { stdin.end(); await run; });
+  beforeRemove(async () => { stdin.end(); await run; });
   await until(() => existsSync(join(data, 'control.json')));
   const remove = 'ef'.repeat(32);
   for (const key of [ROOT, remove]) assert.equal((await client.call('follow', { key })).value.changed, true);
@@ -223,9 +230,9 @@ test('run keeps serving its local feed and restores subscriptions on a new bridg
 
 test('recovery rejects a different peer identity and retries an incomplete channel restore', async t => {
   const host = await fakeHost(t);
-  const { dir, tokenFile } = await scratch(t);
+  const { dir, tokenFile, beforeRemove } = await scratch(t);
   const addon = await startAddon({ dataDir: dir, bridge: { url: host.url, tokenFile }, rootKey: ROOT, proofs: false });
-  t.after(() => addon.close());
+  beforeRemove(() => addon.close());
   const wanted = new Set(addon.transport.channels());
   host.peer = 'cd'.repeat(32);
   host.sessions[0].socket.terminate();
@@ -246,9 +253,9 @@ test('recovery rejects a different peer identity and retries an incomplete chann
 
 test('shutdown cancels a reconnect during the replacement handshake', async t => {
   const host = await fakeHost(t);
-  const { dir, tokenFile } = await scratch(t);
+  const { dir, tokenFile, beforeRemove } = await scratch(t);
   const addon = await startAddon({ dataDir: dir, bridge: { url: host.url, tokenFile }, rootKey: ROOT, proofs: false });
-  t.after(() => addon.close());
+  beforeRemove(() => addon.close());
   host.holdHello = true;
   host.sessions[0].socket.terminate();
   await until(() => host.sessions.length === 2);

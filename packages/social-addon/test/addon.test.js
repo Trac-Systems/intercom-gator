@@ -113,7 +113,7 @@ test('agent files, official notices, product channel and restart', async t => {
   assert.equal(existsSync(join(dir, 'run.lock')), false);
   assert.equal(existsSync(join(dir, 'control.json')), false);
   const again = await startAddon({ dataDir: dir, rootKey: ROOT, transport: net.transport(), proofs: false, profile: 'small', product: 'dex' });
-  t.after(() => again.close());
+  net.beforeRemove(() => again.close());
   assert.notEqual(again.publicKey, key); // a fresh memory transport has a fresh key; the stored feed remains
   const kept = (await call(again, 'feed_read', { scope: 'official' })).value.posts;
   assert.ok(kept.length >= 1 && kept.every(p => p.untrustedText === 'Maintenance window at 12:00 UTC'));
@@ -164,7 +164,7 @@ test('a stale lock from a dead process is taken over; bad options fail early', a
   mkdirSync(dir, { mode: 0o700 });
   writeFileSync(join(dir, 'run.lock'), '2147483646');
   const addon = await startAddon({ dataDir: dir, rootKey: ROOT, transport: net.transport(), proofs: false, profile: 'small' });
-  t.after(() => addon.close());
+  net.beforeRemove(() => addon.close());
   assert.equal(readFileSync(join(dir, 'run.lock'), 'utf8'), String(process.pid));
   await assert.rejects(startAddon({ dataDir: join(net.dir, 'x'), product: 'nft', transport: net.transport() }), /--product/);
   await assert.rejects(startAddon({ dataDir: join(net.dir, 'y'), transport: net.transport(), bridge: { url: 'ws://127.0.0.1:1' } }), /not both/);

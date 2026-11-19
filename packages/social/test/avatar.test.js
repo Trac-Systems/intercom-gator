@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { crc32, deflateSync } from 'node:zlib';
 import { Social, migrations, AVATAR_MAX_BYTES } from '../src/index.js';
-import { imageInfo, parseAvatar } from '../src/avatar.js';
+import { imageInfo, parseAvatar, readAvatarFile } from '../src/avatar.js';
 import { isCard, validMessage } from '../src/validate.js';
 import { Hub } from './hub.js';
 
@@ -214,4 +214,20 @@ test('receivers drop cards whose avatar is not a valid 96×96 image', async t =>
   b.net.emit('message', good.channel, good);
   assert.equal(b.social.profile(a.key).handle, 'mallory');
   assert.equal(b.social.profile(a.key).avatar, parseAvatar(LOSSY).hash);
+});
+
+
+test('Windows avatar reads require a regular file before opening it', async t => {
+  const dir = await mkdtemp(join(import.meta.dirname, 'scratch-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, 'avatar.webp'), image = Buffer.from(ALPHA, 'base64');
+  await writeFile(file, image);
+  assert.deepEqual(await readAvatarFile(file, 'win32'), image);
+  await assert.rejects(readAvatarFile(dir, 'win32'), /regular file/);
+  await assert.rejects(readAvatarFile(join(dir, 'missing'), 'win32'), /not readable/);
+  const pictures = join(dir, 'pictures'), linked = join(dir, 'redirected');
+  await mkdir(pictures);
+  await writeFile(join(pictures, 'avatar.webp'), image);
+  await symlink(pictures, linked, 'junction');
+  await assert.rejects(readAvatarFile(join(linked, 'avatar.webp'), 'win32'), /regular file/);
 });

@@ -140,8 +140,8 @@ test('root patch signs against the effective digest and root publish delivers it
   writeFileSync(malformed, seedHex.slice(0, 63) + 'z', { mode: 0o600 });
   await assert.rejects(main(['root', 'publish', '--patch', out, '--seed-file', malformed], io),
     e => { errors.push(e.message); return /64 hex characters/.test(e.message); });
-  chmodSync(seedFile, 0o644);
   if (process.platform !== 'win32') {
+    chmodSync(seedFile, 0o644);
     await assert.rejects(main(['root', 'publish', '--patch', out, '--seed-file', seedFile], io),
       e => { errors.push(e.message); return /chmod 600/.test(e.message); });
   }

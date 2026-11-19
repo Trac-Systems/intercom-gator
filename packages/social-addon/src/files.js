@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, fstatSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { ensureWindowsDirectory, openPrivateRead, windowsDirectory } from '@gator/net/src/private-file.js';
+import { processAlive } from '@gator/social/src/identity-lock.js';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -9,11 +11,17 @@ export function defaultDataDir(env = process.env) {
 }
 
 export function checkDataDir(dir) {
-  const stat = lstatSync(dir);
+  const stat = process.platform === 'win32' ? windowsDirectory(dir) : lstatSync(dir);
   if (!stat.isDirectory()) throw new Error('Expected a data directory');
   if (process.platform !== 'win32' && (stat.mode & 0o077)) {
     throw new Error('Data directory must be private (chmod 700): ' + dir);
   }
+}
+
+export function createDataDir(dir) {
+  if (process.platform === 'win32') { ensureWindowsDirectory(dir); return; }
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  checkDataDir(dir);
 }
 
 /** Atomically replace a file only this user can read. */
@@ -30,7 +38,7 @@ export function writePrivate(file, contents) {
 
 /** Read a small private file (a token). Refuses links, non-files and files others can read or write. */
 export function readPrivate(file, maxBytes = 4096) {
-  const fd = openSync(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  const fd = openPrivateRead(file);
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile() || stat.size > maxBytes) throw new Error('Expected a small regular file: ' + file);
@@ -58,13 +66,9 @@ export function writeConfig(dataDir, config) {
   writePrivate(join(dataDir, 'config.json'), JSON.stringify(config, null, 2) + '\n');
 }
 
-function alive(pid) {
-  try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
-}
-
 const held = new Set();
 /** One running gator-social per data dir. Returns release(); throws if another live process holds it. */
-export function acquireLock(dataDir, { isAlive = alive } = {}) {
+export function acquireLock(dataDir, { isAlive = processAlive } = {}) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   const file = resolve(dataDir, 'run.lock');
   if (held.has(file)) throw new Error('gator-social is already running for ' + dataDir + ' (this process)');

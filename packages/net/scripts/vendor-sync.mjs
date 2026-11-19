@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -19,6 +20,19 @@ export function upstream(checkout, revision, path) {
   return execFileSync('git', ['-C', checkout, 'show', revision + ':' + path]);
 }
 
+/** Apply (or reverse, for the audit test) the tracked downstream patch, outside the checkout. */
+export function patchSeen(contents, reverse = false) {
+  const dir = mkdtempSync(join(tmpdir(), 'gator-vendor-'));
+  const file = join(dir, 'seen.js');
+  const patch = fileURLToPath(new URL('./patches/seen-windows.patch', import.meta.url));
+  try {
+    writeFileSync(file, contents);
+    execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', '--no-index', ...(reverse ? ['--reverse'] : []), patch],
+      { cwd: dir, env: { ...process.env, GIT_CEILING_DIRECTORIES: tmpdir() } });
+    return readFileSync(file, 'utf8');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
 function sync(checkout, revision) {
   if (!checkout || !revision) throw new Error('Usage: node vendor-sync.mjs <checkout> <commit>');
   const commit = execFileSync('git', ['-C', checkout, 'rev-parse', '--verify', '--end-of-options',
@@ -29,7 +43,9 @@ function sync(checkout, revision) {
     const original = upstream(checkout, commit, 'features/sidechannel/' + name);
     let copy = original.toString('utf8');
     for (const [before, after] of rewrites) copy = copy.replaceAll(before, after);
+    if (name === 'seen.js') copy = patchSeen(copy);
     manifest.files[name] = { upstreamSha256: sha256(original), vendoredSha256: sha256(copy) };
+    if (name === 'seen.js') manifest.files[name].patch = 'scripts/patches/seen-windows.patch';
     writeFileSync(join(destination, name), copy);
   }
   writeFileSync(join(destination, 'LICENSE.md'), upstream(checkout, commit, 'LICENSE.md'));

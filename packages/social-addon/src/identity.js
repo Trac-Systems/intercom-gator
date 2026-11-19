@@ -1,10 +1,10 @@
 // `gator-social key import`: run an identity that another harness created (normally `gator key export`).
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, renameSync, rmSync } from 'node:fs';
+import { existsSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadOrCreateKey } from '@gator/net';
 import { readIdentityDocument } from '@gator/social';
-import { acquireLock, checkDataDir, readConfig, readPrivate, writeConfig, writePrivate } from './files.js';
+import { acquireLock, createDataDir, readConfig, readPrivate, writeConfig, writePrivate } from './files.js';
 
 /** The public key of this data directory's own identity, or null when it has none (never creates one). */
 export async function ownPublicKey(dataDir) {
@@ -33,8 +33,7 @@ async function keystoreKey(dataDir, keystore) {
  * @param {{dataDir:string, file:string, rootKey:string, replace?:boolean, now?:()=>number}} options
  */
 export async function importIdentity({ dataDir, file, rootKey, replace = false, now = Date.now }) {
-  mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-  checkDataDir(dataDir);
+  createDataDir(dataDir);
   const release = acquireLock(dataDir); // refuses while gator-social runs on this directory
   try {
     const doc = readIdentityDocument(readPrivate(file, 64 * 1024), rootKey);
