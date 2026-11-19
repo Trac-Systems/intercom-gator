@@ -134,3 +134,22 @@ test('a new-release node equally drops v0.1.0 observations by digest, without pe
   assert.equal(peerRows(store), 0)
   assert.equal(strikes(store), undefined)
 })
+
+test('a v0.1.0 node patched with the two chains and natives binds MEXC TAP and both TNK labels; Gate TAPPROTOCOL waits', async t => {
+  // The 4-op patch an integrator can sign for v0.1.0 nodes (no symbolMap: v0.1.0's schema rejects it; no ERC-20 or coin
+  // group: v0.1.0's group cap would fall back to the bridged share). Chains and tokens take effect at the next start.
+  const shipped = loadBundle(), b = v010Bundle()
+  b.chains.push(...['tap-protocol', 'trac'].map(id => structuredClone(shipped.chains.find(c => c.id === id))))
+  const { coin, coinSupply, ...tapNative } = structuredClone(shipped.tokens.tokens.find(x => x.id === tap))
+  b.tokens.tokens.push(tapNative, structuredClone(shipped.tokens.tokens.find(x => x.id === tnk)))
+  validateBundle(b)
+  const { engine } = await node(t, b)
+  const { registry } = engine
+  assert.equal(registry.cex('mexc', 'TAP', 'USDT').base, tap)
+  assert.equal(registry.cex('mexc', 'TNK', 'USDT').base, tnk)
+  assert.equal(registry.cex('gate', 'TNK', 'USDT').base, tnk)
+  assert.equal(registry.cex('gate', 'TAPPROTOCOL', 'USDT').base, 'unresolved:gate:TAPPROTOCOL')
+  assert.equal(registry.cex('gate', 'TRAC', 'USDT').base, 'ethereum:0xaa7a9ca87d3694b5755f213b5d04094b8d0f0a6f')
+  // Patched v0.1.0 nodes share obs only with each other: their digest differs from the new release's.
+  assert.notEqual(bundleDigest(b), bundleDigest(shipped))
+})
