@@ -323,4 +323,25 @@ export const migrations = [
       END;`)
     },
   },
+  {
+    id: 'engine-pool-catchup-v1',
+    up(db) {
+      db.exec(`CREATE TABLE engine_pool_history (
+        chain TEXT NOT NULL, pool TEXT NOT NULL, at INTEGER NOT NULL, verified INTEGER NOT NULL,
+        PRIMARY KEY(chain,pool), FOREIGN KEY(chain,pool) REFERENCES pools(chain,pool) ON DELETE CASCADE
+      ) STRICT, WITHOUT ROWID;
+      CREATE INDEX engine_pool_history_page ON engine_pool_history(verified,at,chain,pool);
+      CREATE TRIGGER engine_pool_history_change AFTER UPDATE OF tx,block,dex,kind,token0,token1 ON pools
+        WHEN OLD.tx IS NOT NEW.tx OR OLD.block IS NOT NEW.block OR OLD.dex IS NOT NEW.dex
+          OR OLD.kind IS NOT NEW.kind OR OLD.token0 IS NOT NEW.token0 OR OLD.token1 IS NOT NEW.token1 BEGIN
+        DELETE FROM engine_pool_history WHERE chain=NEW.chain AND pool=NEW.pool;
+      END;
+      -- Legacy rows can describe a swap. Check a bounded selection with spare budget on upgrade.
+      INSERT INTO engine_pool_history
+        SELECT chain,pool,firstSeen,0 FROM pools WHERE firstSeen >= (unixepoch()-604800)*1000
+          AND block IS NOT NULL AND length(tx)=66 AND EXISTS (
+            SELECT 1 FROM markets WHERE id='dex:'||pools.chain||':'||pools.pool)
+        ORDER BY firstSeen DESC,chain,pool LIMIT 5000;`)
+    },
+  },
 ]
