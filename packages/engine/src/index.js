@@ -203,13 +203,14 @@ export class Engine extends EventEmitter {
         interval: source.limits.period,
         run: () => source.logs(),
       })
-      this.scheduler.add({ id: 'evm:' + chain.id + ':seed', interval: source.limits.period,
+      this.scheduler.add({ id: 'evm:' + chain.id + ':seed', interval: () => source.seedDelay(), lane: 'scanner',
         ready: () => source.seedWake <= clock(), run: () => source.seed() })
       this.scheduler.add({ id: 'evm:' + chain.id + ':trades', marketChain: chain.id, interval: source.limits.period,
         ready: () => !!source.localPool.get(chain.id), run: () => source.trades() })
       this.scheduler.add({
         id: 'evm:' + chain.id + ':state',
         marketChain: chain.id,
+        lane: 'scanner',
         interval: 2000,
         ready: () => source.stateReady(),
         run: () => source.scheduledState(),

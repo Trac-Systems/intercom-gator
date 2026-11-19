@@ -35,8 +35,32 @@ const nativeMarkets = {
 
 /** Convert compound rate-limit notes to the most restrictive requests/minute. */
 export function rateLimit(value) {
+  return documentedRate(value) ?? 12
+}
+
+/** Requests/minute assumed for keyless public RPC gateways whose bundle record documents no limit (the bucket
+ * then uses half). The flat 12/min fallback held each of Polygon's four endpoints to 6 requests a minute (24 for the
+ * whole chain, all spent on state decoding) while these providers serve public traffic at many requests per second
+ * per IP. Unknown hosts and chain-operated endpoints keep the fallback; a documented limit always wins. */
+export const PUBLIC_RPC_RATES = Object.freeze([
+  [/(^|\.)publicnode\.com$/, 120],
+  [/(^|\.)drpc\.org$/, 120],
+  [/\.api\.pocket\.network$/, 120],
+  [/\.gateway\.tenderly\.co$/, 60],
+])
+
+/** An endpoint's requests/minute: its documented limit, else its provider family's default, else 12. */
+export function endpointRate(url, limits) {
+  const documented = documentedRate(limits)
+  if (documented != null) return documented
+  let host = ''
+  try { host = new URL(url).hostname.toLowerCase() } catch {}
+  return PUBLIC_RPC_RATES.find(([pattern]) => pattern.test(host))?.[1] ?? 12
+}
+
+function documentedRate(value) {
   if (Number.isFinite(value) && value > 0) return value
-  if (typeof value !== 'string') return 12
+  if (typeof value !== 'string') return null
   const limits = []
   for (const m of value
     .replaceAll(',', '')
@@ -46,7 +70,7 @@ export function rateLimit(value) {
     const seconds = { s: 1, m: 60, h: 3600, d: 86400 }[m[3][0].toLowerCase()]
     limits.push((+m[1] * 60) / (+(m[2] ?? 1) * seconds))
   }
-  return limits.length ? Math.min(...limits) : 12
+  return limits.length ? Math.min(...limits) : null
 }
 
 /** The widest eth_getLogs block range some log-capable endpoint serves (Infinity if one has no limit). Each request
@@ -137,7 +161,7 @@ export function adaptBundle(bundle) {
       .filter((e) => ['evm-jsonrpc', 'solana-jsonrpc'].includes(e.protocol) && e.verified?.ok !== false)
       .map((e) => ({
         url: e.url,
-        rpm: rateLimit(e.limits),
+        rpm: endpointRate(e.url, e.limits),
         batch: e.batch === true,
         logs: e.getLogs?.allowed,
         range: e.getLogs?.maxRange,

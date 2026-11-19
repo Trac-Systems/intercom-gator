@@ -270,8 +270,9 @@ async function simulateHour(t, profile) {
   }
   assert.ok(peak <= engine.budget.limit && total <= engine.budget.limit * 30)
   for (const [id, n] of counts) {
-    const period = engine.evm.get(id).limits.period
-    assert.ok(n > 0 && n <= 10 * Math.ceil(hour / period), id + ' ' + n)
+    const { period, hotInterval } = engine.evm.get(id).limits
+    // Ten calls per period, plus the warm-up seed pages (a lookup and a header each) of the priority prefix.
+    assert.ok(n > 0 && n <= 10 * Math.ceil(hour / period) + 2 * Math.ceil(hour / hotInterval), id + ' ' + n)
   }
   t.diagnostic(JSON.stringify({ profile, requestsPerChain: Object.fromEntries(counts), total, peakPerMinute: peak }))
 }
@@ -385,6 +386,8 @@ test('upgrading a legacy queue keeps known trades and verified factory events an
   assert.deepEqual(f.store.reader.prepare('SELECT idx,creation FROM engine_logs ORDER BY idx').all()
     .map(r => [r.idx,r.creation]), [[1,0],[3,1]])
   assert.deepEqual(f.store.getSetting('engine-gap/eth/legacy-untracked-or-overflow'), { from: 20, to: 20, count: 1, at: initial })
+  // The due state refresh runs first (busy chains never got one); the known pool reads as unfunded here.
+  f.rpc.answer = () => data(0)
   await src.scheduledState()
   assert.equal(src.queueSize.get('eth').n, 0)
   assert.equal(f.discoveries[0].pool, addr(102))
