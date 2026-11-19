@@ -2,10 +2,11 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, win32 } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { parseArgs } from 'node:util';
 import { keyFromSeed, loadOrCreateKey, SwarmTransport } from '@gator/net';
+import { readKey } from '@gator/net/src/keys.js';
 import { identityDocument } from '@gator/social';
 import { verifyRelease } from './bundle.js';
 import { daemonPort, httpClient } from './client.js';
@@ -48,13 +49,22 @@ async function doctor(dataDir, port) {
   }
   return result;
 }
-async function openBrowser(url) {
-  const [file,...args] = process.platform === 'darwin' ? ['/usr/bin/open',url] : process.platform === 'win32'
-    ? ['rundll32.exe','url.dll,FileProtocolHandler',url] : ['xdg-open',url];
+export async function openBrowser(url, { platform = process.platform, launch = spawn } = {}) {
+  const windows = platform === 'win32';
+  // cmd parses the rest of /c as a command line. Only the locally issued
+  // 32-byte base64url ticket and the literal loopback route may enter it.
+  if (windows && (typeof url !== 'string' || !/^http:\/\/127\.0\.0\.1:[1-9]\d{0,4}\/auth\?t=[a-zA-Z0-9_-]{43}$/.test(url))) {
+    throw new Error('Invalid browser sign-in URL');
+  }
+  const [file,...args] = windows
+    ? [win32.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'), '/d', '/v:off', '/c', 'start', '""', '"' + url + '"']
+    : platform === 'darwin' ? ['/usr/bin/open',url] : ['xdg-open',url];
   await new Promise((ok,fail) => {
-    const child = spawn(file,args,{ stdio:'ignore',detached:true });
+    const child = launch(file,args,windows ? { stdio:'ignore', windowsHide:true, windowsVerbatimArguments:true }
+      : { stdio:'ignore', detached:true });
     child.once('error',fail);
-    child.once('spawn',() => { child.unref(); ok(); });
+    if (windows) child.once('exit', code => code === 0 ? ok() : fail(new Error('Windows browser launch failed')));
+    else child.once('spawn',() => { child.unref(); ok(); });
   });
 }
 
@@ -88,7 +98,7 @@ async function exportKey(dir, values, print) {
   if (!existsSync(keyFile)) throw new Error('No identity in ' + dir + ' yet (gator start creates it)');
   const publicKey = (await loadOrCreateKey(dir)).publicKey.toString('hex'); // checks the keystore decrypts
   const { card, announce } = ownCardEnvelopes(dir, publicKey);
-  const doc = identityDocument({ publicKey, keystore: JSON.parse(readFileSync(keyFile, 'utf8')), card, announce, harness: 'gator' });
+  const doc = identityDocument({ publicKey, keystore: JSON.parse(readKey(keyFile)), card, announce, harness: 'gator' });
   try {
     writeFileSync(out, JSON.stringify(doc) + '\n', { flag: 'wx', mode: 0o600 });
   } catch (error) {

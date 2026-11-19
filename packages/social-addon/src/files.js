@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, fstatSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { openPrivateRead, windowsDirectory } from '@gator/net/src/private-file.js';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
@@ -9,7 +10,7 @@ export function defaultDataDir(env = process.env) {
 }
 
 export function checkDataDir(dir) {
-  const stat = lstatSync(dir);
+  const stat = process.platform === 'win32' ? windowsDirectory(dir) : lstatSync(dir);
   if (!stat.isDirectory()) throw new Error('Expected a data directory');
   if (process.platform !== 'win32' && (stat.mode & 0o077)) {
     throw new Error('Data directory must be private (chmod 700): ' + dir);
@@ -30,7 +31,7 @@ export function writePrivate(file, contents) {
 
 /** Read a small private file (a token). Refuses links, non-files and files others can read or write. */
 export function readPrivate(file, maxBytes = 4096) {
-  const fd = openSync(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  const fd = openPrivateRead(file);
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile() || stat.size > maxBytes) throw new Error('Expected a small regular file: ' + file);

@@ -140,22 +140,29 @@ export function avatarRoom(card, channel, topics, limit) {
 /**
  * Read a local avatar file for an owner or agent command: an absolute path to a regular file of at most 64 KiB.
  * Throws a TypeError with a short reason; nothing about the file's content is echoed.
- * @param {unknown} path @returns {Promise<Buffer>}
+ * @param {unknown} path @param {string} [platform] @returns {Promise<Buffer>}
  */
-export async function readAvatarFile(path) {
+export async function readAvatarFile(path, platform = process.platform) {
   const { constants } = await import('node:fs');
-  const { open } = await import('node:fs/promises');
+  const { lstat, open } = await import('node:fs/promises');
   const { isAbsolute } = await import('node:path');
   if (typeof path !== 'string' || path.length > 1024 || !isAbsolute(path) || path.includes('\0')) {
     throw new TypeError('avatar: path must be an absolute file path');
   }
-  let handle;
+  let handle, before;
+  if (platform === 'win32') {
+    try { before = await lstat(path, { bigint: true }); }
+    catch { throw new TypeError('avatar: file not readable'); }
+    if (!before.isFile() || !before.ino) throw new TypeError('avatar: path is not a regular file');
+  }
   // O_NONBLOCK: a FIFO must not hang the caller.
-  try { handle = await open(path, constants.O_RDONLY | (constants.O_NONBLOCK ?? 0)); }
+  try { handle = await open(path, constants.O_RDONLY | (before ? 0 : constants.O_NONBLOCK ?? 0)); }
   catch { throw new TypeError('avatar: file not readable'); }
   try {
-    const stat = await handle.stat();
-    if (!stat.isFile()) throw new TypeError('avatar: path is not a regular file');
+    const stat = await handle.stat({ bigint: !!before });
+    if (!stat.isFile() || (before && (stat.ino !== before.ino || stat.dev !== before.dev))) {
+      throw new TypeError('avatar: path is not a regular file');
+    }
     if (stat.size > 64 * 1024) throw new TypeError(AVATAR_RULE);
     return await handle.readFile();
   } finally { await handle.close(); }

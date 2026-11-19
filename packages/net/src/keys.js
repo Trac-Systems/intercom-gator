@@ -1,11 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import { closeSync, constants, fchmodSync, fstatSync, fsyncSync, linkSync, mkdirSync, openSync,
+import { closeSync, fchmodSync, fstatSync, fsyncSync, linkSync, lstatSync, mkdirSync, openSync,
   readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import DHT from 'hyperdht';
 import tracCrypto from 'trac-crypto-api';
 import PeerWallet from 'trac-wallet';
+import { openPrivateRead, sameIdentity, windowsDirectory, windowsLstat } from './private-file.js';
 
 // This is the synchronous construction path used by PeerWallet.fromKeyPair in 1.0.1.
 function walletFromPair(pair) {
@@ -63,8 +64,8 @@ function deserialize(json) {
   }
 }
 
-function readKey(file, label = 'peer') {
-  const fd = openSync(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+export function readKey(file, label = 'peer') {
+  const fd = openPrivateRead(file);
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile() || stat.size > 16_384) throw new Error(`Invalid ${label} keystore`);
@@ -75,12 +76,45 @@ function readKey(file, label = 'peer') {
   }
 }
 
+function prepareKeys(dataDir) {
+  const dir = join(dataDir, 'keys');
+  if (process.platform === 'win32') {
+    mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+    windowsDirectory(dataDir);
+  }
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  return process.platform === 'win32' ? windowsDirectory(dir) : null;
+}
+
+// On failure, close before unlinking (Windows sharing rules) and only remove
+// the directory entry that still names the file this call created.
+function writeNewKey(file, contents, parent) {
+  const fd = openSync(file, 'wx', 0o600);
+  let created, failure;
+  try {
+    created = fstatSync(fd, { bigint: true });
+    if (parent && (!sameIdentity(parent, windowsDirectory(dirname(file))) ||
+        !sameIdentity(windowsLstat(file), created))) throw new Error('Key path changed during create');
+    writeFileSync(fd, contents);
+    fsyncSync(fd);
+  } catch (error) {
+    failure = error;
+  } finally { closeSync(fd); }
+  if (failure) {
+    if (created && (!parent || sameIdentity(parent, windowsDirectory(dirname(file))))) {
+      const current = lstatSync(file, { bigint: true, throwIfNoEntry: false });
+      if (current && sameIdentity(created, current)) unlinkSync(file);
+    }
+    throw failure;
+  }
+}
+
 /** Load or exclusively create the harness key in dataDir/keys/peer.json.
  * @param {string} dataDir @returns {Promise<PeerWallet>} */
 export async function loadOrCreateKey(dataDir) {
   const dir = join(dataDir, 'keys');
   const file = join(dir, 'peer.json');
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const parent = prepareKeys(dataDir);
   let json;
   try {
     json = readKey(file);
@@ -89,23 +123,11 @@ export async function loadOrCreateKey(dataDir) {
     const wallet = walletFromPair(DHT.keyPair());
     // Prepare the complete file before opening with wx, including the expensive KDF.
     const contents = serialize(wallet);
-    let fd;
     try {
-      fd = openSync(file, 'wx', 0o600);
+      writeNewKey(file, contents, parent);
+      return wallet;
     } catch (openError) {
       if (openError.code !== 'EEXIST') throw openError;
-    }
-    if (fd !== undefined) {
-      try {
-        writeFileSync(fd, contents);
-        fsyncSync(fd);
-        return wallet;
-      } catch (writeError) {
-        unlinkSync(file);
-        throw writeError;
-      } finally {
-        closeSync(fd);
-      }
     }
   }
   // Another process can open the new inode between wx and the single small write.
@@ -136,7 +158,7 @@ function swarmPair(json) {
 export function loadOrCreateSwarmKeyPair(dataDir) {
   const dir = join(dataDir, 'keys');
   const file = join(dir, 'swarm.json');
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const parent = prepareKeys(dataDir);
   try {
     return swarmPair(readKey(file, 'swarm'));
   } catch (error) {
@@ -147,32 +169,17 @@ export function loadOrCreateSwarmKeyPair(dataDir) {
   // Write a complete private file, then hard-link it into place: a link never replaces an existing file, so
   // a concurrent first start either wins or reads the winner's complete file.
   const temp = join(dir, `.swarm-${randomBytes(8).toString('hex')}.tmp`);
-  const fd = openSync(temp, 'wx', 0o600);
-  try {
-    writeFileSync(fd, contents);
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
-  }
+  writeNewKey(temp, contents, parent);
   try {
     linkSync(temp, file);
   } catch (error) {
     if (error.code !== 'EEXIST') {
       // Filesystems without hard links: exclusive create.
       if (!['EPERM', 'ENOTSUP', 'ENOSYS', 'EXDEV'].includes(error.code)) throw error;
-      let target;
       try {
-        target = openSync(file, 'wx', 0o600);
+        writeNewKey(file, contents, parent);
       } catch (openError) {
         if (openError.code !== 'EEXIST') throw openError;
-      }
-      if (target !== undefined) {
-        try {
-          writeFileSync(target, contents);
-          fsyncSync(target);
-        } finally {
-          closeSync(target);
-        }
       }
     }
   } finally {

@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync, readFileSync, renameSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { once } from 'node:events';
+import { EventEmitter, once } from 'node:events';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { fixture } from './fixtures.js';
 import { httpClient } from '../src/client.js';
 import { readToken } from '../src/local.js';
-import { main } from '../src/cli.js';
+import { main, openBrowser } from '../src/cli.js';
 
 const binary = fileURLToPath(new URL('../../../bin/gator.js',import.meta.url));
 const exec = promisify(execFile);
@@ -74,7 +74,7 @@ test('executable uses the daemon port and private data directory across CLI and 
   await assert.rejects(run('--port',String(app.port),'status'),e => e.stderr.includes('Daemon unavailable'));
 });
 
-test('foreground SIGTERM releases the daemon lock and preserves identity on restart', async t => {
+test('foreground shutdown releases the daemon lock and preserves identity on restart', async t => {
   const f = fixture(t), dataDir = join(f.dir,'signals');
   const appUrl = new URL('../src/app.js',import.meta.url).href;
   const code = `import { createGator } from ${JSON.stringify(appUrl)};
@@ -90,9 +90,34 @@ test('foreground SIGTERM releases the daemon lock and preserves identity on rest
   const firstKey = JSON.parse(readFileSync(join(dataDir,'daemon.json'))).publicKey;
   await assert.rejects(f.start('signals'),/already in use/);
   const exit = once(child,'exit');
-  child.kill('SIGTERM');
+  if (process.platform === 'win32') await exec(process.execPath, [binary, '--data', dataDir, 'stop'], { timeout: 10_000 });
+  else child.kill('SIGTERM');
   assert.deepEqual(await exit,[0,null]);
   assert.equal(existsSync(join(dataDir,'daemon.json')),false);
   const next = await f.start('signals');
   assert.equal(next.transport.publicKey,firstKey);
+});
+
+
+test('Windows starts the default browser with a validated loopback ticket and propagates a launcher error', async () => {
+  const url = 'http://127.0.0.1:7420/auth?t=' + 'x'.repeat(43);
+  let calls = 0, exitCode = 0;
+  const launch = (file, args, options) => {
+    calls++;
+    assert.equal(win32.basename(file), 'cmd.exe');
+    assert.ok(win32.isAbsolute(file));
+    assert.deepEqual(args, ['/d', '/v:off', '/c', 'start', '""', '"' + url + '"']);
+    assert.deepEqual(options, { stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true });
+    const child = new EventEmitter();
+    queueMicrotask(() => child.emit('exit', exitCode));
+    return child;
+  };
+  const options = { platform: 'win32', launch };
+  await openBrowser(url, options);
+  for (const invalid of [url + '&', url + '%', url + '"', url + '\r\n', url.replace('127.0.0.1', 'example.com')]) {
+    await assert.rejects(openBrowser(invalid, options), /Invalid browser sign-in URL/);
+  }
+  exitCode = 1;
+  await assert.rejects(openBrowser(url, options), /launch failed/);
+  assert.equal(calls, 2);
 });

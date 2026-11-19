@@ -5,21 +5,24 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { reclaimSeenLock } from '../src/app.js';
 
-test('a killed daemon\'s seen lock (with its owner record) is reclaimed only when it is the recorded inode', t => {
+for (const platform of new Set([process.platform, 'win32'])) test(platform + ': a killed daemon\'s seen lock (with its owner record) is reclaimed only when it is the recorded inode', t => {
   const dir = mkdtempSync(join(tmpdir(), 'gator-lock-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const lock = join(dir, 'seen', '.writer.lock');
   mkdirSync(lock, { recursive: true });
   writeFileSync(join(lock, 'owner'), JSON.stringify({ version: 1, pid: 999999 }));
-  const record = () => { const { dev, ino, birthtimeMs } = lstatSync(lock); return { dev, ino, birthtimeMs }; };
-  assert.equal(reclaimSeenLock(dir), false, 'no record: leave it alone');
-  writeFileSync(join(dir, 'seen-writer.json'), JSON.stringify({ ...record(), ino: record().ino + 1 }));
-  assert.equal(reclaimSeenLock(dir), false, 'a different inode belongs to someone else');
+  const stat = lstatSync(lock, { bigint: platform === 'win32' });
+  const record = platform === 'win32'
+    ? { dev: String(stat.dev), ino: String(stat.ino), birthtimeNs: String(stat.birthtimeNs) }
+    : { dev: stat.dev, ino: stat.ino, birthtimeMs: stat.birthtimeMs };
+  assert.equal(reclaimSeenLock(dir, platform), false, 'no record: leave it alone');
+  writeFileSync(join(dir, 'seen-writer.json'), JSON.stringify({ ...record, ino: platform === 'win32' ? String(stat.ino + 1n) : stat.ino + 1 }));
+  assert.equal(reclaimSeenLock(dir, platform), false, 'a different inode belongs to someone else');
   assert.ok(existsSync(join(lock, 'owner')));
-  writeFileSync(join(dir, 'seen-writer.json'), JSON.stringify(record()));
-  assert.equal(reclaimSeenLock(dir), true);
+  writeFileSync(join(dir, 'seen-writer.json'), JSON.stringify(record));
+  assert.equal(reclaimSeenLock(dir, platform), true);
   assert.equal(existsSync(lock), false);
-  assert.equal(reclaimSeenLock(dir), false, 'already gone');
+  assert.equal(reclaimSeenLock(dir, platform), false, 'already gone');
 });
 
 test('a hung shutdown step times out and the remaining steps still run', async t => {

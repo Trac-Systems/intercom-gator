@@ -77,8 +77,8 @@ export async function startAddon({ dataDir, product = 'gator', transport, bridge
         cleanup.push(lockIdentity(wallet.publicKey.toString('hex'),
           { dir: identityLock?.dir ?? identityLockDir(), harness: 'gator-social (' + product + ')', dataDir }));
       }
-      // run.lock guarantees no other gator-social uses this seen store; a lock left by a crash is stale.
-      if (lock) rmSync(join(dataDir, 'seen', '.writer.lock'), { recursive: true, force: true });
+      // The Windows seen store checks the directory and lock identities before reclaiming a stale writer.
+      if (lock && process.platform !== 'win32') rmSync(join(dataDir, 'seen', '.writer.lock'), { recursive: true, force: true });
       transport = new SwarmTransport({ dataDir, wallet, bootstrap, rootKey });
       cleanup.push(() => transport.close());
     }
