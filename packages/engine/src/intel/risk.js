@@ -1,4 +1,4 @@
-import { CHECK_LIMITS, contractRisk, evmReader, simulateSale, UNKNOWN } from './evm.js';
+import { BACKGROUND_LIMITS, CHECK_LIMITS, contractRisk, evmReader, simulateSale, UNKNOWN } from './evm.js';
 import { findPool } from './routes.js';
 import { poolRisk } from './pool.js';
 import { isAddress, isAsset, isTime, validMessage } from './values.js';
@@ -69,12 +69,12 @@ export function createRiskService(options) {
     const row = results.get(asset), age = now() - row?.at;
     return age >= 0 && age < ttlMs ? structuredClone(row) : null;
   }
-  async function checkRisk(asset, { force = false, rpc = options.rpc } = {}) {
+  async function checkRisk(asset, { force = false, rpc = options.rpc, limits = options.limits ?? CHECK_LIMITS } = {}) {
     if (!isEvmAsset(asset)) throw new TypeError('Expected a canonical EVM token ID');
     const cached = get(asset);
     if (!force && cached) return cached;
     if (!pending.has(asset)) {
-      pending.set(asset, inspect(asset, { ...options, rpc }, now()).then(result => {
+      pending.set(asset, inspect(asset, { ...options, rpc, limits }, now()).then(result => {
         cap(results, 4096);
         if (options.store && options.store.getAsset(asset)) options.store.upsertRisk(result);
         results.set(asset, result);
@@ -90,8 +90,8 @@ export function createRiskService(options) {
   }
   return { checkRisk, get,
     /** The scheduler selects an asset for a local spot check. Unknown flags cannot confirm peer claims. */
-    async spotCheck(asset, rpc = options.rpc) {
-      const local = await checkRisk(asset, { force: true, rpc });
+    async spotCheck(asset, rpc = options.rpc, limits = options.limits ?? BACKGROUND_LIMITS) {
+      const local = await checkRisk(asset, { force: true, rpc, limits });
       const comparisons = recentHints(asset).map(hint => {
         const agrees = [], differs = [], unknown = [];
         // A hint decided by another method version (a v0.1.0 peer's /v1) is not comparable flag by flag.

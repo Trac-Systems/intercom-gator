@@ -281,8 +281,8 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   carries the untrusted-content header and a marker under each section.
 - Risk check (`evm:selectors+roles+proxy-slots+router-roundtrip+reserves/v2`): every read of one check is pinned to one
   block and goes through the shared endpoint buckets and profile budget, waiting for a slot (never a burst); one check
-  makes at most 40 dispatches within 90 s (view calls batched through the chain's Multicall3), and a refused, capped or
-  late read is missing evidence, never a negative. Each flag is `true`, `false` or `unknown`; the stored and sent
+  makes at most 40 dispatches (view calls batched through the chain's Multicall3) within 25 s (API/MCP) or 90 s
+  (background job), and a refused, capped or late read is missing evidence, never a negative. Each flag is `true`, `false` or `unknown`; the stored and sent
   result keeps flags only, local evidence names the reason for every `unknown` and the check's RPC calls. Interface =
   the dispatcher selectors (`PUSH sel EQ`, viaIR `PUSH sel DUP2 EQ`) of the code that runs: the token's own code
   (CBOR metadata stripped), the implementation of an immutable forwarder (EIP-1167 and its PUSH0/Solady variants), or

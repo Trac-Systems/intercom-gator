@@ -220,3 +220,15 @@ test('a launchpad pair created before liquidity is an empty pool: $0, LP undecid
   } };
   assert.equal((await findPool(lookup, token, 'bsc', dex, 'ETH')).address, funded);
 });
+
+test('check limits fit the API client timeout (30 s) and the scheduler job deadline; a late check names the deadline', async () => {
+  const { BACKGROUND_LIMITS, CHECK_LIMITS } = await import('../../src/intel/evm.js');
+  const { JOB_DEADLINE_MS } = await import('../../src/scheduler/index.js');
+  assert.ok(CHECK_LIMITS.timeoutMs < 30_000);
+  assert.ok(BACKGROUND_LIMITS.timeoutMs < JOB_DEADLINE_MS);
+  const risk = createRiskService({ rpc: { batch: () => new Promise(() => {}) }, bundle: {}, limits: { maxCalls: 40, timeoutMs: 20 } });
+  const alive = setTimeout(() => {}, 1000);
+  const result = await risk.spotCheck(asset);
+  clearTimeout(alive);
+  assert.equal(result.local.evidence.reason, 'block unavailable (check deadline)');
+});

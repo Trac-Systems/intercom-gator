@@ -34,8 +34,11 @@ function sig(signature) {
 }
 
 /** Per-check RPC limits. Reads wait for the shared endpoint buckets and profile budget (they never burst past them),
- * but a check stops reading after `maxCalls` dispatches or at `deadline`; refused reads count as missing evidence. */
-export const CHECK_LIMITS = Object.freeze({ maxCalls: 40, timeoutMs: 90_000 });
+ * but a check stops reading after `maxCalls` dispatches or at its deadline; refused reads count as missing evidence.
+ * Interactive checks (API/MCP, whose client gives up after 30 s) get 25 s; the scheduler's background job 90 s (its
+ * job deadline is 180 s). Measured on idle default buckets (12 rpm per endpoint): 3–21 dispatches, 0.3–40 s. */
+export const CHECK_LIMITS = Object.freeze({ maxCalls: 40, timeoutMs: 25_000 });
+export const BACKGROUND_LIMITS = Object.freeze({ maxCalls: 40, timeoutMs: 90_000 });
 const TIMEOUT = Symbol('timeout');
 function refusalReason(error) {
   if (error?.name === 'RateLimited' || error?.retryAt !== undefined || /budget unavailable/i.test(error?.message ?? '')) {
