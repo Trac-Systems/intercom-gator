@@ -62,7 +62,8 @@ test('freshness markers, price changes and pagination stay exact across packed b
 
 test('legacy receipt totals migrate once and a large old database shrinks in bounded committed steps', t => {
   const dir = mkdtempSync(join(tmpdir(), 'gator-upgrade-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  let s;
+  t.after(() => { try { s?.close(); } finally { rmSync(dir, { recursive: true, force: true }); } });
   const file = join(dir,'gator.db'), now = Date.now();
   const old = openDatabase({ file, profile: 'large' }, migrations.slice(0,5));
   try {
@@ -83,10 +84,9 @@ test('legacy receipt totals migrate once and a large old database shrinks in bou
   } finally { old.close(); }
   const original = statSync(file).size;
   assert.ok(original > 12 * 1024 ** 2);
-  let s = openStore({ file, profile: 'large' });
+  s = openStore({ file, profile: 'large' });
   s.close();
   s = openStore({ file, profile: 'large' });
-  t.after(() => s.close());
   assert.equal(s.reader.prepare('SELECT reports FROM store_report_activity').get().reports, 9000);
   assert.equal(s.reader.prepare('SELECT at FROM store_reporters_seen').get().at, now);
   const migrated = s.reader.prepare('SELECT id,price,priceReal,ordinal,seq FROM obs ORDER BY id DESC LIMIT 1').get();
