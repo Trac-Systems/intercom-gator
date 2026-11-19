@@ -16,34 +16,39 @@ function jsonFetch(handler) {
   return f;
 }
 
-test('falls back to sample data when the API is unreachable', async () => {
+test('an unreachable API is offline: no sample data, every call fails', async () => {
   const api = createApi({ fetch: refused });
-  const g = await api.global();
-  assert.equal(api.mode, 'demo');
+  await assert.rejects(api.global(), (e) => e instanceof ApiError && e.status === 0);
+  assert.equal(api.mode, 'offline');
   assert.equal(api.reason, 'unreachable');
-  assert.equal(g.marketCap, 3.284e12);
 });
 
-test('falls back on 404 / non-JSON (dashboard served without the API)', async () => {
+test('404 / non-JSON (dashboard served without the API) is offline, never sample data', async () => {
   const api = createApi({ fetch: jsonFetch(() => ({ status: 404, body: null, type: 'text/plain' })) });
   await api.probe();
-  assert.equal(api.mode, 'demo');
+  assert.equal(api.mode, 'offline');
   const api2 = createApi({ fetch: jsonFetch(() => ({ status: 200, body: '<html>', type: 'text/html' })) });
   await api2.probe();
-  assert.equal(api2.mode, 'demo');
+  assert.equal(api2.mode, 'offline');
+  await assert.rejects(api2.markets());
 });
 
-test('401 means "not signed in": demo with reason signin', async () => {
-  const api = createApi({ fetch: jsonFetch(() => ({ status: 401, body: { error: 'auth' } })) });
+test('401 means "not signed in": offline with reason signin, and recheck goes live once signed in', async () => {
+  let signed = false;
+  const api = createApi({ fetch: jsonFetch(() => (signed ? { body: { key: 'k' } } : { status: 401, body: { error: 'auth' } })) });
   await api.probe();
-  assert.equal(api.mode, 'demo');
+  assert.equal(api.mode, 'offline');
   assert.equal(api.reason, 'signin');
+  await assert.rejects(api.global(), (e) => e.status === 401);
+  signed = true;
+  assert.equal(await api.recheck(), 'live');
+  assert.equal(api.reason, null);
 });
 
-test('a hanging API times out into demo', async () => {
+test('a hanging API times out into offline, not demo', async () => {
   const api = createApi({ fetch: () => new Promise(() => {}), timeoutMs: 30 });
   await api.probe();
-  assert.equal(api.mode, 'demo');
+  assert.equal(api.mode, 'offline');
 });
 
 test('?demo=1 never touches the network', async () => {

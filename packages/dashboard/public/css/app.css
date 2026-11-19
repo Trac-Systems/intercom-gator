@@ -529,3 +529,10 @@ td .venue span{white-space:normal}
   .ct-l .ibtn{width:40px;height:40px}
   .ct-go{padding:10px 8px}
 }
+
+/* Offline notice (not signed in / node not answering) and the explicit ?demo=1 banner. */
+.empty-state.offline{max-width:640px;margin:48px auto;line-height:1.6}
+.empty-state.offline code{font-size:.92em}
+.offline-retry{color:var(--ink3);font-size:.9em}
+.demo-banner{position:sticky;top:0;z-index:1000;padding:10px 16px;text-align:center;background:var(--ink);color:var(--bg);font-size:14px}
+.demo-banner a{color:inherit;text-decoration:underline;text-underline-offset:3px;margin-left:6px}
