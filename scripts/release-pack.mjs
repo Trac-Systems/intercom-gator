@@ -17,6 +17,21 @@ function git(...args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
 }
 
+// Git's tree archives use wall time. Normalize the ustar headers it emitted, including directory
+// and extended headers. This also works on Git versions predating "git archive --mtime".
+function clearTarTimes(tar) {
+  const block = 512;
+  for (let offset = 0; offset < tar.length && tar[offset] !== 0;) {
+    const header = tar.subarray(offset, offset + block);
+    const size = Number.parseInt(header.toString('ascii', 124, 136), 8);
+    header.write('00000000000\0', 136, 'ascii');
+    header.fill(0x20, 148, 156); // ustar sums a header with its checksum field set to spaces.
+    const sum = header.reduce((total, byte) => total + byte, 0);
+    header.write(sum.toString(8).padStart(6, '0') + '\0 ', 148, 'ascii');
+    offset += block * (1 + Math.ceil(size / block));
+  }
+}
+
 /** Pack a single committed Git tree, including its workspace links' target packages.
  * @param {string} output Directory for the archive and SHA256SUMS. */
 export function packRelease(output) {
@@ -37,8 +52,10 @@ export function packRelease(output) {
     // A tree ID omits Git's commit/timestamp header. Git orders paths and preserves executable bits.
     const tar = join(temp, 'runtime.tar');
     git('-c', 'tar.umask=0022', '-c', 'core.autocrlf=false', 'archive', '--format=tar',
-      '--mtime=1970-01-01T00:00:00Z', '--output=' + tar, tree, '--', ...paths);
-    const bytes = gzipSync(readFileSync(tar), { level: 9 });
+      '--output=' + tar, tree, '--', ...paths);
+    const entries = readFileSync(tar);
+    clearTarTimes(entries);
+    const bytes = gzipSync(entries, { level: 9 });
     bytes[9] = 255; // RFC 1952 OS = unknown, independent of the host building the archive.
     const digest = createHash('sha256').update(bytes).digest('hex');
     writeFileSync(join(temp, name), bytes);

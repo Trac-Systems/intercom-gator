@@ -50,8 +50,8 @@ test('the unpacked release contains the complete runtime and only its distributi
   const app = join(temp, 'unpacked app');
   mkdirSync(app);
   execFileSync('tar', ['-xzf', archive, '-C', app]);
+  for (const path of files) assert.equal(statSync(join(app, path)).mtimeMs, 0, path);
   const bin = statSync(join(app, 'bin/gator.js'));
-  assert.equal(bin.mtimeMs, 0);
   if (process.platform !== 'win32') assert.equal(bin.mode & 0o755, 0o755);
   const lock = JSON.parse(readFileSync(join(app, 'package-lock.json')));
   for (const path of Object.keys(lock.packages).filter(path => /^packages\/[^/]+$/.test(path))) {

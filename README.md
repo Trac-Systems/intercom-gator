@@ -204,7 +204,7 @@ npm ci --ignore-scripts
 npm test
 ```
 
-Run `npm run release:pack` in a clean checkout with Git supporting `archive --mtime`. It writes the versioned
+Run `npm run release:pack` in a clean checkout. It writes the versioned
 tarball and `SHA256SUMS` to `dist/`. The archive unpacks directly into an empty app directory. It contains the
 root package manifest and lockfile, CLI, agent manual, license, workspace manifests and runtime JavaScript,
 signed bundle data, dashboard assets and fonts, vendored Intercom modules and notices, and the social add-on CLI.
