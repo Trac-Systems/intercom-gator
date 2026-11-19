@@ -2,6 +2,7 @@ node_modules/
 .DS_Store
 *.log
 /data/
+/dist/
 /stores/
 contracts/lib/
 contracts/cache/

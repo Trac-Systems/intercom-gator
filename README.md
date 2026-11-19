@@ -24,12 +24,12 @@ layer for every agent harness, built on [Intercom](https://github.com/Trac-Syste
 Paste this into your agent (Claude Code, Codex, or any agent that can run shell commands on your machine):
 
 ```text
-Install intercom-gator on this machine by following
-https://raw.githubusercontent.com/Trac-Systems/intercom-gator/main/SKILL.md exactly:
-use the latest release tag, verify the signed bundle, start the daemon in the background,
-and add the "gator" MCP server to your own MCP configuration.
-Then show me Bitcoin's price with its trust dot and how many peers my node sees,
-and open the gator dashboard in my browser.
+Install intercom-gator from its latest published GitHub release. Follow
+https://raw.githubusercontent.com/Trac-Systems/intercom-gator/main/SKILL.md.
+Download the versioned tarball and SHA256SUMS, verify the checksum, install the locked
+production dependencies and verify the signed bundle. Start the daemon in the background
+and point your gator MCP server at this version. Show me Bitcoin's price with its trust
+dot and my node's peer count, then open the dashboard in my browser.
 ```
 
 When it is done, the dashboard opens in your browser, already signed in. To open it again later, ask your agent to
@@ -38,21 +38,15 @@ When it is done, the dashboard opens in your browser, already signed in. To open
 <details>
 <summary>Install by hand</summary>
 
-This checkout supports native Windows x64 with Node.js 22.13 or newer. The v0.1.0 tag requires WSL on Windows.
+Runs on macOS, Linux and native Windows x64 (native Windows from v0.1.1; v0.1.0 needs WSL). Use Node.js 22.13 or
+newer with npm. Each release supplies `intercom-gator-<version>.tgz` and `SHA256SUMS`.
+Follow the [macOS, Linux or native Windows commands](SKILL.md#1-install-and-start) to verify the tarball,
+unpack it into `~/.intercom-gator/app/<version>`, run `npm ci --omit=dev --ignore-scripts` there and check
+the signed source bundle with `node bin/gator.js bundle verify`. Start the daemon and use its versioned
+`bin/gator.js` path in your [MCP configuration](SKILL.md#2-connect-mcp).
 
-Install Node.js 22.13 or newer and Git. Pick a tag from the [releases](https://github.com/Trac-Systems/intercom-gator/releases)
-and use it for `<release-tag>`.
-
-```sh
-git clone --branch "<release-tag>" --depth 1 https://github.com/Trac-Systems/intercom-gator.git
-cd intercom-gator
-npm ci
-node bin/gator.js bundle verify
-npm start
-```
-
-Leave it running. From a second terminal in the checkout run `node bin/gator.js open`: it opens the dashboard with a
-one-time sign-in link and prints nothing secret (over SSH: `node bin/gator.js open --print` in an interactive terminal).
+When you want the dashboard, run `node bin/gator.js open` from the installed app directory. It opens the
+dashboard with a one-time sign-in link (over SSH, the owner can use `open --print` in their own interactive terminal).
 Dashboard and MCP listen on `127.0.0.1:7420` only. A new node fills in over its first minutes; history, 24 h changes and
 feeds grow while it runs.
 
@@ -69,6 +63,19 @@ Data lives in `~/.intercom-gator` (or `--data DIR` / `GATOR_DATA`, used the same
 `--port PORT` and `--profile small|normal|large` (detected from your machine; it sets request rate and storage cap).
 
 </details>
+
+## Update an existing install
+
+```text
+Update intercom-gator to the latest published GitHub release using the update steps in
+https://raw.githubusercontent.com/Trac-Systems/intercom-gator/main/SKILL.md.
+Verify the new release beside my current install before stopping it. Start the new version
+with my existing data directory and startup options, update your gator MCP path, and confirm
+the daemon and MCP report my same public identity. Keep the previous install for rollback.
+```
+
+This also migrates a v0.1.0 Git clone. The clone stays available for rollback and the new daemon uses the
+existing identity, database, settings and credentials. You can name a release tag in the prompt to pin the update.
 
 ## What your agent can do
 
@@ -188,6 +195,20 @@ prices only.
 - [SKILL.md](SKILL.md): the agent manual (install, MCP tools, recipes, rules, updates).
 - [Technical design](docs/DESIGN.md).
 - `contracts/`: the paid-extras contract (Foundry). `design/keyprint/`: the dashboard design reference.
+
+## Build from source for development
+
+```sh
+git clone https://github.com/Trac-Systems/intercom-gator.git
+cd intercom-gator
+npm ci --ignore-scripts
+npm test
+```
+
+Run `npm run release:pack` in a clean checkout. It writes the versioned
+tarball and `SHA256SUMS` to `dist/`. The archive unpacks directly into an empty app directory. It contains the
+root package manifest and lockfile, CLI, agent manual, license, workspace manifests and runtime JavaScript,
+signed bundle data, dashboard assets and fonts, vendored Intercom modules and notices, and the social add-on CLI.
 
 ## License
 
