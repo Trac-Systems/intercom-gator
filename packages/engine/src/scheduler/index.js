@@ -55,6 +55,7 @@ export class RequestBudget {
     this.limit = this.ceiling
     this.setLimit(requested)
     this.times = []
+    this.dispatches = 0
   }
   setLimit(limit) {
     if (Number.isFinite(limit)) this.limit = Math.max(1, Math.min(this.ceiling, Math.floor(limit)))
@@ -71,6 +72,7 @@ export class RequestBudget {
   take() {
     if (this.used >= this.limit) throw new RateLimited(this.times[0] + 60_000)
     this.times.push(this.clock())
+    this.dispatches++
     const account = this.#accounting.getStore()
     if (account) account.requests++
   }
@@ -136,9 +138,10 @@ export class Scheduler {
       this.spotChecks.set(market, { jobId, pending: true, expires: now + 300_000 })
     }
   }
-  choose() {
+  choose(allowIdle = true) {
     const now = this.clock()
     const candidates = []
+    let idle
     // Every fourth turn goes to the longest-waiting ready job without markets (supply, history,
     // discovery): coverage scores of market jobs would otherwise starve them indefinitely.
     // During focus one turn in eight similarly rotates through ready market jobs, independent of scores.
@@ -147,6 +150,7 @@ export class Scheduler {
     if (this.turn % 4 === 0 || fairMarket) {
       let oldest = null
       for (const job of this.jobs.values()) {
+        if (job.idleOnly) continue
         if (Boolean(job.markets) !== Boolean(fairMarket) || (this.backgroundJobs && !this.backgroundJobs.has(job.id))) continue
         if (job.next > now || job.ready?.() === false) continue
         if (!oldest || job.last < oldest.last || (job.last === oldest.last && job.id < oldest.id)) oldest = job
@@ -156,6 +160,10 @@ export class Scheduler {
     for (const job of this.jobs.values()) {
       if (this.backgroundJobs && !this.backgroundJobs.has(job.id)) continue
       if (job.next > now || job.ready?.() === false) continue
+      if (job.idleOnly) {
+        if (allowIdle) idle ??= job
+        continue
+      }
       // Jobs without markets carry a cheap, possibly dynamic relevance: never cache it.
       if (!job.markets || !(this.scoreTtl > 0 && job.scored && now - job.scored.at < this.scoreTtl)) {
         const markets = job.markets?.() ?? []
@@ -176,7 +184,7 @@ export class Scheduler {
       }
       candidates.push({ job, score: job.scored.score, coverage: job.scored.coverage })
     }
-    if (!candidates.length) return null
+    if (!candidates.length) return idle ?? null
     const explore = this.random() < 0.1
     let best = null
     let highest = 0
@@ -190,9 +198,9 @@ export class Scheduler {
         best = job
       }
     }
-    return best
+    return best ?? idle ?? null
   }
-  async runOne() {
+  async runOne({ allowIdle = true } = {}) {
     const now = this.clock()
     if (now >= this.nextSpot) {
       for (const [market, check] of this.spotChecks) {
@@ -215,7 +223,7 @@ export class Scheduler {
         return job.id
       }
     }
-    const job = this.choose()
+    const job = this.choose(allowIdle)
     if (!job) return null
     await this.execute(job, job.run)
     return job.id

@@ -26,6 +26,7 @@ export function policyFor(channel, { rootKey = ROOT_KEY } = {}) {
   // Rare, long-lived messages carry more work: 16 bits, the vendored Intercom maximum.
   if (channel === 'soc/dir') return open(4096, 16);
   if (channel === 'gator/new') return open(8192, 16);
+  if (channel === 'gator/pools/1') return open(8192, 10);
   if (channel === 'gator/meta') return open(8192, 10);
   if (/^gator\/px\/(?:[0-9]|1[0-5])$/.test(channel)) return { ...open(16384, 8), powBitsPerKiB: 1 };
   const [space, kind, id, ...extra] = channel.split('/');

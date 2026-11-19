@@ -156,6 +156,10 @@ export class RpcClient {
   call(chain, method, params = [], publicOnly = false) {
     return this.request(chain, [{ method, params }], false, false, publicOnly).then((values) => values[0])
   }
+  /** A single public dispatch. Yield the scheduler slot on a busy endpoint or a refusal. */
+  callWhenIdle(chain, method, params) {
+    return this.request(chain, [{ method, params }], false, false, true, true).then(values => values[0])
+  }
   async batch(chain, calls, publicOnly = false) {
     if (!Array.isArray(calls) || calls.length > 200) throw new RangeError('Invalid batch size')
     const endpoints = this.chains.get(this.aliases[chain] ?? String(chain)) ?? []
@@ -176,20 +180,24 @@ export class RpcClient {
     }
     return results
   }
-  async acquire(endpoints, cost, wait) {
+  async acquire(endpoints, cost, wait, idleOnly) {
+    const availableAt = e => Math.max(e.cooldown, e.bucket.next, idleOnly ? e.bucket.nextIdle ?? 0 : 0)
     for (;;) {
       this.signal?.throwIfAborted()
       const now = this.clock()
       const available = endpoints
-        .filter((e) => Math.max(e.cooldown, e.bucket.next) <= now)
+        .filter((e) => availableAt(e) <= now)
         .sort((a, b) => Number(b.user) - Number(a.user) || a.failures - b.failures)
       try {
         if (!available.length)
-          throw new RateLimited(Math.min(...endpoints.map((e) => Math.max(e.cooldown, e.bucket.next))))
-        available[0].bucket.take(this.budget, cost)
+          throw new RateLimited(Math.min(...endpoints.map(availableAt)))
+        const bucket = available[0].bucket
+        bucket.take(this.budget, cost)
+        // A lightly provisioned public endpoint can be much tighter than the profile budget.
+        if (idleOnly) bucket.nextIdle = now + 4 * (bucket.next - now)
         return available[0]
       } catch (err) {
-        if (!(err instanceof RateLimited) || (!wait && err.retryAt - now > 2000)) throw err
+        if (idleOnly || !(err instanceof RateLimited) || (!wait && err.retryAt - now > 2000)) throw err
         await this.sleep(Math.max(1, err.retryAt - now), undefined, { signal: this.signal })
       }
     }
@@ -227,7 +235,7 @@ export class RpcClient {
       for (const c of calls) e.refusedMethods.set(c.method, this.clock() + LEARNED_METHOD_MS)
     }
   }
-  async request(chain, calls, batch, wait, publicOnly) {
+  async request(chain, calls, batch, wait, publicOnly, idleOnly = false) {
     const all = this.chains.get(this.aliases[chain] ?? String(chain)) ?? []
     const body = calls.map(({ method, params = [] }) => ({ jsonrpc: '2.0', id: ++this.serial, method, params }))
     let lastError
@@ -238,7 +246,7 @@ export class RpcClient {
         if (lastError) throw lastError
         throw new Error('No eligible RPC endpoint for ' + chain)
       }
-      const e = await this.acquire(endpoints, body.length, wait)
+      const e = await this.acquire(endpoints, body.length, wait, idleOnly)
       tried.add(e)
       const started = this.clock()
       try {
@@ -286,11 +294,13 @@ export class RpcClient {
         if (SHAPE_REFUSALS.has(kind)) {
           // Ask the next endpoint at once; this one still serves every other request.
           this.learn(e, calls, { kind, limit })
+          if (idleOnly) throw lastError
           continue
         }
         if (kind === 'lagging') {
           // A few blocks behind a faster endpoint is not a fault: ask another endpoint, come back in a moment.
           e.cooldown = Math.max(e.cooldown, now + LAGGING_PAUSE_MS)
+          if (idleOnly) throw lastError
           // Two lagging dataseeds must not use up the attempts while a caught-up endpoint was never asked.
           if (!endpoints.some((x) => !tried.has(x))) attempt++
           continue
@@ -304,6 +314,7 @@ export class RpcClient {
           cooldown = Math.max(cooldown, 1000 * (error?.retryAfter || 15))
         }
         e.cooldown = now + cooldown
+        if (idleOnly) throw lastError
         attempt++
         if (attempt <= this.retries) await this.sleep(50 * 2 ** (attempt - 1), undefined, { signal: this.signal })
       }

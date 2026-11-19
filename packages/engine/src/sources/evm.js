@@ -136,6 +136,7 @@ export class EvmSource {
       ON d.market='dex:'||p.chain||':'||p.pool LEFT JOIN engine_pool_parameters k USING(chain,pool)
       WHERE p.chain=? AND p.pool=?`)
     this.saveParams = db.prepare('INSERT OR REPLACE INTO engine_pool_parameters VALUES (?,?,?,?)')
+    this.saveCreation = db.prepare('INSERT OR REPLACE INTO engine_pool_history(chain,pool,at,verified) VALUES (?,?,?,1)')
     this.addTrade = db.prepare('INSERT OR IGNORE INTO engine_trades VALUES (?,?,?,?,?)')
     this.volume = db.prepare(
       'SELECT coalesce(sum(baseVolume),0) AS v FROM engine_trades WHERE market=? AND at BETWEEN ? AND ?'
@@ -493,7 +494,7 @@ export class EvmSource {
   }
   /** Resolve the claimed pool from a canonical receipt with the public-only client.
    * Reuse completed reads when a later step hits an endpoint or profile rate limit. */
-  async verifyPoolHint(hint, rpc, cache) {
+  async verifyPoolHint(hint, rpc, cache, history) {
     const { chain, tx } = hint
     const once = (key, load) => readOnce(cache, key, load)
     const receipt = await once('receipt', () => rpc.call(chain, 'eth_getTransactionReceipt', [tx]))
@@ -511,27 +512,45 @@ export class EvmSource {
           uint(log.blockNumber) !== block) continue
       const swap = decodeEvent(log, event)
       if (!swap || (event.emitter !== 'pool' && !this.deployment(swap.emitter, event))) continue
+      if (history && swap.type !== 'pool' && swap.type !== 'curve-deployment') continue
       if (swap.pool === hint.pool || swap.type === 'curve-deployment') events.push({ log, event, swap })
     }
     if (!events.length) return false
     const header = await once('header', () => rpc.call(chain, 'eth_getBlockByNumber', [hex(block), false]))
     if (uint(header?.number) !== block || uint(header?.timestamp) == null || header.hash !== receipt.blockHash)
       return null
+    const at = uint(header.timestamp) * 1000
+    if (history && (receipt.status !== '0x1' || at < history.since || at > this.clock() + 120_000)) return null
     const read = (calls, at) => once(JSON.stringify([at, calls]), () => multiRead(rpc, this.chain, calls, hex(at)))
-    const pools = await this.resolvePools(events, block, uint(header.timestamp) * 1000, read)
+    const pools = await this.resolvePools(events, block, at, read)
     const pool = pools.get(hint.pool)
     if (!pool) return null
     if (pool.token0 !== hint.token0 || pool.token1 !== hint.token1 ||
         pool.dex !== hint.dex || pool.kind !== hint.kind) return false
+    const creation = receipt.status === '0x1' && events.some(e => this.matchesCreation(e, pool, header.hash))
+    if (history && !creation) return false
     const decimals = await this.readDecimals([pool], block, read)
+    // A live receipt or independent scan can finish during these public reads.
+    if (history && (!history.wanted() || this.registry.markets.has('dex:' + chain + ':' + hint.pool))) return null
     const registered = this.store.transaction(() => {
       const market = this.registry.pool(pool, {
         token0: { decimals: decimals.get(pool.token0) }, token1: { decimals: decimals.get(pool.token1) },
       }, true)
-      if (market) this.saveParameters(pool)
+      if (market) {
+        this.saveParameters(pool)
+        if (creation) this.saveCreation.run(chain, pool.pool, at)
+        history?.onRegistered(pool)
+      }
       return market
     })
     return registered ? pool : false
+  }
+  matchesCreation({ swap, log, event }, pool, hash) {
+    if (swap.type !== 'pool' || swap.pool !== pool.pool || log.transactionHash !== pool.tx ||
+        !/^0x[0-9a-f]{64}$/i.test(hash) || log.blockHash !== hash) return false
+    const deployment = this.deployment(swap.emitter, event)
+    return deployment?.name === pool.dex && deployment.kind === pool.kind &&
+      token(swap.token0) === pool.token0 && token(swap.token1) === pool.token1
   }
   stateReady() {
     return !!this.pending.get(this.chain.id) || (this.refreshAt <= this.clock() && !!this.localPool.get(this.chain.id))
@@ -568,6 +587,12 @@ export class EvmSource {
     const valid = events.filter((e) => e.swap && (!e.log.blockHash || e.log.blockHash === header.hash))
     const read = this.read.bind(this)
     const pools = await this.resolvePools(valid, block, at, read)
+    const creations = new Set()
+    for (const entry of valid) {
+      if (entry.swap.type !== 'pool') continue
+      const pool = pools.get(entry.swap.pool)
+      if (pool && this.matchesCreation(entry, pool, header.hash)) creations.add(pool.pool)
+    }
     const decimals = await this.readDecimals(pools, block, read)
     const discoveries = [],
       rows = new Map()
@@ -579,10 +604,11 @@ export class EvmSource {
       }
       for (const p of pools.values()) {
         const old = this.poolInfo.get(chain, p.pool)
-        this.registry.pool(p, {
+        const market = this.registry.pool(p, {
           token0: { decimals: decimals.get(p.token0) },
           token1: { decimals: decimals.get(p.token1) },
         })
+        if (market && p.block === block && creations.has(p.pool)) this.saveCreation.run(chain, p.pool, at)
         if (!old || p.block === block) this.saveParameters(p)
         if (!old || (p.tx && !old.tx)) discoveries.push(p)
       }

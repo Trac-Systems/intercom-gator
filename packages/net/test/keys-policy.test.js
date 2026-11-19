@@ -48,7 +48,8 @@ test('all social and data channels have their designated owners, byte caps and w
     ['soc/official', 4096, undefined, rootKey], ['soc/p/gator', 4096, undefined, rootKey],
     ['soc/u/' + author, 4096, undefined, author], ['soc/pr/dmw', 2048, 12],
     ['soc/r/' + author, 2048, 12], ['soc/dir', 4096, 16],
-    ['gator/new', 8192, 16], ['gator/meta', 8192, 10], ['gator/ctl', 65536, undefined, rootKey],
+    ['gator/new', 8192, 16], ['gator/pools/1', 8192, 10],
+    ['gator/meta', 8192, 10], ['gator/ctl', 65536, undefined, rootKey],
     ...Array.from({ length: 16 }, (_, i) => ['gator/px/' + i, 16384, 8]),
   ]) {
     const p = policyFor(channel, { rootKey });

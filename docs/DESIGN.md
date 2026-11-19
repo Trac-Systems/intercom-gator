@@ -157,6 +157,7 @@ Follow caps: small 100, normal 200, large 200 (each follow is one Intercom chann
 |---|---|---|
 | `gator/px/<0..15>` | market observations, sharded by `sha256(marketId)[0] % 16` | verifySignature, PoW 8 + 1 bit/KiB, max 16 KiB |
 | `gator/new` | new pools, exchange listings and token placement preimages | verifySignature, PoW 16 (Intercom's maximum; ≈25 ms on a laptop core), max 8 KiB |
+| `gator/pools/1` | optional EVM creation history for joining peers | verifySignature, PoW 10, max 8 KiB |
 | `gator/meta` | asset info claims, risk results, supply data | verifySignature, PoW 10, max 8 KiB |
 | `gator/ctl` | root-signed bundle patches and engine settings | ownerWriteOnly(root), verifySignature, max 64 KiB |
 
@@ -338,6 +339,49 @@ or manager initialization, including the pool and both currencies. It sends the 
 insufficient. The sender attempts at most one record per minute and waits at least an hour before repeating a pool.
 The rotation and timing survive restart. Each receiver uses the existing public receipt verifier before it registers
 the market. Graduation and sender standing confer no authority to register it.
+
+#### Recent pool history on join
+
+An EVM node starts one catch-up pass on first use and after six hours offline. It records its last connected time
+every five minutes. Joining the optional topic runs in the background. A node with recent history advertises
+once a minute. A requester without a compatible peer continues listening to the usual live feed.
+
+| Signed message on `gator/pools/1` | Fields in addition to `t` and `v: 1` |
+|---|---|
+| `offer` | none |
+| `get` | `to` (responder's signing key), `id` (random 24-hex request ID), `until` (snapshot time), `before` (exclusive cursor or null) |
+| `page` | `to` (requester's signing key), echoed `id`, `rows`, `more` |
+
+Each row carries `at, chain, pool, dex, kind, token0, token1, block, tx`. The index covers seven days, newest
+first, with descending `[at, chain, pool]` breaking timestamp ties. A keyset seek and primary-key lookups return
+up to eight rows. A responder accepts requests up to 512 bytes and sends at most 7,168 bytes of page JSON,
+once per six seconds per requester and once per second in total. The signed frame limit is 8,192 bytes.
+The requester chooses up to three offering signers by its local pool-hint standing and rotates equally ranked
+sources. It accepts one outstanding request, with a 20-second timeout, and checks the signer, addressee,
+request ID, time window and strictly descending cursor before accepting a page.
+
+The index records a matching factory creation or manager initialization from a block-hash-checked scan or
+successful receipt. Changes to the registered identity invalidate its entry. On upgrade, up to 5,000 recent
+registered pools with transactions enter a background queue. Each needs a matching public creation receipt
+before it can be served. An empty page with `more` asks the requester to wait 15 seconds at the same cursor while
+the responder checks its legacy data. Other peers remain eligible. Ten minutes without progress at that cursor
+ends that source. An empty page without `more` ends the source immediately.
+
+The requester skips known markets and independently checks every new identity with the ordinary public
+receipt, canonical block and token-registration path. A disproved hint costs its signer the same one-hour
+standing penalty as a false live hint. Public RPC failures are inconclusive. Locally verified markets enter the
+registry and New Tokens feed with peer origin. Historical name and symbol reads use the ordinary on-chain
+metadata batch decoder and stay local. The pass persists one accepted page, per-signer cursors and the count.
+Completed registry writes deduplicate a replay after a crash. It stops at the cursor ends or 5,000 rows examined.
+
+The scheduler runs history verification, upgrade checks and historical metadata on spare turns and leaves a
+concurrency slot for ordinary jobs. When a regular job completes without any upstream dispatch during its turn
+and less than half the profile budget has been used, history can use that unspent turn. These jobs share the
+profile budget and public endpoint buckets. The lane dispatches
+one RPC per turn, at most two per second, at most a quarter of the normal profile and endpoint rates, and pauses
+at 75% total profile usage. A busy endpoint yields the slot immediately. Partial reads survive budget deferrals
+on the same record. Provider failures back off before retry. Historical pages and confirmations use no live
+discovery broadcasts.
 
 The root can review graduated assets, confirm their chain and contract or mint, and add them to the signed token
 dataset in a release or a root-signed `/tokens` patch (§5.2). Nodes load those identities at startup. The signed

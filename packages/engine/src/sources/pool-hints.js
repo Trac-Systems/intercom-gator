@@ -25,7 +25,7 @@ export class PoolHints {
     const faults = penalty && penalty.expires > this.clock() ? penalty.count : 0
     return this.book.hintStanding(reporter) - 4 * faults
   }
-  receive(msg, reporter) {
+  candidate(msg, reporter) {
     const { chain, dex, kind, block } = msg
     let { pool, token0, token1, tx } = msg
     if (typeof dex !== 'string' || dex.length > 96 || typeof kind !== 'string' || kind.length > 64) return
@@ -43,6 +43,13 @@ export class PoolHints {
     if (token0 === token1 || this.registry.markets.has('dex:' + chain + ':' + pool)) return
     const key = chain + ':' + pool
     const priority = this.rank(reporter)
+    return { key, chain, pool, token0, token1, dex, kind, tx, block, reporter, priority,
+      expires: this.clock() + 5 * MINUTE }
+  }
+  receive(msg, reporter) {
+    const hint = this.candidate(msg, reporter)
+    if (!hint) return
+    const { key, priority } = hint
     const previous = this.pending.get(key)
     if (previous && priority <= previous.priority) return
     if (!previous && this.pending.size >= CAPACITY) {
@@ -52,8 +59,7 @@ export class PoolHints {
       if (weakest.priority > priority) return
       this.pending.delete(weakest.key)
     }
-    this.pending.set(key, { key, chain, pool, token0, token1, dex, kind, tx, block, reporter, priority,
-      expires: this.clock() + 5 * MINUTE })
+    this.pending.set(key, hint)
   }
   penalize(reporter) {
     const previous = this.penalties.get(reporter), now = this.clock()
@@ -66,11 +72,11 @@ export class PoolHints {
   }
   /** Older registry rows can carry a swap receipt used to identify a pool. Only a matching
    * factory creation or manager Initialize is eligible for periodic re-announcement. */
-  async hasCreationReceipt(row) {
+  async hasCreationReceipt(row, rpc = this.rpc) {
     const { chain, pool, tx, block } = row
     const source = this.evm.get(chain)
     if (!source) return false
-    const receipt = await this.rpc.call(chain, 'eth_getTransactionReceipt', [tx])
+    const receipt = await rpc.call(chain, 'eth_getTransactionReceipt', [tx])
     if (receipt?.status !== '0x1' || receipt.transactionHash?.toLowerCase() !== tx ||
         Number(receipt.blockNumber) !== block || !/^0x[0-9a-f]{64}$/i.test(receipt.blockHash) ||
         !Array.isArray(receipt.logs) || receipt.logs.length > 1024) return false
@@ -86,7 +92,7 @@ export class PoolHints {
         events.push({ swap, event, log })
     }
     if (!events.length) return false
-    await resolveCurveCreations(events, block, (calls, at) => multiRead(this.rpc, source.chain, calls, '0x' + at.toString(16)))
+    await resolveCurveCreations(events, block, (calls, at) => multiRead(rpc, source.chain, calls, '0x' + at.toString(16)))
     const currency = address => address === ZERO ? 'native' : address
     return events.some(({ swap }) => swap.type === 'pool' && swap.pool === pool &&
       currency(swap.token0) === row.token0 && currency(swap.token1) === row.token1)

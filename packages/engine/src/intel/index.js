@@ -127,9 +127,10 @@ export function createIntel(options) {
     const task = consume(channel, envelope).catch(onError).finally(() => inflight.delete(task));
     inflight.add(task);
   }
-  function onDiscovery(message, localFirstSeen, fromHint = false) {
+  function onDiscovery(message, localFirstSeen, fromHint = false, historyReporter) {
+    if (historyReporter) newTokens.consume('gator/new', { channel: 'gator/new', from: historyReporter, ts: now(), message }, localFirstSeen);
     newTokens.consume('gator/new', { channel: 'gator/new', from: transport.publicKey, ts: now(), message }, localFirstSeen ?? message.firstSeen);
-    for (const asset of options.resolveAssets?.(message) ?? []) queue(asset, !fromHint);
+    if (!historyReporter) for (const asset of options.resolveAssets?.(message) ?? []) queue(asset, !fromHint);
   }
   function refreshMarket() {
     if (!refresh) {
