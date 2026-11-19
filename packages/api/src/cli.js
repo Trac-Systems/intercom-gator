@@ -13,6 +13,7 @@ import { defaultDir, DEFAULT_PORT } from './local.js';
 
 const usage = `gator start [--data DIR] [--port PORT] [--profile small|normal|large] [--blind-relay-serve] [--blind-relay KEY,...]
 gator status | stop | open [--print] | key | doctor | bundle verify
+gator version [--latest]
 gator key export --out FILE --yes   (secret identity file for gator-social key import; 0600, never printed)
 gator price <asset-or-symbol> | search <query> | feed | post <text> | follow <key|@handle>
 gator mcp
@@ -165,6 +166,7 @@ export async function main(argv, io = {}) {
       browser:{ type:'boolean' }, help:{ type:'boolean', short:'h' }, ops:{ type:'string' }, 'seed-file':{ type:'string' },
       out:{ type:'string' }, patch:{ type:'string' }, seq:{ type:'string' }, wait:{ type:'string' },
       'from-release':{ type:'boolean' }, yes:{ type:'boolean' },
+      latest:{ type:'boolean' },
       'blind-relay-serve':{ type:'boolean' }, 'blind-relay':{ type:'string' } } });
   if (values.help || !command) { log(usage); return; }
   const dir = values.data ? resolve(values.data) : defaultDir();
@@ -173,6 +175,19 @@ export async function main(argv, io = {}) {
   const request = httpClient(dir,{ port });
   const print = data => log(JSON.stringify(data,null,2));
   switch (command) {
+    case 'version': {
+      const { version } = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'));
+      if (!values.latest) return print({ version });
+      const response = await fetch('https://api.github.com/repos/Trac-Systems/intercom-gator/releases/latest', {
+        headers: { accept: 'application/vnd.github+json' }, redirect: 'error', signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw new Error('GitHub release lookup failed (HTTP ' + response.status + ')');
+      const { tag_name: latest } = await response.json();
+      if (typeof latest !== 'string' || !/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(latest)) {
+        throw new Error('Unexpected release tag from GitHub');
+      }
+      return print({ version, latest });
+    }
     case 'start': {
       const { createGator } = await import('./app.js');
       // A public node relays encrypted links for peers that cannot connect directly (GATOR_BLIND_RELAY_SERVE=1 too).
