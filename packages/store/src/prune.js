@@ -31,6 +31,9 @@ const VACUUM_PAGES = 1024;
 // Leave room for the next sampling/maintenance interval below the 300 MB node target.
 // This limit applies exclusively to dispensable raw evidence.
 const RAW_WATERMARK = 285_000_000;
+// The steady target, like the watermark, only shortens raw evidence. Package caches and candle history are evicted
+// only above the profile ceiling (the user's storage cap): a few MiB of logos or posts can never bring a large
+// database under 295 MB, and chasing that target emptied them completely on every pass.
 const STEADY_BYTES = 295_000_000;
 const rawStatements = new WeakMap();
 
@@ -93,8 +96,12 @@ function expireObservations(db, now, limit) {
 const liveAssets = `SELECT p.asset FROM prices p JOIN store_market_list s ON s.asset=p.asset
   WHERE s.visibility='live' AND p.at>=?`;
 
-/** Each call releases at most one batch of raw quotes. Other eviction tiers wait until raw is exhausted. */
-export function fitBudget(db, targetBytes, now, limit = PRESSURE_BATCH) {
+/**
+ * Each call releases at most one batch of raw quotes. Other eviction tiers wait until raw is exhausted and run only
+ * above `tierBytes` (default `targetBytes`): callers pass the profile ceiling there when `targetBytes` is a lower
+ * steady target meant for raw evidence alone.
+ */
+export function fitBudget(db, targetBytes, now, limit = PRESSURE_BATCH, tierBytes = targetBytes) {
   let bytes = liveBytes(db), obs = 0, candles = 0;
   if (bytes > targetBytes) {
     const batch = relieveRaw(db, targetBytes, now, limit);
@@ -109,15 +116,16 @@ export function fitBudget(db, targetBytes, now, limit = PRESSURE_BATCH) {
       return { obs, candles, liveBytes: bytes, overBudgetBytes: bytes - targetBytes, moreRaw: true };
     }
   }
+  const tierTarget = Math.max(targetBytes, tierBytes);
   for (const evict of evictors.get(db) ?? []) {
-    while (bytes > targetBytes) {
-      const removed = evict(db, { now, targetBytes, liveBytes: bytes });
+    while (bytes > tierTarget) {
+      const removed = evict(db, { now, targetBytes: tierTarget, liveBytes: bytes });
       if (!Number.isSafeInteger(removed) || removed < 0) throw new TypeError('Expected number of evicted rows');
       if (!removed) break;
       bytes = liveBytes(db);
     }
   }
-  if (bytes > targetBytes) {
+  if (bytes > tierTarget) {
     const candidates = db.prepare(`SELECT id FROM assets a
       WHERE NOT EXISTS (SELECT 1 FROM watchlist WHERE asset=a.id)
       AND NOT EXISTS (SELECT 1 FROM portfolio WHERE asset=a.id)
@@ -128,7 +136,7 @@ export function fitBudget(db, targetBytes, now, limit = PRESSURE_BATCH) {
     for (const { id } of candidates) {
       candles += evict.run(id).changes;
       bytes = liveBytes(db);
-      if (bytes <= targetBytes) break;
+      if (bytes <= tierTarget) break;
     }
   }
   return { obs, candles, liveBytes: bytes, overBudgetBytes: Math.max(0, bytes - targetBytes) };
@@ -147,7 +155,7 @@ export function pruneAccessors({ writer, transaction, profile: defaultProfile, c
   ) DELETE FROM candles WHERE asset NOT IN (SELECT asset FROM kept)`);
   const hasPosts = writer.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='posts'");
 
-  let nextRawPass = null, continuation, backlog = false;
+  let nextRawPass = null, continuation, backlog = false, ceiling = limitsFor(defaultProfile).storeBudgetMB * 1024 ** 2;
   const free = writer.prepare('PRAGMA freelist_count');
   // Evicting most of a time range can leave the market/reporter index half empty
   // even after every completely free page has been vacuumed. Inspect only a small
@@ -229,7 +237,7 @@ export function pruneAccessors({ writer, transaction, profile: defaultProfile, c
       try {
         const more = timed(() => transaction(() => {
           rawPass(now);
-          if (!backlog) backlog = !!fitBudget(writer, targetBytes, now, Math.min(slice, PRESSURE_BATCH)).moreRaw;
+          if (!backlog) backlog = !!fitBudget(writer, targetBytes, now, Math.min(slice, PRESSURE_BATCH), ceiling).moreRaw;
           vacuum();
           return backlog;
         }));
@@ -246,7 +254,7 @@ export function pruneAccessors({ writer, transaction, profile: defaultProfile, c
       timed(() => transaction(() => {
         rawPass(now);
         if (!backlog && !archive.hasSparse() && liveBytes(writer) > STEADY_BYTES) {
-          fitBudget(writer, STEADY_BYTES, now, Math.min(slice, PRESSURE_BATCH));
+          fitBudget(writer, STEADY_BYTES, now, Math.min(slice, PRESSURE_BATCH), ceiling);
         }
         vacuum();
       }));
@@ -266,7 +274,7 @@ export function pruneAccessors({ writer, transaction, profile: defaultProfile, c
     prune({ now = Date.now(), profile = defaultProfile } = {}) {
       integer(now, 'now');
       const limits = limitsFor(profile);
-      const targetBytes = limits.storeBudgetMB * 1024 ** 2;
+      const targetBytes = ceiling = limits.storeBudgetMB * 1024 ** 2;
       const steadyTarget = Math.min(targetBytes, STEADY_BYTES);
       const result = transaction(() => {
         const obs = rawPass(now);
@@ -288,7 +296,7 @@ export function pruneAccessors({ writer, transaction, profile: defaultProfile, c
         }
 
         const pressure = backlog ? { obs: 0, candles: 0 } :
-          fitBudget(writer, steadyTarget, now, Math.min(slice, PRESSURE_BATCH));
+          fitBudget(writer, steadyTarget, now, Math.min(slice, PRESSURE_BATCH), targetBytes);
         backlog ||= !!pressure.moreRaw;
         vacuum();
         const bytes = liveBytes(writer);

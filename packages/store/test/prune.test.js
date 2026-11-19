@@ -170,3 +170,23 @@ test('budget eviction recovers unused space in shared raw archives before callin
   assert.ok(visited);
   assert.equal(s.reader.prepare('SELECT id FROM obs').get().id, pinned);
 });
+
+test('a steady target below the profile ceiling shortens raw quotes only; caches and candles wait for the ceiling', t => {
+  const s = fixture(t);
+  register(s);
+  market(s);
+  observe(s, [10]);
+  const calls = [];
+  s.onEvict((db, { targetBytes }) => { calls.push(targetBytes); return 0; });
+  // v0.1.0 ran every tier against 295 MB on a 1 GiB profile, which emptied small package caches on every pass.
+  const steady = s.transaction(db => fitBudget(db, 1, 11, 256, Number.MAX_SAFE_INTEGER));
+  assert.equal(steady.obs, 1);
+  assert.equal(steady.candles, 0);
+  assert.ok(steady.overBudgetBytes > 0, 'still measured against the steady target');
+  assert.deepEqual(calls, []);
+  assert.ok(s.candles({ asset: 'test:one' }).length > 0);
+  // Above the ceiling every tier still relieves pressure, in the same order.
+  s.transaction(db => fitBudget(db, 1, 11));
+  assert.deepEqual(calls, [1]);
+  assert.equal(s.candles({ asset: 'test:one' }).length, 0);
+});

@@ -9,8 +9,9 @@ import { loadBundle } from '@gator/bundle'
 import { migrations } from '../src/index.js'
 import { RateLimited, RequestBudget } from '../src/scheduler/index.js'
 import { HttpSources } from '../src/sources/http.js'
+import { fitBudget } from '../../store/src/prune.js'
 import {
-  Logos, LOGO_LIMITS, checksumAddress, inspectImage, logoRefs, retryDelay,
+  Logos, LOGO_LIMITS, LOGO_STORE_BYTES, checksumAddress, inspectImage, logoRefs, retryDelay,
 } from '../src/logos/index.js'
 import { withLogos } from '../src/logos/rows.js'
 
@@ -237,31 +238,84 @@ test('API rows gain logo fields without changing anything else', () => {
   assert.equal(withLogos(undefined, 'markets', null), null)
 })
 
-test('storage pressure evicts template-derived logos first and does not refetch them for a day', async t => {
-  let n = 0
-  const fetch = async () => new Response(png(64 + n++, 64 + n))
-  const { make, now, store } = setup(t, { fetch })
-  const logos = make()
-  const derived = 'ethereum:0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed'
-  for (const ask of [() => logos.chain('ethereum'), () => logos.asset(derived)]) {
+const derivedEvm = 'ethereum:0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed'
+const derivedSol = 'solana:So11111111111111111111111111111111111111112'
+/** Store one logo per reference, a second apart; each answer is a distinct 61-byte PNG. */
+async function storeLogos(logos, now, asks) {
+  for (const ask of asks) {
     ask()
     now.t += 1000
     await logos.fetchNext()
   }
-  assert.ok(logos.chain('ethereum') && logos.asset(derived))
-  assert.equal(store.transaction(() => logos.evict(store.writer, now.t)), 2)
-  assert.equal(store.reader.prepare('SELECT count(*) AS n FROM engine_logo_images').get().n, 0)
-  assert.equal(logos.asset(derived), null)
-  assert.equal(logos.due('asset:' + derived, now.t) || logos.due('chain:ethereum', now.t), false, 'evicted references wait a day')
-  const order = []
-  const second = make()
-  now.t += 86_400_000 + 1000
-  for (const ask of [() => second.chain('ethereum'), () => second.asset(derived)]) ask()
-  order.push(await second.fetchNext())
-  now.t += 1000
-  order.push(await second.fetchNext())
-  assert.deepEqual(order.sort(), ['asset:' + derived, 'chain:ethereum'].sort())
-  // With both stored again, the template-derived image is the first to go.
-  assert.equal(store.transaction(() => second.evict(store.writer, now.t)), 2)
+}
+
+test('whole-database pressure no longer empties the logo store (v0.1.0: every logo gone above 295 MB)', async t => {
+  let n = 0
+  const fetch = async () => new Response(png(64 + n++, 64 + n))
+  const { make, now, store } = setup(t, { fetch })
+  const logos = make()
+  await storeLogos(logos, now, [() => logos.chain('ethereum'), () => logos.exchange('kraken'),
+    () => logos.asset(derivedEvm), () => logos.asset(derivedSol)])
+  const count = () => store.reader.prepare('SELECT count(*) AS n FROM engine_logo_images').get().n
+  assert.equal(count(), 4)
+  // A target no logo eviction can reach (like 295 MB on a 350 MB node): v0.1.0 dropped 32 images per call until 0.
+  for (let pass = 0; pass < 3; pass++) store.transaction(db => fitBudget(db, 1, now.t))
+  assert.equal(count(), 4, 'logos kept')
+  assert.ok(logos.chain('ethereum') && logos.exchange('kraken') && logos.asset(derivedEvm) && logos.asset(derivedSol))
+  assert.equal(store.transaction(() => logos.evict(store.writer, now.t)), 0, 'under its own bound: evicts nothing')
+  assert.equal(store.reader.prepare("SELECT count(*) AS n FROM engine_logos WHERE sha IS NULL").get().n, 0)
+  assert.equal(logos.maxBytes, LOGO_STORE_BYTES.normal)
 })
 
+test('the logo store keeps its own byte bound: template-only and oldest first, only as many as needed', async t => {
+  let n = 0
+  const fetch = async () => new Response(png(64 + n++, 64 + n))
+  const { store, http, budget, now } = setup(t, { fetch })
+  const bundle = { chains: [{ id: 'ethereum', family: 'evm', logo: 'https://logos.example/eth.png',
+    tokenLogo: 'https://logos.example/eth/{address}.png' },
+  { id: 'solana', family: 'solana', tokenLogo: 'https://logos.example/sol/{address}.png' }],
+  tokens: { tokens: [], exchanges: [], exchangeLogos: [{ id: 'kraken', logo: 'https://venue.example/icon.png' }] } }
+  const make = (maxBytes) => new Logos({ store, http, budget, clock: () => now.t, bundle, fetch, maxBytes })
+  const size = png(64, 64).length
+  const logos = make(3 * size)
+  // Oldest first: a signed chain logo, a template-derived token, a signed exchange mark, another derived token.
+  await storeLogos(logos, now, [() => logos.chain('ethereum'), () => logos.asset(derivedEvm),
+    () => logos.exchange('kraken'), () => logos.asset(derivedSol)])
+  assert.equal(logos.storedBytes(), 3 * size, 'the fourth image pushed the store over its bound by one image')
+  assert.equal(logos.asset(derivedEvm), null, 'the oldest template-only image went first')
+  assert.ok(logos.chain('ethereum') && logos.exchange('kraken') && logos.asset(derivedSol))
+  const row = store.reader.prepare('SELECT sha,nextRetry,reason FROM engine_logos WHERE ref=?').get('asset:' + derivedEvm)
+  assert.deepEqual({ ...row }, { sha: null, nextRetry: now.t + 86_400_000, reason: 'logo cap' })
+  assert.equal(logos.due('asset:' + derivedEvm, now.t), false, 'a capped reference waits a day')
+
+  // A lower bound (profile downgrade) is enforced under pressure: template-only first, then the oldest signed image.
+  const smaller = make(size)
+  assert.equal(store.transaction(() => smaller.evict(store.writer, now.t)), 2)
+  assert.ok(smaller.exchange('kraken'), 'the newest signed image stays')
+  assert.equal(smaller.asset(derivedSol), null)
+  assert.equal(smaller.chain('ethereum'), null)
+  assert.equal(store.transaction(() => smaller.evict(store.writer, now.t)), 0)
+})
+
+test('startup makes references parked by v0.1.0 pressure eviction due again, once', async t => {
+  const { make, now, store } = setup(t, { fetch: async () => new Response(png(64, 64)) })
+  const day = 86_400_000
+  const insert = store.writer.prepare(`INSERT INTO engine_logos(ref,url,sha,failures,nextRetry,lastAttempt,reason)
+    VALUES (?,?,NULL,0,?,?,?)`)
+  insert.run('chain:ethereum', 'https://logos.example/eth.png', now.t + day, now.t, 'evicted')
+  insert.run('asset:ethereum:native', 'https://logos.example/eth.png', now.t + day, now.t, 'evicted')
+  insert.run('exchange:kraken', 'https://venue.example/icon.png', now.t + 7 * day, now.t, 'HTTP 404')
+  now.t += 1000
+  const logos = make()
+  assert.equal(logos.repaired, 2)
+  const rows = Object.fromEntries(store.reader.prepare('SELECT ref,nextRetry,reason FROM engine_logos').all()
+    .map(r => [r.ref, [r.nextRetry, r.reason]]))
+  assert.deepEqual(rows, { 'asset:ethereum:native': [now.t, 'evicted'], 'chain:ethereum': [now.t, 'evicted'],
+    'exchange:kraken': [now.t - 1000 + 7 * day, 'HTTP 404'] }, 'only pressure-evicted references are reset')
+  assert.ok(logos.due('chain:ethereum', now.t) && logos.due('asset:ethereum:native', now.t))
+  assert.equal(logos.due('exchange:kraken', now.t), false, 'a missing file keeps its negative cache')
+  assert.equal(make().repaired, 0, 'idempotent: a second start rewrites nothing')
+  now.t += 1000
+  assert.equal(await logos.fetchNext(), 'chain:ethereum', 'the pre-warm refetches them')
+  assert.match(logos.chain('ethereum'), /^\/img\/[0-9a-f]{64}\.png$/)
+})
