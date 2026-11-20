@@ -607,8 +607,14 @@ export class EvmSource {
   async scheduledState() {
     // A chain with a constant stream of launchpad creations always had queued logs, so its pools were never
     // refreshed (robinhood: 1,236 stored pools, no live token, 11-20). The refresh is one call per period.
-    await this.refreshState()
-    if (!this.pending.get(this.chain.id)) return
+    if (!this.pending.get(this.chain.id)) return this.refreshState()
+    try {
+      await this.refreshState()
+    } catch (error) {
+      // A failing refresh must not hold up decoding; it waits a period before the next attempt.
+      if (error instanceof RateLimited) throw error
+      this.refreshAt = this.clock() + this.limits.period
+    }
     for (let i = 0; i < this.limits.blocks; i++) {
       await this.state()
       if (!this.pending.get(this.chain.id)) break

@@ -240,3 +240,19 @@ test('a refused price scanner reserves a quarter of the profile budget for a min
   for (let i = 0; i < 240; i++) budget.take() // reserve expired with no refused scanner
   assert.equal(budget.used, 240)
 })
+
+test('a failing refresh on a busy chain backs off for a period and decoding still runs', async t => {
+  const f = fixture(t, { profile: 'small' })
+  f.registry.pool({ chain: 'poly', pool: addr(0x700), token0: EARLY, token1: QUOTE, dex: 'v2', kind: 'v2', firstSeen: f.now() },
+    { token0: { decimals: 18 }, token1: { decimals: 6 } })
+  const source = f.open()
+  f.store.writer.prepare("INSERT INTO engine_logs VALUES ('poly',99,0,?,1)").run(JSON.stringify({ topics: ['0x00'] }))
+  const call = f.rpc.call
+  f.rpc.call = async (chain, method, params) => {
+    if (method === 'eth_call') throw new Error('provider failure')
+    return call(chain, method, params)
+  }
+  await source.scheduledState().catch(() => {})
+  assert.ok(f.requests.some(r => r.method === 'eth_getBlockByNumber'), 'decode reached the block header')
+  assert.equal(source.refreshAt, f.now() + 300_000)
+})
