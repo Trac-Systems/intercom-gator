@@ -214,16 +214,27 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   `evm:<chain>:trades` (Swap/Sync logs only for a bounded tracked set — 32/128/256 pools per chain by profile, watched
   and held first, then depth/turnover — in address chunks; V4 by pool ID in topic 1; durable per-pool cursors; every
   max(15 s, hot interval) while a tracked pool has never been scanned, since a DEX-only token without 24 h turnover
-  stays hidden as dust; otherwise once per period),
-  `evm:<chain>:state` (decode queue plus one multicall refresh of 32 pools per period — half the deepest funded
-  pools of the tracked-set size in rotation, half the address rotation of all pools — plus the 16 deepest funded
-  pools every 120/60/30 s by profile; the refresh also runs while the decode queue never empties, and a failing
-  refresh waits a period without holding up decoding); `sol:<api>`, `meta:<asset>` (links/risk), `candles:<market>`.
+  stays hidden as dust; otherwise once per period; once per pool, a funded tracked pool without a decoded swap in
+  24 h looks back up to a day of blocks (capped by the bundle log window), newest chunk first from 4× the chain
+  range, doubling to ≤ 10,000 blocks, one call per max(15 s, hot interval), and queues only its newest swap; three
+  failures or an empty day end it; done pools persist under `engine-lookback/<chain>`),
+  `evm:<chain>:state` (decode queue plus one multicall refresh per period filled up to 128 reads (V2 pair 1,
+  concentrated pool 4, V4 2): the 16 deepest token anchors every 120/60/30 s by profile, the other anchors in
+  rotation up to three quarters of the reads, then the address rotation of all pools; an anchor is a token's deepest
+  funded pool, up to the tracked-set size per chain, so one fresh pool keeps each found token confirmed; the refresh
+  also runs while the decode queue never empties, and a failing refresh waits a period without holding up decoding); `sol:<api>`, `meta:<asset>` (links/risk), `candles:<market>`.
+- Price references (`api:llama-prices`, one request per 30 s): 32 assets of the rotation (stables first), the 8 top
+  assets without a market of their own, and 24 of the best 192 assets without an own or proven price by seed value
+  (own rank, else coin/ticker rank: chain deployments such as Polygon WBTC), rotating, so each is re-read every
+  ~4 min. A reference anchors a price for one measured rotation plus 10 min (a provider timestamp may lag that much
+  on arrival), at least 10 min and at most 1 h. With 10 min against a ~23 min rotation, reference-only rows flipped
+  live/stale, and a chain whose USD quote was reference-only (BSC USDT, Base/Optimism USDC) lost every DEX price
+  when that reference lapsed.
 - History import (`history:seed`): top 30/100/300 assets by profile get 8 days of 1 h bars from the asset's main
   (highest-volume) CEX market first, then USD pairs; a venue series ≥ 80% flat over ≥ 12 bars (a market nobody trades)
   is skipped for non-stable assets. Local bars from the aggregated price always win.
 - Choice: candidates below target weighted by relevance × gap × random(0.5–1.5); ~10% exploration (rarely covered
-  exchanges/chains, spot checks of popular items); one turn in eight goes to the ready price scanner
+  exchanges/chains, spot checks of popular items); one turn in eight (small: four, it ticks once a second) goes to the ready price scanner
   (`evm:<chain>:seed`, `:state`, `:trades`) with the largest waiting time (capped at 1 h) × weight, weight =
   1 + log2(1 + signed tokens on the chain), doubled for a seeder in its priority prefix. Budget per profile; after a price scanner is refused by the budget,
   other jobs may use at most 75% of it for one minute (the scanners' reserve); per-endpoint token buckets at ≤ 50% of the
