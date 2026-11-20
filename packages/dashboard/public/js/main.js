@@ -45,7 +45,7 @@ const ctx = {
   /** @type {import('./lib/router.js').Route} */ route: parse(location.hash),
   idx: { byId: new Map(), bySym: new Map() },
   /** handle → person (for @mentions) */ people: new Map(),
-  /** symbol → posts mentioning it (from your feed) */ mentions: new Map(),
+  /** symbol → posts mentioning it (from the latest posts, plus Following when loaded) */ mentions: new Map(),
   watch: new Set(),
   me: null,
   network: null,
@@ -63,6 +63,8 @@ const ctx = {
     p.catch(() => cache.delete(key));
     return p;
   },
+  /** A fresh cached promise, or null; never starts a request. @param {string} key @param {number} [ttl] */
+  peek(key, ttl = 30000) { const hit = cache.get(key); return hit && Date.now() - hit.at < ttl ? hit.p : null; },
   invalidate(...prefixes) { for (const k of [...cache.keys()]) if (prefixes.some((p) => k.startsWith(p))) cache.delete(k); },
   /** @param {any[]} list */
   noteTokens(list) {

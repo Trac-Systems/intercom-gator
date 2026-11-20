@@ -1,4 +1,4 @@
-// Feed: Following / Official / Mentions, compose with a 500-character counter.
+// Feed: Latest (everyone, the default) / Following / Official / Mentions, compose with a 500-character counter.
 
 import { esc, cnt } from '../lib/format.js';
 import { kp, keySeed } from '../lib/keyprint.js';
@@ -8,7 +8,16 @@ import { postHTML, userHref, SEAL, emptyHTML } from '../ui/components.js';
 import { composeHTML, wireCompose } from '../ui/compose.js';
 import { loadSocial, officialCard, trendingList } from '../ui/side.js';
 
-const LANES = [['following', 'Following'], ['official', 'Official'], ['mentions', 'Mentions']];
+/** Feed lanes in tab order; the first is the default (`#/feed`). */
+export const LANES = [['latest', 'Latest'], ['following', 'Following'], ['official', 'Official'], ['mentions', 'Mentions']];
+/** The lane a route asks for; no lane or an unknown one opens the first (Latest). @param {string} [lane] */
+export function laneOf(lane) { return LANES.some((l) => l[0] === lane) ? /** @type {string} */ (lane) : LANES[0][0]; }
+const EMPTY = {
+  latest: ['No posts yet.', 'New posts from everyone on gator show up here.'],
+  following: ['Nobody you follow has posted yet.', ''],
+  official: ['No official posts yet.', ''],
+  mentions: ['No mentions yet.', ''],
+};
 export const FEED_PAGE = 100; // the API's feed maximum
 
 /**
@@ -46,7 +55,7 @@ export async function loadOlder(ctx, q, o, all) {
 }
 
 async function load(ctx, route) {
-  const lane = LANES.some((l) => l[0] === route.params.lane) ? route.params.lane : 'following';
+  const lane = laneOf(route.params.lane);
   const [list, social, dir, extras] = await Promise.all([
     ctx.cached('feed:' + lane, () => ctx.api.feed({ lane })),
     loadSocial(ctx),
@@ -67,17 +76,17 @@ function whoToFollow(ctx, people) {
 
 function html(ctx, d) {
   let items = d.items;
-  if (d.lane === 'following' && ctx.takePromo()) {
+  if ((d.lane === 'latest' || d.lane === 'following') && ctx.takePromo()) {
     const news = d.extras.find((x) => x.slot === 'pinned-news' && x.post);
     if (news && items.length) items = items.slice(0, 1).concat([{ ...news.post, kind: 'promoted' }], items.slice(1));
   }
   const tabs = `<div class="tabsbar lanes"><div class="tabs" role="tablist" aria-label="Feed">${LANES.map(([id, label]) =>
     `<a class="tab" role="tab" href="${href('feed', { lane: id })}" aria-selected="${d.lane === id}"${d.lane === id ? '' : ' tabindex="-1"'}>${label}</a>`).join('')}<span class="ind"></span></div></div>`;
-  const empty = { following: 'Nobody you follow has posted yet.', official: 'No official posts yet.', mentions: 'No mentions yet.' }[d.lane];
+  const [empty, emptySub] = EMPTY[d.lane];
   const o = olderFor('lane:' + d.lane);
   const main = `<div class="feedwrap"><div class="page-h" style="margin-bottom:0"><h1>Feed</h1></div>${tabs}` +
     (d.lane !== 'official' ? composeHTML(ctx, { id: 'cmp', placeholder: 'Post to your channel', button: 'Post', label: 'New post' }) : '') +
-    `<div id="timeline">${items.length ? items.map((p) => postHTML(ctx, p)).join('') : `<div class="empty-state quiet"><b>${empty}</b>${d.lane === 'following' ? `<a class="lnk" href="${href('channels')}">Explore channels</a>` : ''}</div>`}</div>${olderHTML(d.first, o, d.lane)}</div>`;
+    `<div id="timeline">${items.length ? items.map((p) => postHTML(ctx, p)).join('') : `<div class="empty-state quiet"><b>${empty}</b>${emptySub}${d.lane === 'following' ? `<a class="lnk" href="${href('channels')}">Explore channels</a>` : ''}</div>`}</div>${olderHTML(d.first, o, d.lane)}</div>`;
   const pinned = d.social.official.find((p) => p.official);
   const side = (d.lane === 'official' ? '' : officialCard(ctx, pinned)) + whoToFollow(ctx, d.dir) + `<div class="sec-h"><h2>Trending</h2></div>${trendingList(ctx, d.social.trending)}`;
   return { title: 'Feed', main, side, pv: 'markets' };

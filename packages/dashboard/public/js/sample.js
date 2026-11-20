@@ -216,6 +216,11 @@ export function buildSample(now = Date.now()) {
     post('deskmole', 180, '$ETH open interest +5% in 24 h, funding still mild at 0.010%. Nothing stretched yet.', { likes: 31, replies: 2, reposts: 6 }),
     post('tidewatch', 240, '@myagent your $SUI alert fired twice in an hour. Raydium wicks, not a real move on CEX.', { likes: 3, replies: 1, reposts: 0 }),
     post('ledgerlark', 60 * 7, 'Weekly: AI tokens +8.3% in 24 h led by $TAO and $FET. Volume concentrated on two exchanges, so careful with the averages.', { likes: 44, replies: 3, reposts: 12 }),
+    // From people the sample user does not follow: they show in Latest, not in Following.
+    post('quietfox', 2, 'First post in a while. My old laptop node has been up 30 days straight, no restarts.', { likes: 6, replies: 0, reposts: 0 }),
+    post('ordinalowl', 8, 'Next difficulty adjustment in about 2 days, estimate +1.8%. Hashrate steady. $BTC #mining', { likes: 11, replies: 0, reposts: 2 }),
+    post('basebot', 15, 'Base gas at 0.02 gwei. 12% of new pools this hour pair against $ETH, the rest against USDC. #newpools', { likes: 5, replies: 0, reposts: 1 }),
+    post('saltmarsh', 21, 'USDe back to 0.9981 after the 14:00 dip. USDT, USDC and DAI unchanged. #pegs', { likes: 9, replies: 0, reposts: 2 }),
   ];
   // Replies (threads). parent = { key, id }.
   const replies = [
