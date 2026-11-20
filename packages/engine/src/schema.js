@@ -399,4 +399,14 @@ export const migrations = [
       CREATE INDEX engine_history_forward_due ON engine_history_forward(nextShare,chain,pool);`)
     },
   },
+  {
+    id: 'engine-factory-history-usd',
+    up(db) {
+      db.exec(`CREATE TABLE engine_history_usd (
+        chain TEXT NOT NULL, pool TEXT NOT NULL, factory TEXT NOT NULL, mode TEXT NOT NULL,
+        point INTEGER NOT NULL, token0 TEXT NOT NULL, token1 TEXT NOT NULL, nextTry INTEGER NOT NULL,
+        expires INTEGER NOT NULL, PRIMARY KEY(chain,pool)
+      ) STRICT, WITHOUT ROWID;`)
+    },
+  },
 ]

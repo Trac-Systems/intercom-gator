@@ -406,3 +406,34 @@ test('a misleading archive length cannot permanently hide the creation of a fund
   assert.equal(sent.length,1)
   assert.equal(sent[0].message.tx,g.logs[0].transactionHash)
 })
+
+test('an unpriced native pair is re-read from the signed factory as soon as its ordinary USD reference arrives', async t => {
+  const n=await node(t), h=n.engine.backfill, source=n.engine.evm.get('ethereum'), g=fixture.ethereum[0]
+  n.store.writer.prepare('DELETE FROM prices WHERE asset=?').run('ethereum:native')
+  assert.equal(source.usd('native'),null)
+  const task=h.tasks.find(t=>t.source===source && t.factory.kind==='v4')
+  task.bounds={mode:'logs'}
+  h.rpc=replay()
+  h.rpc.setGroup(g)
+  const range={start:g.block-5,next:g.block,end:g.block+1,after:-1,span:1}
+  await h.page(task,range)
+  assert.equal(range.next,g.block+1)
+  assert.equal(h.count.get().n,0)
+  assert.equal(h.waitingUsd.all(at).length,1)
+  assert.equal(Number(h.deferUsd.run('ethereum',fixture.ethereum[1].logs[0].topics[1],task.factory.address,'logs',g.block,
+    'native',token,at,at+60_000,1).changes),0)
+  assert.equal(n.engine.registry.assets.has('ethereum:'+token),false)
+  const reads=h.rpc.calls.length
+  await h.retryUsd()
+  assert.equal(h.rpc.calls.length,reads)
+  n.store.writer.prepare('INSERT INTO prices(asset,price,at,trust) VALUES (?,?,?,?)')
+    .run('ethereum:native','1749.488105598267',at,'yellow')
+  n.advance(60_001)
+  h.turn=2
+  await n.engine.scheduler.jobs.get('discovery:factory-history').run()
+  assert.equal(h.count.get().n,1)
+  assert.equal(h.hasUsd.get(),undefined)
+  assert.equal(h.rpc.calls.filter(c=>c.method==='eth_getLogs').length,2)
+  assert.deepEqual(h.progress.all('ethereum',task.factory.address,'logs').map(r=>[r.start,r.next]),[[g.block-5,g.block+1]])
+  assert.ok(n.engine.registry.assets.has('ethereum:'+token))
+})

@@ -9,6 +9,7 @@ import { historyRanges } from '../src/coverage/factory-history.js'
 import { nativeRate } from './factory-survey-usd.js'
 
 const eras = process.argv.includes('--eras')
+const useReference = process.argv.includes('--reference-feed')
 const chains = eras ? ['ethereum','polygon'] : ['arbitrum','optimism']
 const foreground = process.argv.includes('--logs-only') ? ['logs'] : ['logs','state','seed','trades']
 const jobs = [BACKFILL_JOB,...chains.flatMap(chain=>foreground.map(job=>'evm:'+chain+':'+job))]
@@ -30,6 +31,19 @@ engine.backfill.tasks = engine.backfill.tasks.filter(t=>chains.includes(t.source
 for (const endpoints of engine.rpc.chains.values())
   for (const e of endpoints) e.bucket.rate = Math.min(eras ? 3 : 2,e.bucket.rate)
 engine.on('sourceError',()=>errors++)
+// An isolated node without CEX jobs can have no native USD conversion after a book refresh.
+// For the controlled feed scenario, use the actually measured signed native/USDC price for
+// one hour, and only while the ordinary price store has no fresh native observation.
+const nativePrices=new Map()
+if (useReference) for (const chain of chains) {
+  const source=engine.evm.get(chain), usd=source.usd.bind(source)
+  source.usd=asset=>{
+    const price=usd(asset), ref=nativePrices.get(chain), cutoff=Date.now()-3_600_000
+    if (price!=null || asset!=='native' || !ref || ref.at<cutoff ||
+        source.assetPrice.get(chain+':native',cutoff)) return price
+    return ref.price
+  }
+}
 // Two predeclared, age-targeted durable checkpoints exercise actual scheduler resume. No
 // token or pool is supplied. The output contains every admitted pool in those and later pages.
 async function resumeEra(block) {
@@ -44,7 +58,11 @@ async function resumeEra(block) {
   t.wake=0
   console.log(JSON.stringify({type:'resume',chain:'ethereum',start,end:end-1}))
   for (const chain of chains) {
-    try { console.log(JSON.stringify(await nativeRate(engine,engine.evm.get(chain)))) }
+    try {
+      const measured=await nativeRate(engine,engine.evm.get(chain))
+      nativePrices.set(chain,{price:measured.price,at:Date.now()})
+      console.log(JSON.stringify(measured))
+    }
     catch (e) { console.log(JSON.stringify({type:'anchor-error',chain,reason:e.kind??e.message})) }
   }
 }

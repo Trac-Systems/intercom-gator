@@ -451,15 +451,20 @@ Each page measures up to 32 candidate pools at one current block with at most 12
 subcalls per request. Registration requires at least $100 of measurable USD liquidity using
 the ordinary pool state decoder and current supported USD prices. New assets use the normal
 registry, on-chain name reader, observations and trust rules. The usual liquidity and turnover
-criteria still control ranked visibility. A node holds at most 4,000 / 16,000 / 48,000 independent
-historical pools on the small / normal / large profiles. Old verified incoming records have a
+criteria still control ranked visibility. When a nonempty pool contains native currency or a
+signed quote whose USD conversion is temporarily missing, a bounded queue can retain its
+factory coordinates for seven days (32 / 128 / 256 pools by profile). The range can advance.
+When either currency acquires a supported USD price, the reader independently repeats the factory
+lookup and depth measurement before registering the pool. A node holds at most 4,000 / 16,000 /
+48,000 independently discovered historical pools on the small / normal / large profiles. Old verified incoming records have a
 separate ceiling of half those counts. A connected reader at its local row ceiling can queue
 8 / 32 / 64 additional funded identities for verified forwarding. Each queued identity commits
 with its cursor, survives restart and leaves the queue after a successful transport send or an
 exact announcement from a proven peer. Delivery has no acknowledgement. These forwarded pools
 can be registered and priced by receivers with capacity. A disconnected reader at its ceiling,
-a full forwarding queue or 90% of the configured live SQLite budget pauses further admissions
-with the cursor saved. The limits apply with the original 150 MiB / 400 MiB / 1 GiB profiles.
+a full forwarding queue or 90% of the store profile's SQLite ceiling pauses further admissions
+with the cursor saved. The original profile ceilings are 150 MiB / 400 MiB / 1 GiB. The daemon
+also prunes against the user's configured storage cap, which can be lower than the profile ceiling.
 
 History uses spare scheduler turns after foreground and recent catch-up work. Its public reads,
 including metadata and outbound receipt verification, share at most 5% of the configured RPC

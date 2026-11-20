@@ -64,6 +64,17 @@ export class FactoryBackfill {
       VALUES (?,?,?,?,?,?,?,?,?,?,?,0,?,1,?,?)`)
     this.forwardRow = db.prepare('SELECT *,1 AS forwardOnly FROM engine_history_forward WHERE nextShare<=? ORDER BY nextShare,chain,pool LIMIT 1')
     this.forwarded = db.prepare('DELETE FROM engine_history_forward WHERE chain=? AND pool=?')
+    // Keep coordinates and currencies. Once a normal USD reference arrives, re-read the signed factory
+    // and the current pool state before taking any registry or network action.
+    this.usdCapacity = this.forwardCapacity * 4
+    this.deferUsd = db.prepare(`INSERT OR IGNORE INTO engine_history_usd
+      SELECT ?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM engine_history_usd)<?`)
+    this.hasUsd = db.prepare('SELECT 1 FROM engine_history_usd LIMIT 1')
+    this.waitingUsd = db.prepare('SELECT * FROM engine_history_usd WHERE nextTry<=? ORDER BY expires,chain,pool')
+    this.expireUsd = db.prepare('DELETE FROM engine_history_usd WHERE expires<=?')
+    this.dropUsd = db.prepare('DELETE FROM engine_history_usd WHERE chain=? AND pool=?')
+    this.delayUsd = db.prepare('UPDATE engine_history_usd SET nextTry=? WHERE chain=? AND pool=?')
+    this.usdWake = 0
     this.countRemote = db.prepare('SELECT count(*) AS n FROM engine_history_received')
     this.retainRemote = db.prepare('INSERT OR IGNORE INTO engine_history_received VALUES (?,?)')
     for (const source of engine.evm.values()) source.historyRetention = this
@@ -111,6 +122,7 @@ export class FactoryBackfill {
     if (this.busy || !this.tasks.length || this.budget.retryAt()) return false
     const now = this.clock()
     return (now >= this.capWake && this.tasks.some(t => t.wake <= now)) ||
+      (now >= Math.max(this.capWake,this.usdWake) && !!this.hasUsd.get()) ||
       (now >= this.shareWake && !!this.nextRow(now)) || this.engine.names.factoryDue()
   }
 
@@ -141,6 +153,8 @@ export class FactoryBackfill {
         Number(!!(b.work || b.firstPage)) - Number(!!(a.work || a.firstPage)) || a.last - b.last)
       const task = tasks[0]
       this.turn++
+      if ((!task || this.turn % 8 === 3) && now >= Math.max(this.capWake,this.usdWake) && this.hasUsd.get())
+        return await this.retryUsd()
       if (this.turn % 8 === 2 && this.engine.names.factoryDue())
         return await this.engine.names.readFactory(this.rpc)
       if ((!task || this.turn % 4 === 0) && now >= (this.shareWake ?? 0)) {
@@ -171,6 +185,32 @@ export class FactoryBackfill {
     const tip = quantity(result?.number), ts = quantity(result?.timestamp)
     if (tip === null || ts === null) throw new Error('Invalid factory history head')
     return { tip, ts, at: this.clock() }
+  }
+
+  async retryUsd() {
+    const now = this.clock()
+    this.expireUsd.run(now)
+    if (this.usdWork?.row.expires <= now) this.usdWork = null
+    if (!this.usdWork) {
+      for (const row of this.waitingUsd.all(now)) {
+        const task = this.tasks.find(t=>t.source.chain.id===row.chain && t.factory.address===row.factory)
+        if (!task || !(task.source.usd(row.token0) || task.source.usd(row.token1))) continue
+        this.usdWork = { row,task:{source:task.source,factory:task.factory,bounds:{mode:row.mode}},
+          range:{start:row.point,next:row.point,end:row.point+1,after:-1,span:1} }
+        break
+      }
+    }
+    if (!this.usdWork) { this.usdWake=now+MINUTE; return }
+    const {row,task,range} = this.usdWork
+    try {
+      await this.page(task,range,row.pool)
+      this.usdWork = null
+    } catch (e) {
+      if (e instanceof RateLimited) { this.usdWake=e.retryAt; return }
+      this.delayUsd.run(now+HOUR,row.chain,row.pool)
+      this.usdWork = null
+      throw e
+    }
   }
 
   async read(chain, calls, block, cache) {
@@ -247,7 +287,7 @@ export class FactoryBackfill {
 
   /** One atomic index/log page. The ephemeral cache only avoids duplicate successful RPCs across denials.
    * Restart re-reads this page at current state and never advances its on-disk cursor early. */
-  async page(task, range) {
+  async page(task, range, retryPool) {
     const { source, factory, bounds } = task, { store } = this.engine
     const chain = source.chain.id, now = this.clock()
     if (task.work?.range !== range || now - task.work.at > this.workLifetime())
@@ -257,9 +297,9 @@ export class FactoryBackfill {
     let page
     if (bounds.mode === 'logs') {
       page = work.logs ??= await logPage({ source, factory, rpc: this.rpc, from: range.next, end: range.end,
-        span: range.span, after: range.after })
+        span: range.span, after: range.after, matchPool: retryPool })
       if (page.retrySpan) {
-        this.mark.run(chain, factory.address, bounds.mode, range.start, range.next, range.after, page.retrySpan, now)
+        if (!retryPool) this.mark.run(chain, factory.address, bounds.mode, range.start, range.next, range.after, page.retrySpan, now)
         range.span = page.retrySpan
         task.work = null
         return
@@ -267,7 +307,7 @@ export class FactoryBackfill {
     }
     if (!page || page.pools.length) work.head ??= await this.head(task)
     page ??= await indexPage(source, factory, range.next, range.end, read)
-    const pools = page.pools
+    const pools = retryPool ? page.pools.filter(p=>p.pool===retryPool) : page.pools
     const decimals = await source.readDecimals(pools, work.head?.tip, read)
     // Index membership and token identities can take several low-budget turns. Re-pin the
     // funded-state batch after those reads so the observation uses its own block timestamp.
@@ -284,8 +324,15 @@ export class FactoryBackfill {
     let forwards = this.connected() ? this.forwardCapacity - this.forwardCount.get().n : 0
     let { next, after } = page
     store.transaction(() => {
+      let stillUnpriced = false
       for (const [i, p] of pools.entries()) {
         const state = states[i]
+        if (state?.price > 0 && state.liquidity == null &&
+            [p.token0,p.token1].some(a=>a==='native' || source.quotes.has(a))) {
+          stillUnpriced = true
+          if (!retryPool) this.deferUsd.run(chain,p.pool,factory.address,bounds.mode,p.index??p.block,
+            p.token0,p.token1,now,now+7*DAY,this.usdCapacity)
+        }
         if (!(state?.liquidity >= HISTORY_FLOOR)) continue
         const id = 'dex:' + chain + ':' + p.pool, known = source.registry.markets.get(id)
         const old = known && source.poolInfo.get(chain,p.pool)
@@ -318,7 +365,9 @@ export class FactoryBackfill {
         this.engine.names.enqueueFactory(market.base)
         this.engine.names.enqueueFactory(market.quote)
       }
-      this.mark.run(chain, factory.address, bounds.mode, range.start, next, after, page.span ?? range.span, now)
+      if (!retryPool) this.mark.run(chain, factory.address, bounds.mode, range.start, next, after, page.span ?? range.span, now)
+      else if (stillUnpriced) this.delayUsd.run(now+MINUTE,chain,retryPool)
+      else if (next>=range.end) this.dropUsd.run(chain,retryPool)
     })
     Object.assign(range, { next, after, span: page.span ?? range.span })
     task.work = null

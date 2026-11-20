@@ -189,8 +189,10 @@ export function simulate(work, size, profile='normal') {
 }
 
 if (process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
-  const input = process.argv[2] ?? new URL('../test/fixtures/factory-survey.json',import.meta.url)
-  const survey = JSON.parse(readFileSync(input)), connected = workload(survey)
+  const args=process.argv.slice(2), profile=args.find(a=>a.startsWith('--profile='))?.slice(10)??'normal'
+  if (!Object.hasOwn(BUDGETS,profile)) throw new Error('Unknown profile '+profile)
+  const input = args.find(a=>!a.startsWith('--')) ?? new URL('../test/fixtures/factory-survey.json',import.meta.url)
+  const survey = JSON.parse(readFileSync(input)), connected = workload(survey,profile)
   for (const size of [1,3,7,20,100])
-    console.log(JSON.stringify(simulate(size===1 ? workload(survey,'normal',false) : connected,size)))
+    console.log(JSON.stringify(simulate(size===1 ? workload(survey,profile,false) : connected,size,profile)))
 }
