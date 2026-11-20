@@ -67,7 +67,7 @@ export function socialSide(ctx, d, o = {}) {
   const pinned = d.official.find((p) => p.official) || d.official[0];
   let feed = d.latest.slice(0, SIDE_POSTS);
   const news = promo && ctx.takePromo() && d.extras.find((x) => x.slot === 'pinned-news' && x.post);
-  if (news) feed = feed.slice(0, 1).concat([{ ...news.post, kind: 'promoted' }], feed.slice(1));
+  if (news && feed.length) feed = feed.slice(0, 1).concat([{ ...news.post, kind: 'promoted' }], feed.slice(1));
   return officialCard(ctx, pinned) +
     (latest ? `<div class="sec-h"><h2>Latest</h2><a class="lnk" href="${href('feed', { lane: 'latest' })}">See all</a></div>` +
       `<div id="feed">${feed.length ? feed.map((p) => postHTML(ctx, p)).join('') : '<p class="muted">No posts yet. New posts from everyone on gator show up here.</p>'}</div>` : '') +
