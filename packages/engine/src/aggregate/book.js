@@ -24,6 +24,13 @@ const HISTORY_BREAK_MS = 600_000
 const HISTORY_RESET_GAP_MS = DAY
 export const PROVEN = 3
 const COVERAGE_TTL_MS = 15_000
+// A strike is one disagreement > 3% with a contemporaneous local read. A data mute needs a pattern: within the last
+// hour at least MUTE_STRIKES disagreements that are at least MUTE_SHARE of the peer's checks. Lifetime strikes muted every
+// honest peer of a 39k-market node within a day (volatile pairs) and cut the node off the network (11-20, v0.1.9).
+const STRIKE_WINDOW_MS = 3_600_000
+const MUTE_STRIKES = 5
+const MUTE_SHARE = 0.5
+const CHECK_LOG_CAP = 4096
 // The in-memory latest rows are compared with engine_latest this often (a count and two modular sums, ~0.1 s on 179k
 // rows); any drift (a rolled-back write, a writer the mirror does not know) reloads them from the table.
 const LATEST_CHECK_MS = 60_000
@@ -161,9 +168,15 @@ export class MarketBook {
       SET agreements=min(agreements+1,?),checkedAt=excluded.checkedAt,lastObs=excluded.lastObs
       WHERE excluded.checkedAt>=checkedAt+60000 AND excluded.lastObs<>lastObs`)
     this.resetStanding = db.prepare('UPDATE engine_standing SET agreements=0,checkedAt=? WHERE reporter=?')
-    this.recordStrike = db.prepare(`INSERT INTO reporters(key,strikes,mutedUntil) VALUES (?,1,0)
-      ON CONFLICT(key) DO UPDATE SET strikes=CASE WHEN mutedUntil>0 THEN 1 ELSE strikes+1 END,
-      mutedUntil=CASE WHEN mutedUntil=0 AND strikes+1>=5 THEN ? ELSE 0 END`)
+    // Strikes after an expired mute start again at 1; :mute is the new mute's end or 0.
+    this.recordStrike = db.prepare(`INSERT INTO reporters(key,strikes,mutedUntil) VALUES (:key,1,:mute)
+      ON CONFLICT(key) DO UPDATE SET strikes=CASE WHEN mutedUntil>0 AND mutedUntil<=:now THEN 1 ELSE min(strikes+1,1000) END,
+      mutedUntil=CASE WHEN :mute>0 THEN :mute WHEN mutedUntil<=:now THEN 0 ELSE mutedUntil END`)
+    // An agreeing check takes one strike back.
+    this.forgive = db.prepare('UPDATE reporters SET strikes=strikes-1 WHERE key=? AND strikes>0')
+    // A single disagreement costs one step of standing; a mute resets it.
+    this.loseStanding = db.prepare('UPDATE engine_standing SET agreements=max(agreements-1,0),checkedAt=? WHERE reporter=?')
+    this.checkLog = new Map()
     this.dropHistory = db.prepare('DELETE FROM candles WHERE asset=?')
     this.historyBreaks = new Map()
     this.historyResets = new Map()
@@ -283,13 +296,31 @@ export class MarketBook {
     if (newSpot) this.lastSpot.run(market, local.id, row.reporter, local.srcTs, local.seq)
     if (difference > 0.03 + 1e-12) {
       if (!unchecked || !this.firstStrike.run(spot).changes) return
-      this.recordStrike.run(row.reporter, now + DAY)
-      this.resetStanding.run(now, row.reporter)
+      const mute = this.noteCheck(row.reporter, true, now)
+      this.recordStrike.run({ key: row.reporter, mute: mute ? now + DAY : 0, now })
+      if (mute) this.resetStanding.run(now, row.reporter)
+      else this.loseStanding.run(now, row.reporter)
       this.covered.clear()
-    } else if (newSpot && fresh && row.seq < local.seq && difference <= 0.01 + 1e-12) {
+    } else if (newSpot) {
+      this.noteCheck(row.reporter, false, now)
+      this.forgive.run(row.reporter)
       // Only an observation already on file before our independent read can earn credit.
-      if (this.agree.run(row.reporter, now, row.seq, PROVEN).changes) this.standingChanged(row.reporter)
+      if (fresh && row.seq < local.seq && difference <= 0.01 + 1e-12 &&
+          this.agree.run(row.reporter, now, row.seq, PROVEN).changes) this.standingChanged(row.reporter)
     }
+  }
+  /** Record one check of a peer in its rolling hour; true when its disagreements now call for a data mute. */
+  noteCheck(reporter, bad, now) {
+    let log = this.checkLog.get(reporter)
+    if (!log) this.checkLog.set(reporter, log = { at: [], bad: [], strikes: 0 })
+    log.at.push(now)
+    log.bad.push(bad)
+    if (bad) log.strikes++
+    while (log.at.length && (log.at[0] < now - STRIKE_WINDOW_MS || log.at.length > CHECK_LOG_CAP)) {
+      log.at.shift()
+      if (log.bad.shift()) log.strikes--
+    }
+    return bad && log.strikes >= MUTE_STRIKES && log.strikes >= MUTE_SHARE * log.at.length
   }
   ingest(reporter, wireRows, own, localQuoteVolumes) {
     const now = this.clock()

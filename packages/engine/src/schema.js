@@ -468,4 +468,13 @@ export const migrations = [
       CREATE INDEX engine_family_due ON engine_family_candidates(chain,stage,due);`)
     },
   },
+  {
+    // v0.1.9: five lifetime strikes muted a peer for 24 h, so on a 39k-market node every honest peer collected them
+    // from volatile pairs and the node cut itself off (owner node 11-20: 19 of 30 peers muted, no peer data after
+    // 12:16 UTC). The new rule mutes only a pattern of disagreement; strikes and mutes from the old rule are dropped.
+    id: 'engine-024-strike-amnesty',
+    up(db) {
+      db.exec('UPDATE reporters SET strikes=0, mutedUntil=0 WHERE strikes>0 OR mutedUntil>0')
+    },
+  },
 ]

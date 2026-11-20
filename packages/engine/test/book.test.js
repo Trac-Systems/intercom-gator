@@ -5,6 +5,9 @@ import { Registry } from '../src/registry/index.js'
 import { MarketBook } from '../src/aggregate/book.js'
 import { migrations } from '../src/schema.js'
 import { CandleHistory } from '../src/candles/index.js'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 
 test('SQLite raw deduplication, restart, five independent spot-check strikes and 24h data mute', (t) => {
   const store = openStore({ file: ':memory:', migrations })
@@ -485,3 +488,47 @@ test('byte pressure preserves late claim comparisons without advancing the sourc
   store.prune({now})
   assert.equal(store.reader.prepare('SELECT count(*) n FROM store_obs_comparisons').get().n,0)
 });
+
+test('an honest peer with some volatile disagreements is never muted; strikes fade; a peer wrong on most checks is', t => {
+  const store = openStore({ file: ':memory:', migrations })
+  t.after(() => store.close())
+  let now = 1740000000000
+  const ownKey = 'a'.repeat(64), peer = 'b'.repeat(64)
+  const assets = ['BTC', 'ETH', 'SOL', 'XRP'].map((s, i) => ({ id: s.toLowerCase() + ':native', symbol: s, name: s, rank: i + 1 }))
+  const registry = new Registry(store, { assets, chains: [], exchanges: [{ id: 'spot' }] })
+  const markets = assets.map(a => registry.cex('spot', a.symbol, 'USD').id)
+  const book = new MarketBook({ store, registry, ownKey, clock: () => now })
+  const write = (key, market, value) => book.ingest(key, [[market, String(value), 4, null, null, null, now]], key === ownKey)
+  // 40 checks over 40 minutes on four markets, every fifth > 3% apart (a volatile pair): 8 strikes, 20% of checks.
+  // The lifetime rule muted this peer after its fifth strike (owner node 11-20: 19 of 30 peers, no peer data left).
+  for (let i = 0; i < 40; i++) {
+    now += 60_000
+    const market = markets[i % markets.length]
+    write(peer, market, i % 5 === 0 ? 110 : 100)
+    write(ownKey, market, 100)
+  }
+  assert.equal(book.muted(peer), false)
+  assert.ok(store.getReporter(peer).strikes <= 1, 'agreements took the strikes back')
+  // Turning wrong on most checks mutes it within the hour.
+  let minutes = 0
+  while (!book.muted(peer) && minutes < 60) {
+    now += 60_000
+    const market = markets[minutes++ % markets.length]
+    write(peer, market, 150)
+    write(ownKey, market, 100)
+  }
+  assert.equal(book.muted(peer), true)
+  assert.ok(minutes < 30, 'muted after ' + minutes + ' minutes')
+})
+
+test('the update clears strikes and mutes left by the lifetime rule once', t => {
+  const file = join(mkdtempSync(join(tmpdir(), 'strike-amnesty-')), 'gator.db')
+  t.after(() => rmSync(dirname(file), { recursive: true, force: true }))
+  const peer = 'b'.repeat(64), until = Date.now() + 86_400_000
+  const before = openStore({ file, migrations: migrations.filter(m => m.id !== 'engine-024-strike-amnesty') })
+  before.upsertReporter({ key: peer, strikes: 5, mutedUntil: until })
+  before.close()
+  const after = openStore({ file, migrations })
+  t.after(() => after.close())
+  assert.deepEqual([after.getReporter(peer).strikes, after.getReporter(peer).mutedUntil], [0, 0])
+})
