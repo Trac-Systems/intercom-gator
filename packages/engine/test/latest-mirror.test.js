@@ -100,23 +100,52 @@ test('drift between the mirror and engine_latest reloads it within a minute', as
   assert.equal(book.latest.get(btc.id).get(engine.transport.publicKey).price, '100000')
 })
 
-test('a rebuild longer than the clean window is reused, not repeated, by the next read', async t => {
+const settle = async book => { while (book.rebuilding || book.rebuildTimer) await new Promise(r => setImmediate(r)) }
+
+test('a read never waits for a rebuild under 15 s old: it rebuilds in the background, in slices', async t => {
   const { engine, book, market, row, advance } = await fixture(t)
-  engine.publish([row(market('BTC', 'USD'), 100_000)])
+  const btc = market('BTC', 'USD')
+  engine.publish([row(btc, 100_000)])
   book.maxStaleMs = 4000
-  let rebuilds = 0
-  const rank = engine.registry.rankMarkets.bind(engine.registry)
-  // Each rebuild takes 1.5 s on the book's clock (11-20: 1.1-1.7 s on the owner's node).
-  engine.registry.rankMarkets = (...args) => { rebuilds++; advance(1500); return rank(...args) }
   book.dirty = true
   book.refreshed = -Infinity
   book.refresh()
+  let rebuilds = 0
+  const rank = engine.registry.rankMarkets.bind(engine.registry)
+  engine.registry.rankMarkets = (...args) => { rebuilds++; return rank(...args) }
+  const before = { snapshots: book.snapshots, prices: book.marketPrices }
+  advance(5_000)
+  engine.publish([row(btc, 101_000)])
+  // Due (dirty, 5 s old): the read returns the last rebuild and leaves the new one to the background.
+  assert.equal(book.refresh(), before.snapshots)
+  assert.equal(rebuilds, 0)
+  assert.ok(book.rebuildTimer)
+  book.sliceMs = 0
+  await new Promise(r => setTimeout(r, 0))
+  assert.ok(book.rebuilding, 'the rebuild yields between slices')
+  // Between slices every reader sees the whole previous rebuild.
+  assert.equal(book.snapshots, before.snapshots)
+  assert.equal(book.marketPrices, before.prices)
+  assert.equal(book.refresh(), before.snapshots)
+  advance(1_000)
+  engine.publish([row(btc, 102_000)])
+  await settle(book)
   assert.equal(rebuilds, 1)
-  for (let i = 0; i < 5; i++) book.refresh()
-  assert.equal(rebuilds, 1, 'five lookups in the same request reuse the rebuild')
-  advance(1000)
+  assert.notEqual(book.snapshots, before.snapshots)
+  // Rows are read when the rebuild reaches them (with 0 ms slices: after the ingest above).
+  assert.equal(book.marketPrices.get(btc.id).price, 102_000)
+  assert.equal(book.dirty, true, 'an ingest during the rebuild leaves the book dirty for the next one')
+  // A read older than 15 s (a stalled loop) rebuilds at once, as before.
+  advance(16_000)
   book.refresh()
-  assert.equal(rebuilds, 2, 'a clean book still rebuilds after its 1 s window')
+  assert.equal(rebuilds, 2)
+  assert.equal(book.marketPrices.get(btc.id).price, 102_000)
+  // A stopped book schedules nothing.
+  book.stop()
+  advance(5_000)
+  engine.publish([row(btc, 103_000)])
+  book.refresh()
+  assert.equal(book.rebuildTimer, null)
 })
 
 test('coverage counts from memory exactly like the former engine_latest query', async t => {

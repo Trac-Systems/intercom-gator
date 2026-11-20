@@ -331,6 +331,15 @@ export class Registry {
    * detached durably. Reviewed splits that were not seen again are dropped (their markets stay with the asset).
    * `prices` (the book's market prices) get the new base so this refresh's ranking already ignores them.
    */
+  /** Whether applySplits would change anything: a split under review, or a supported asset with a proven, current
+   * detached group. The book classifies before the last slice when it would not. */
+  splitsPending(collisions, review = []) {
+    if (review.length) return true
+    for (const record of collisions.values()) {
+      if (record.kept?.supported && (record.detached ?? []).some(d => d.proven && d.current)) return true
+    }
+    return false
+  }
   applySplits(collisions, prices, now, review = []) {
     const confirmed = new Set()
     const durable = []

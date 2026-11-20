@@ -65,10 +65,15 @@ export function supplyValidity(engine, local) {
   }
   // Every valuation entry point calls book.refresh(), including its one-second cache hit. Expire
   // the inputs before that call: timers can run late after sleep or during a synchronous request.
-  const refresh = book.refresh.bind(book)
+  const refresh = book.refresh.bind(book), sliced = book.rebuildSliced.bind(book)
   book.refresh = () => {
     expire()
     return refresh()
+  }
+  // A background rebuild starts later than the read that scheduled it.
+  book.rebuildSliced = () => {
+    expire()
+    return sliced()
   }
   // Sweep restored evidence before the first book refresh, even when background fetching is disabled.
   deadline = -Infinity

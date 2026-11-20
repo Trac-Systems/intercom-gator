@@ -613,6 +613,7 @@ export class Engine extends EventEmitter {
     clearTimeout(this.timer)
     clearTimeout(this.refreshTimer)
     this.refreshTimer = null
+    this.book.stop()
     this.nfts?.stop()
     this.abort?.abort()
     // Jobs see the abort signal through rpc/http; a read that ignores it gets a short grace, not the whole shutdown.

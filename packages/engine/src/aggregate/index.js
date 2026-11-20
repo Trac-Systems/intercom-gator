@@ -423,7 +423,18 @@ function borrowRates(lenders, assets, context) {
  * (default: the fresh references); options.lenders (deployment → signed sibling ids, `priceSiblings`) lets a quote
  * without a price of its own borrow its sibling's (borrowRates).
  */
-export function aggregateAssets(assets, markets, now, references = new Map(),
+export function aggregateAssets(...args) {
+  const steps = aggregateAssetsSteps(...args)
+  for (;;) {
+    const { done, value } = steps.next()
+    if (done) return value
+  }
+}
+
+/** aggregateAssets as a generator that yields every AGGREGATE_STEP assets, so a background rebuild can let requests
+ * run in between. Callers that cannot pause use aggregateAssets. */
+const AGGREGATE_STEP = 100
+export function* aggregateAssetsSteps(assets, markets, now, references = new Map(),
   { pinned, collisions, referencePrices, dayRatio, lenders, suspects } = {}) {
   const byBase = new Map(), byQuote = new Map()
   for (const m of markets) {
@@ -477,10 +488,12 @@ export function aggregateAssets(assets, markets, now, references = new Map(),
     if (result) paths.set(result, dependencies)
     return result
   }
-  const rounds = (first) => {
+  let counted = 0
+  const rounds = function* (first) {
     for (let depth = 0; depth < 4 && frontier.size; depth++) {
       frontier = new Map()
       for (const id of byBase.keys()) {
+        if (++counted % AGGREGATE_STEP === 0) yield
         if (rates.has(id) && !(first && depth === 0 && references.has(id))) continue
         const asset = assets.get(id)
         const result = asset && evaluate(asset, rates)
@@ -489,7 +502,7 @@ export function aggregateAssets(assets, markets, now, references = new Map(),
       for (const pair of frontier) rates.set(...pair)
     }
   }
-  rounds(true)
+  yield* rounds(true)
   // Borrowing is decided on the rates resolved without it, then the assets it makes reachable resolve in more rounds.
   const borrowed = lenders?.size ? borrowRates(lenders, assets, { byBase, byQuote, rates, paths, references, now }) : new Map()
   if (borrowed.size) {
@@ -499,9 +512,10 @@ export function aggregateAssets(assets, markets, now, references = new Map(),
       resolved.set(id, rate)
     }
     frontier = new Map(borrowed)
-    rounds(false)
+    yield* rounds(false)
   }
   for (const id of byBase.keys()) {
+    if (++counted % AGGREGATE_STEP === 0) yield
     // A borrowed deployment had no price of its own; any it gains now rests on a borrowed rate, so it stays borrowed.
     if (borrowed.has(id)) continue
     const asset = assets.get(id)

@@ -1,6 +1,6 @@
 import { MARKET_POLICY } from '../../../store/src/markets.js'
 import { multiplyPrice } from './decimal.js'
-import { aggregateAssets, capSupply, marketMedian, totalCapCheck, weightedMedian } from './index.js'
+import { aggregateAssetsSteps, capSupply, marketMedian, totalCapCheck, weightedMedian } from './index.js'
 import { decimal } from '../obs/index.js'
 import { coverageTarget } from '../scheduler/index.js'
 import { zeroTickerBook, marketHalts } from '../sources/cex.js'
@@ -31,6 +31,14 @@ const SUM_MOD = 1_000_003
 // With reuse enabled (maxStaleMs > 0) a rebuild is reused for at least this many times its own duration, so rebuilds
 // take at most ~1/(1+REBUILD_SPACING) of the main thread however large the book grows.
 const REBUILD_SPACING = 4
+// With reuse enabled a read never waits for a rebuild while the last one is younger than this: it is rebuilt in the
+// background, in slices of about SLICE_MS between which requests run (owner node 11-20: a 0.8-1 s rebuild every few
+// seconds made a click wait up to 1.3 s). Older than this (a stalled loop), a read rebuilds at once as before.
+const READ_LIMIT_MS = 15_000
+const SLICE_MS = 25
+// A background rebuild waits at most this long for its spacing, so a long first (cold) rebuild cannot push the next one
+// past READ_LIMIT_MS (bench 11-20: 15.6 s -> one read rebuilt at once, 578 ms).
+const SPACING_CAP_MS = 5_000
 const retaining = new WeakSet()
 
 function retainComparisons(store) {
@@ -162,6 +170,15 @@ export class MarketBook {
     this.history = db.prepare(`SELECT CASE WHEN lastTs<=? THEN close ELSE open END AS close FROM candles
       WHERE asset=? AND tf=? AND firstTs<=? AND ts BETWEEN ? AND ? ORDER BY ts DESC LIMIT 1`)
     this.referenceRows = db.prepare('SELECT * FROM engine_references WHERE at>=? ORDER BY asset,provider')
+    this.persistedPrices = db.prepare(`SELECT p.*,s.staleSince FROM prices p
+      LEFT JOIN store_market_list s ON s.asset=p.asset`)
+    this.dropNewerPrice = db.prepare('DELETE FROM prices WHERE asset=? AND at>?')
+    this.dropPrice = db.prepare('DELETE FROM prices WHERE asset=?')
+    this.rebuilding = null
+    this.rebuildTimer = null
+    this.rebuildError = null
+    this.stopped = false
+    this.sliceMs = SLICE_MS
     this.poolDepths = db.prepare(`SELECT m.base,m.quote,p.liquidity FROM pools p
       JOIN markets m ON m.id='dex:'||p.chain||':'||p.pool WHERE p.liquidity IS NOT NULL`)
   }
@@ -172,35 +189,58 @@ export class MarketBook {
     // Coverage steers the scheduler; windows are minutes long. Recounting every second cost ~15% of a busy node's
     // main thread (profile 11-19 15:40).
     if (!cache || now - cache.at >= COVERAGE_TTL_MS) {
-      cache = { at: now, markets: this.countCoverage(now - window, now) }
+      const eligible = new Map()
+      cache = { at: now, eligible, stale: new Set(), markets: this.countCoverage(now - window, now, eligible) }
       this.covered.set(window, cache)
+    } else if (cache.stale.delete(id)) {
+      const n = this.countMarket(id, now - window, now, cache.eligible)
+      if (n) cache.markets.set(id, n)
+      else cache.markets.delete(id)
     }
     return cache.markets.get(id) ?? 0
   }
   /** Rows per market since `since` from unmuted, weighted reporters that are this node or proven; a local-only market
    * counts this node's own row. Counted from the in-memory latest rows: the engine_latest query took ~70 ms and every
    * ingest clears the cache (11-20 profile: 37 recounts in 20 s, 13% of the main thread). */
-  countCoverage(since, now) {
+  countCoverage(since, now, eligible = new Map()) {
     if (!this.latest) this.checkLatest(now)
-    const counted = new Map(), eligible = new Map()
-    for (const [market, rows] of this.latest) {
-      let n = 0, own = 0
-      for (const [reporter, row] of rows) {
-        if (row.srcTs < since) continue
-        let ok = eligible.get(reporter)
-        if (ok === undefined) {
-          const r = this.reputation.get(reporter)
-          ok = (r?.mutedUntil ?? 0) <= now && (r?.weight ?? 1) > 0 &&
-            (reporter === this.ownKey || (this.standing.get(reporter)?.agreements ?? 0) >= PROVEN)
-          eligible.set(reporter, ok)
-        }
-        if (!ok) continue
-        n++
-        if (reporter === this.ownKey) own = 1
-      }
-      if (n) counted.set(market, this.localOnly(market) ? own : n)
+    const counted = new Map()
+    for (const market of this.latest.keys()) {
+      const n = this.countMarket(market, since, now, eligible)
+      if (n) counted.set(market, n)
     }
     return counted
+  }
+  countMarket(market, since, now, eligible) {
+    let n = 0, own = 0
+    for (const [reporter, row] of this.latest.get(market) ?? []) {
+      if (row.srcTs < since) continue
+      let ok = eligible.get(reporter)
+      if (ok === undefined) {
+        const r = this.reputation.get(reporter)
+        ok = (r?.mutedUntil ?? 0) <= now && (r?.weight ?? 1) > 0 &&
+          (reporter === this.ownKey || (this.standing.get(reporter)?.agreements ?? 0) >= PROVEN)
+        eligible.set(reporter, ok)
+      }
+      if (!ok) continue
+      n++
+      if (reporter === this.ownKey) own = 1
+    }
+    return n && this.localOnly(market) ? own : n
+  }
+  /** A reporter's standing moved: counts that left it out are recounted (a strike clears the cache outright). */
+  standingChanged(reporter) {
+    for (const cache of this.covered.values()) {
+      if (cache.eligible.get(reporter) === false) {
+        this.covered.clear()
+        return
+      }
+    }
+  }
+  /** After an ingest: only the markets it changed are re-counted, when next asked (a full recount waits for the cache
+   * TTL). Clearing the whole cache on every ingest re-counted all 39k markets about twice a second. */
+  updateCoverage(markets) {
+    for (const cache of this.covered.values()) for (const id of markets) cache.stale.add(id)
   }
   /** This node's own fresh read of a USD- or stablecoin-quoted CEX market: the venue's last / 24 h open. */
   dayRatio(market, now) {
@@ -245,9 +285,10 @@ export class MarketBook {
       if (!unchecked || !this.firstStrike.run(spot).changes) return
       this.recordStrike.run(row.reporter, now + DAY)
       this.resetStanding.run(now, row.reporter)
+      this.covered.clear()
     } else if (newSpot && fresh && row.seq < local.seq && difference <= 0.01 + 1e-12) {
       // Only an observation already on file before our independent read can earn credit.
-      this.agree.run(row.reporter, now, row.seq, PROVEN)
+      if (this.agree.run(row.reporter, now, row.seq, PROVEN).changes) this.standingChanged(row.reporter)
     }
   }
   ingest(reporter, wireRows, own, localQuoteVolumes) {
@@ -321,9 +362,9 @@ export class MarketBook {
       if (!accepted) return
       for (const [id, at] of activity) this.store.recordMarketActivity(id, at)
       this.dirty = true
-      this.covered.clear()
     })
     for (const row of latest) this.setLatest(reporter, row)
+    if (latest.length) this.updateCoverage(new Set(latest.map(row => row.market)))
   }
   setLatest(reporter, row) {
     if (!this.latest) return
@@ -360,16 +401,16 @@ export class MarketBook {
     }
     this.latest = latest
   }
-  classify(snapshots, now, priorStale) {
+  classify(snapshots, now, priorStale, depthRows = this.poolDepths.all(), prices = this.marketPrices) {
     const depths = new Map(), dexAssets = new Set(), tradedOnDex = new Set(), supportedCex = new Set()
     const supported = new Set(), zeroTurnover = new Map(), lastMarketExpiry = new Map()
-    for (const { base, quote, liquidity } of this.poolDepths.iterate()) {
+    for (const { base, quote, liquidity } of depthRows) {
       for (const id of [base, quote]) depths.set(id, Math.max(depths.get(id) ?? 0, liquidity))
     }
     for (const m of this.registry.markets.values()) {
       if (m.kind === 'dex') { dexAssets.add(m.base); dexAssets.add(m.quote) }
     }
-    for (const m of this.marketPrices.values()) {
+    for (const m of prices.values()) {
       lastMarketExpiry.set(m.base, Math.max(lastMarketExpiry.get(m.base) ?? 0, m.at + 3 * m.window))
       if (!m.provenAgents.length || now - m.at > Math.min(3 * m.window, MARKET_POLICY.maxPriceAge)) continue
       if (m.kind === 'cex') {
@@ -413,10 +454,10 @@ export class MarketBook {
     }
   }
   /** Volume plausibility (volume-guard.js) on the current market medians, valued at the previous rebuild's rates. */
-  guardVolumes() {
+  guardVolumes(prices = this.marketPrices) {
     const snapshots = this.snapshots
     const rows = []
-    for (const p of this.marketPrices.values()) {
+    for (const p of prices.values()) {
       const evidence = p.kind === 'cex' ? this.registry.venues.get(p.exchange)?.volumeEvidence?.get(p.id) : null
       const rate = evidence?.book ? quoteRate(snapshots, p.quote) : null
       rows.push({ id: p.id, kind: p.kind, exchange: p.exchange ?? null, base: p.base, quote: p.quote,
@@ -428,14 +469,68 @@ export class MarketBook {
   refresh() {
     const now = this.clock()
     for (const venue of this.registry.venues.values()) venue.contracts?.expire(now)
-    // New observations mark the book dirty many times a second on a busy node. A read may use a rebuild up to
-    // maxStaleMs old instead of rebuilding (~0.4 s) inside every request; 0 rebuilds at once.
-    // Freshness counts from the END of the last rebuild: counted from its start, a rebuild longer than the 1 s clean
-    // window was stale on arrival and every lookup in one request rebuilt again (11-20: USDT page 68 s, ~50 rebuilds).
-    const spacing = this.maxStaleMs > 0 ? REBUILD_SPACING * this.rebuildMs : 0
-    if (this.haltRevision === this.registry.haltRevision &&
-        now - this.refreshed < Math.max(this.dirty ? this.maxStaleMs : 1000, spacing)) return this.snapshots
-    const started = performance.now()
+    const halted = this.haltRevision !== this.registry.haltRevision
+    // New observations mark the book dirty many times a second on a busy node. With reuse enabled (maxStaleMs > 0, the
+    // app) a read returns the last rebuild while it is younger than READ_LIMIT_MS and leaves a due rebuild to the
+    // background; maxStaleMs 0 (tests) rebuilds at once. Freshness counts from the END of a rebuild: counted from its
+    // start, a rebuild longer than the 1 s clean window was stale on arrival (11-20: USDT page 68 s, ~50 rebuilds).
+    if (this.maxStaleMs > 0 && !halted && !this.rebuildError && now - this.refreshed < READ_LIMIT_MS) {
+      if (now - this.refreshed >= (this.dirty ? this.maxStaleMs : 1000)) this.scheduleRebuild()
+      return this.snapshots
+    }
+    if (!halted && now - this.refreshed < (this.dirty ? this.maxStaleMs : 1000)) return this.snapshots
+    return this.rebuildNow(now)
+  }
+  /** A background rebuild, spaced so rebuilds take at most ~1/(1+REBUILD_SPACING) of the main thread. */
+  scheduleRebuild() {
+    if (this.rebuildTimer || this.rebuilding || this.stopped) return
+    const wait = Math.min(SPACING_CAP_MS, Math.max(0, this.refreshed + REBUILD_SPACING * this.rebuildMs - this.clock()))
+    this.rebuildTimer = setTimeout(() => { this.rebuildTimer = null; this.rebuildSliced() }, wait)
+    this.rebuildTimer.unref?.()
+  }
+  /** Run one rebuild in slices of about SLICE_MS, yielding to the event loop in between. Shared state (medians,
+   * snapshots, ranks, splits, stored prices) changes only in the last slice, so a read never sees half a rebuild.
+   * A synchronous rebuild meanwhile supersedes it; an error makes the next read rebuild at once and report it. */
+  rebuildSliced() {
+    if (this.rebuilding || this.stopped) return
+    const token = this.rebuilding = { steps: this.rebuildSteps(this.clock(), true) }
+    const step = () => {
+      if (this.rebuilding !== token || this.stopped) return
+      try {
+        if (token.steps.next().done) this.rebuilding = null
+        else setImmediate(step)
+      } catch (error) {
+        this.rebuilding = null
+        this.rebuildError = error
+      }
+    }
+    step()
+  }
+  rebuildNow(now) {
+    // A sliced rebuild in progress is finished first: it may have swapped its snapshots and still owe their writes.
+    const pending = this.rebuilding
+    this.rebuilding = null
+    if (pending) while (!pending.steps.next().done);
+    const steps = this.rebuildSteps(now, false)
+    for (;;) {
+      const { done, value } = steps.next()
+      if (done) {
+        this.rebuildError = null
+        return value
+      }
+    }
+  }
+  stop() {
+    this.stopped = true
+    this.rebuilding = null
+    clearTimeout(this.rebuildTimer)
+    this.rebuildTimer = null
+  }
+  *rebuildSteps(now, sliced) {
+    let busy = 0, mark = performance.now()
+    const late = () => sliced && performance.now() - mark > this.sliceMs
+    // Ingests during a sliced rebuild mark the book dirty again for the next one.
+    if (sliced) this.dirty = false
     this.haltRevision = this.registry.haltRevision
     const referencePrices = this.registry.referencePrices(now)
     const review = this.registry.reviewSplits(now, referencePrices)
@@ -447,6 +542,7 @@ export class MarketBook {
     for (const [id, rows] of this.latest) {
       const market = this.registry.markets.get(id)
       if (!market) continue
+      if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
       for (const [reporter, l] of rows) {
         let s = standing.get(reporter)
         if (!s) {
@@ -473,13 +569,15 @@ export class MarketBook {
           proven: own || (s.agreements >= PROVEN && !this.localOnly(id)) })
       }
     }
-    this.marketPrices.clear()
+    const prices = new Map()
     for (const [id, rows] of grouped) {
+      if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
       const market = this.registry.markets.get(id)
       if (!market) continue
       const median = marketMedian({ ...market, rank: this.registry.marketRank(market) }, rows, now)
-      if (median) this.marketPrices.set(id, median)
+      if (median) prices.set(id, median)
     }
+    if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
     const references = new Map()
     for (const ref of this.referenceRows.all(now - (this.referenceValidity ?? 600_000))) {
       if (!references.has(ref.asset)) references.set(ref.asset, [])
@@ -524,16 +622,36 @@ export class MarketBook {
       })
     }
     const collisions = new Map()
-    this.volumeSuspects = this.guardVolumes()
-    const next = aggregateAssets(this.registry.assets, this.marketPrices.values(), now, anchors,
+    const suspects = this.guardVolumes(prices)
+    if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
+    const aggregate = aggregateAssetsSteps(this.registry.assets, prices.values(), now, anchors,
       { pinned: m => this.registry.mapped(m), collisions, referencePrices, dayRatio: m => this.dayRatio(m, now),
-        lenders: this.siblings, suspects: this.volumeSuspects })
-    this.registry.applySplits(collisions, this.marketPrices, now, review)
-    this.collisions = collisions
+        lenders: this.siblings, suspects })
+    let next
+    for (;;) {
+      const { done, value } = aggregate.next()
+      if (done) { next = value; break }
+      if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
+    }
+    // Candle lookups for the change figures read only history written by earlier rebuilds: done before the last slice.
+    const changes = [['change1h', 3600000, '1m', 120000], ['change24h', DAY, '1h', 7200000],
+      ['change7d', 7 * DAY, '1h', 7200000]]
+    const history = asset => changes.map(([, offset, frame, tolerance]) => {
+      const cutoff = now - offset
+      const width = frame === '1m' ? 60000 : 3600000
+      const ts = Math.floor(cutoff / width) * width
+      return this.history.get(cutoff, asset, frame, cutoff, ts - tolerance, ts) ?? null
+    })
+    const looked = new Map()
+    for (const asset of next.keys()) {
+      if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
+      looked.set(asset, history(asset))
+    }
+    // Reads for the last slices (prices persisted by earlier rebuilds, pool depths).
+    const persisted = this.persistedPrices.all(), depthRows = this.poolDepths.all()
+    if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
     // Retain a last-known value after raw-history pruning. If raw evidence still exists
     // but is now ineligible (mute, missing FX), remove its cached valuation on restart too.
-    const persisted = this.store.writer.prepare(`SELECT p.*,s.staleSince FROM prices p
-      LEFT JOIN store_market_list s ON s.asset=p.asset`).all()
     const retired = []
     for (const row of persisted) {
       if (next.has(row.asset)) continue
@@ -565,86 +683,102 @@ export class MarketBook {
         },
       })
     }
-    this.classify(next, now, new Map(persisted.filter(p => p.staleSince != null).map(p => [p.asset, p.staleSince])))
-    this.registry.rankMarkets(next, this.marketPrices, now, this.volumeSuspects)
-    const changed = []
-    this.store.transaction(() => {
-      const samples = []
-      for (const result of next.values()) {
-        const day = result.dayRatio
-        delete result.dayRatio
-        for (const [field, offset, frame, tolerance] of [
-          ['change1h', 3600000, '1m', 120000],
-          ['change24h', DAY, '1h', 7200000],
-          ['change7d', 7 * DAY, '1h', 7200000],
-        ]) {
-          const cutoff = now - offset
-          const width = frame === '1m' ? 60000 : 3600000
-          const ts = Math.floor(cutoff / width) * width
-          const old = this.history.get(cutoff, result.asset, frame, cutoff, ts - tolerance, ts)
-          result[field] = old && +old.close > 0 ? (result.price / +old.close - 1) * 100 : null
+    // Change figures, history breaks and candle samples: this rebuild's own objects and book-private state only.
+    const samples = [], drops = []
+    for (const result of next.values()) {
+      if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
+      const day = result.dayRatio
+      delete result.dayRatio
+      const old = looked.get(result.asset) ?? history(result.asset)
+      changes.forEach(([field], i) => {
+        result[field] = old[i] && +old[i].close > 0 ? (result.price / +old[i].close - 1) * 100 : null
+      })
+      const off = day > 0 && result.change24h != null ? Math.abs(Math.log((1 + result.change24h / 100) / day)) : 0
+      if (off > Math.log(HISTORY_BREAK_FACTOR) && !(this.historyResets.get(result.asset) > now - HISTORY_RESET_GAP_MS)) {
+        const since = this.historyBreaks.get(result.asset) ?? now
+        this.historyBreaks.set(result.asset, since)
+        if (now - since >= HISTORY_BREAK_MS) {
+          drops.push(result.asset)
+          this.historyBreaks.delete(result.asset)
+          this.historyResets.set(result.asset, now)
         }
-        const off = day > 0 && result.change24h != null ? Math.abs(Math.log((1 + result.change24h / 100) / day)) : 0
-        if (off > Math.log(HISTORY_BREAK_FACTOR) && !(this.historyResets.get(result.asset) > now - HISTORY_RESET_GAP_MS)) {
-          const since = this.historyBreaks.get(result.asset) ?? now
-          this.historyBreaks.set(result.asset, since)
-          if (now - since >= HISTORY_BREAK_MS) {
-            this.dropHistory.run(result.asset)
-            this.historyBreaks.delete(result.asset)
-            this.historyResets.set(result.asset, now)
-          }
-        } else this.historyBreaks.delete(result.asset)
-        if (day > 0 && (result.change24h == null ||
-            Math.abs(Math.log((1 + result.change24h / 100) / day)) > Math.log(DAY_CHECK_FACTOR))) {
-          // The history disagrees with the venues (or is missing): their move stands; the 7 d figure rests on the
-          // same history, so it is withheld until it agrees again.
-          if (result.change24h != null) result.change7d = null
-          result.change24h = (day - 1) * 100
-        }
-        result.trending = Math.log1p(result.volume24h) * (1 + Math.abs(result.change24h ?? 0) / 100)
-        const previous = this.snapshots.get(result.asset)
-        // Candles chart the aggregated price only, never raw quotes (a dead pair would draw false wicks).
-        const sample = result.priceText ?? decimal(result.price)
-        if (
-          sample != null &&
-          result.trust !== 'red' &&
-          !result.why?.stale &&
-          result.at <= now &&
-          (!previous || result.at !== previous.at || result.priceText !== previous.priceText)
-        )
-          samples.push({ asset: result.asset, price: sample, at: result.at })
-        if (
-          !previous ||
-          result.visibility !== previous.visibility ||
-          result.staleSince !== previous.staleSince ||
-          result.price !== previous.price ||
-          result.priceText !== previous.priceText ||
-          result.trust !== previous.trust ||
-          result.at !== previous.at ||
-          result.marketCap !== previous.marketCap ||
-          result.fdv !== previous.fdv ||
-          result.exchanges !== previous.exchanges ||
-          result.agents !== previous.agents ||
-          result.volume24h !== previous.volume24h ||
-          result.change24h !== previous.change24h ||
-          result.change1h !== previous.change1h ||
-          result.change7d !== previous.change7d
-        ) {
-          const price = result.priceText ?? decimal(result.price)
-          if (price == null) continue
-          // A mute or source expiry can make the newest eligible source timestamp move backwards.
-          this.store.writer.prepare('DELETE FROM prices WHERE asset=? AND at>?').run(result.asset, result.at)
-          this.store.upsertPrice({ ...result, price })
-          changed.push(result)
-        }
+      } else this.historyBreaks.delete(result.asset)
+      if (day > 0 && (result.change24h == null ||
+          Math.abs(Math.log((1 + result.change24h / 100) / day)) > Math.log(DAY_CHECK_FACTOR))) {
+        // The history disagrees with the venues (or is missing): their move stands; the 7 d figure rests on the
+        // same history, so it is withheld until it agrees again.
+        if (result.change24h != null) result.change7d = null
+        result.change24h = (day - 1) * 100
       }
-      if (samples.length) this.store.recordPrices(samples)
-      for (const id of retired) this.store.writer.prepare('DELETE FROM prices WHERE asset=?').run(id)
-    })
+      result.trending = Math.log1p(result.volume24h) * (1 + Math.abs(result.change24h ?? 0) / 100)
+      const previous = this.snapshots.get(result.asset)
+      // Candles chart the aggregated price only, never raw quotes (a dead pair would draw false wicks).
+      const sample = result.priceText ?? decimal(result.price)
+      if (
+        sample != null &&
+        result.trust !== 'red' &&
+        !result.why?.stale &&
+        result.at <= now &&
+        (!previous || result.at !== previous.at || result.priceText !== previous.priceText)
+      )
+        samples.push({ asset: result.asset, price: sample, at: result.at })
+    }
+    // Visibility depends on the medians' base and quote, which applySplits can rebind: classified ahead of the last
+    // slice unless a split is pending (rare), then after it as before.
+    const splitting = this.registry.splitsPending(collisions, review)
+    const priorStale = new Map(persisted.filter(p => p.staleSince != null).map(p => [p.asset, p.staleSince]))
+    if (!splitting) this.classify(next, now, priorStale, depthRows, prices)
+    if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
+    // The last slice: everything shared changes together.
+    this.marketPrices = prices
+    this.volumeSuspects = suspects
+    this.registry.applySplits(collisions, this.marketPrices, now, review)
+    this.collisions = collisions
+    if (splitting) this.classify(next, now, priorStale, depthRows, prices)
+    this.registry.rankMarkets(next, this.marketPrices, now, this.volumeSuspects)
+    // Stored prices are collected here and written after the swap (next slice).
+    const changed = [], writes = []
+    for (const result of next.values()) {
+      const previous = this.snapshots.get(result.asset)
+      if (
+        !previous ||
+        result.visibility !== previous.visibility ||
+        result.staleSince !== previous.staleSince ||
+        result.price !== previous.price ||
+        result.priceText !== previous.priceText ||
+        result.trust !== previous.trust ||
+        result.at !== previous.at ||
+        result.marketCap !== previous.marketCap ||
+        result.fdv !== previous.fdv ||
+        result.exchanges !== previous.exchanges ||
+        result.agents !== previous.agents ||
+        result.volume24h !== previous.volume24h ||
+        result.change24h !== previous.change24h ||
+        result.change1h !== previous.change1h ||
+        result.change7d !== previous.change7d
+      ) {
+        const price = result.priceText ?? decimal(result.price)
+        if (price == null) continue
+        writes.push({ asset: result.asset, at: result.at, row: { ...result, price } })
+        changed.push(result)
+      }
+    }
     this.snapshots = next
     this.refreshed = this.clock()
-    this.rebuildMs = performance.now() - started
-    this.dirty = false
+    if (!sliced) this.dirty = false
+    if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
+    // A synchronous rebuild that supersedes this one finishes it first (rebuildNow), so these writes are never lost.
+    this.store.transaction(() => {
+      for (const asset of drops) this.dropHistory.run(asset)
+      // A mute or source expiry can make the newest eligible source timestamp move backwards.
+      for (const { asset, at, row } of writes) {
+        this.dropNewerPrice.run(asset, at)
+        this.store.upsertPrice(row)
+      }
+      if (samples.length) this.store.recordPrices(samples)
+      for (const id of retired) this.dropPrice.run(id)
+    })
+    this.rebuildMs = busy + performance.now() - mark
     for (const result of changed) this.onPrice(result)
     return next
   }
