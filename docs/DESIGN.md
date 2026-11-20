@@ -391,6 +391,26 @@ time (insert on find, refreshed on each successful re-announce receipt check). F
 requester accepts creation blocks older than the window; v0.1.1–v0.1.3 requesters treat them as inconclusive (no
 penalty). A node accepts 12 adds per hour and 60 per day, one at a time.
 
+There is no "add" button. A search for a full EVM contract address that the node does not know (no asset and no pool at that
+address on any bundle EVM chain) starts the same add on every bundle EVM chain by itself: the dashboard search box
+and `GET /api/v1/search` (so the MCP `search` tool too). The search answers at once with `lookup { address, state,
+chains, message, asset?, tokens?, retryAt? }`. `state` is `queued` or `running` ("Looking this address up on 20
+chains…"), then `found` (with `asset`; the dashboard opens the token page), `no-pools`, `not-token`, `no-contract`,
+`unavailable`, `limited` or `busy`. Repeating the search reads the status; `lookup=0` only reads it. The
+dashboard sends that while typing and asks for a lookup once a full address has stayed in the box for 0.6 s. Bounds: one lookup per
+address (a repeated or concurrent search joins it, its answer stands for an hour, two minutes when chains did not
+answer), one add on the node at a time (a lookup queues behind an explicit add; at most 4 queued, more answer
+`busy`), and its own quota of 20 per hour and 100 per day. The quota is separate from `add_token`, so wallet
+addresses and typos pasted into search never use up an agent's add quota. Refused lookups make no reads. "No
+contract" and "not a token" are cached for 24 h (persisted, at most 500 addresses) when every chain answered.
+Partial addresses never start a lookup. Neither does a token the node already knows (bundle tokens included).
+
+A pool registered from a peer's `gator/new` record or a catch-up row is measured once through public endpoints.
+It stays priced while at least $100 deep (the adder's floor), for at most 64 pools per chain, deepest first.
+Shallower pools are measured again after 1 h and 6 h and dropped from measurement after 24 h. Their registered
+identity stays. A v0.1.0 receiver verifies the same records without penalty and lists the token without a price
+of its own.
+
 #### Recent pool history on join
 
 An EVM node starts one catch-up pass on first use and after six hours offline. It records its last connected time
