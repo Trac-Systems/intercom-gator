@@ -126,7 +126,7 @@ export function engineData(engine) {
     ORDER BY p.liquidity DESC NULLS LAST, p.firstSeen DESC LIMIT 1`);
   const trades = store.reader.prepare(`SELECT count(*) AS n FROM engine_trades
     WHERE market IN (${assetMarkets}) AND at>=:from AND at<:to`);
-  const moveTrades = store.reader.prepare(`SELECT count(*) AS n FROM (${assetMarkets}) x
+  const moveTrades = engine.move?.size && store.reader.prepare(`SELECT count(*) AS n FROM (${assetMarkets}) x
     JOIN markets m ON m.id=x.market AND m.chain=:chain
     JOIN engine_move_swaps s ON s.chain=m.chain AND s.pool=substr(m.id,length(m.chain)+6)
     WHERE s.at>=:from AND s.at<:to`);
@@ -176,7 +176,7 @@ export function engineData(engine) {
     metricsFor(asset) {
       const time = engine.clock(), row = poolFor(asset);
       const window = { asset, from: time - DAY, to: time + 1 };
-      const n = moveChain(row?.chain) ? moveTrades.get({ ...window, chain: row.chain }).n : trades.get(window).n;
+      const n = moveTrades && moveChain(row?.chain) ? moveTrades.get({ ...window, chain: row.chain }).n : trades.get(window).n;
       return { liquidityUsd: row?.liquidity, trades: n };
     },
     sampleGlobal(at) {

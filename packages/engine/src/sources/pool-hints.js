@@ -139,6 +139,7 @@ export class PoolHints {
     this.busy = true
     if (this.work?.hint !== best) this.work = { hint: best, cache: new Map() }
     let retry = false
+    const before = this.work.cache.size
     try {
       const family = this.move?.get(best.chain) ?? (best.chain === 'tron' && this.tron)
       if (family) {
@@ -151,6 +152,12 @@ export class PoolHints {
       else if (source && result) this.onConfirmed(result)
     } catch (error) {
       retry = error instanceof RateLimited
+      const source = this.move?.get(best.chain)
+      if (retry && source && this.work.cache.size > before) {
+        // Several public reads can span the initial queue TTL on small profiles. Extend only
+        // after completing a new verification stage, up to the next peer slot plus its TTL.
+        best.expires = Math.max(best.expires, source.client.peerDue + 5 * MINUTE)
+      }
       throw error
     } finally {
       if (!retry || this.pending.get(best.key) !== best) {

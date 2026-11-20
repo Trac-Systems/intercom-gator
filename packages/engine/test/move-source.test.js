@@ -33,6 +33,7 @@ async function node(t, chain, store, serve) {
     patches:{patchFeed:false,snapshot:false},
     rpcConfig:{fetch:async (url,init)=>{
       const u=new URL(url), body=init.body ? JSON.parse(init.body) : null
+      if (u.hostname !== (chain==='sui' ? 'graphql.mainnet.sui.io' : 'api.mainnet.aptoslabs.com')) throw new Error('offline fixture host')
       calls.push({u,body})
       const result = await serve(u,body,ctx)
       if (result instanceof Response) return result
@@ -141,10 +142,13 @@ test('new Sui receiver checks the creation transaction and typed funded pool bef
     await n.run(()=>n.engine.verifyHint())
     assert.ok(n.engine.hints.rank(who)<rank)
     assert.equal(n.engine.registry.assets.has(token),false)
+    n.engine.registry.registerToken('sui',hint.token0,{symbol:'BUCK',name:'Bucket USD'})
+    assert.equal(n.engine.registry.assets.get(token).decimals,null)
     send(hint)
     await n.run(()=>n.engine.verifyHint())
     n.engine.book.refresh()
     assert.equal(n.engine.registry.assets.get(token).symbol,'BUCK')
+    assert.equal(n.engine.registry.assets.get(token).decimals,9)
     assert.ok(Number(store.getPrice(token).price)>0.9)
     assert.ok(n.intel.newTokens.list().some(r=>r.asset===token && r.liquidityUsd>10000))
     assert.equal(n.engine.registry.known('dex:sui:'+hint.pool).fromHint,1)
@@ -196,6 +200,9 @@ test('Aptos factory paging resumes; fresh reserves and a pinned resource price A
     assert.ok(n.intel.newTokens.list().some(r=>r.asset===token))
     assert.ok(n.transport.sent.some(r=>r.channel.startsWith('gator/px/')))
     assert.equal(n.transport.sent.some(r=>r.channel==='gator/new'),false)
+    n.now+=6*60000
+    await n.run(()=>n.source.reader.inventory('hyperion'))
+    assert.equal(lastOffset,4) // A tail at total 5 must overlap its last existing row.
   }finally{await n.stop();store.close()}
 })
 
@@ -222,6 +229,27 @@ test('Aptos validates the requested hash, block interval and typed creation, and
   }finally{await n.stop();store.close()}
 })
 
+test('locally indexed Aptos origins use the fullnode block that contains the creation transaction',async t=>{
+  const store=db(), p=aptosCreations(creation.tx)[0], version=Number(creation.tx.version)
+  const n=await node(t,'aptos',store,u=>{
+    if(u.pathname.endsWith('/transactions/by_version/'+version))return creation.tx
+    if(u.pathname.endsWith('/blocks/by_version/'+version))return creation.block
+    assert.fail('unexpected origin lookup')
+  })
+  try{
+    const s=n.source, block=Number(creation.block.block_height)
+    s.remember({...p,tx:null})
+    s.origin(p.pool,version,block+1)
+    await n.run(()=>s.reader.receiptJob())
+    assert.equal(s.candidate(p.pool).tx,null)
+    s.origin(p.pool,version,block)
+    await n.run(()=>s.reader.receiptJob())
+    const result=s.candidate(p.pool)
+    assert.equal(result.tx,p.tx)
+    assert.equal(result.block,block)
+  }finally{await n.stop();store.close()}
+})
+
 test('a targeted Aptos transaction contributes only the matching pool and deduplicates its swap',async t=>{
   const store=db(), n=await node(t,'aptos',store,(u,b)=>{
     if(b?.query)return {data:{p0:[trade.accountTransaction]}}
@@ -241,5 +269,70 @@ test('a targeted Aptos transaction contributes only the matching pool and dedupl
     assert.equal(rows[0].pool,pool)
     assert.equal(rows[0].a,Number(trade.tx.events[0].data.amount_out))
     assert.equal(rows[0].b,Number(trade.tx.events[0].data.amount_in))
+  }finally{await n.stop();store.close()}
+})
+
+test('legacy Coin resources price both Aptos venues and exact pool-handle swaps use indexed transaction times',async t=>{
+  const legacy=fixture('aptos-legacy'),handle=fixture('aptos-handle'),store=db()
+  const n=await node(t,'aptos',store,(u,b)=>{
+    if(b?.query?.includes('user_transactions(where:'))return handle.times
+    const path=decodeURIComponent(u.pathname)
+    if(path.includes('/events/'))return handle.events
+    const normalize=t=>t.replaceAll(', ',',')
+    const pool=legacy.pools.find(r=>normalize(path).endsWith('/resource/'+normalize(r.type)))
+    if(pool)return {type:pool.type,data:pool.data}
+    const meta=Object.values(legacy.metadata).find(r=>path.endsWith('/resource/'+r.type))
+    if(meta)return meta
+    assert.fail('unexpected legacy read '+path)
+  })
+  try{
+    n.now=Math.max(...legacy.pools.map(r=>r.at),...handle.times.data.user_transactions.map(t=>Date.parse(t.timestamp+'Z')))+60000
+    store.writer.prepare('INSERT OR REPLACE INTO engine_references VALUES (?,?,?,?)').run('aptos:native','fixture',0.408,n.now)
+    n.engine.book.dirty=true;n.engine.book.refresh()
+    const s=n.source
+    assert.ok(s.reader.legacySeeds())
+    const pools=store.reader.prepare("SELECT * FROM engine_move_candidates WHERE chain='aptos'").all()
+    assert.equal(pools.length,5)
+    const stable=pools.find(p=>p.kind==='stable')
+    const order=[...pools.filter(p=>p!==stable),stable]
+    for(const p of order) {
+      const cache=new Map()
+      await n.run(()=>s.measure([p],cache))
+      n.engine.book.refresh()
+    }
+    const z=legacy.pools[0].b
+    assert.equal(n.engine.registry.assets.get('aptos:'+z).symbol,'USDC')
+    assert.ok(Math.abs(Number(store.getPrice('aptos:'+z).price)-1)<0.015)
+    assert.ok(s.known(stable.pool).liquidity>30000)
+    const cake=pools.find(p=>p.dex==='pancakeswap-aptos' && p.token1===z)
+    assert.ok(s.known(cake.pool).liquidity>290000)
+    // Select this handle in the round-robin, leaving its recorded production event order intact.
+    const ids=pools.map(p=>p.pool).sort(),index=ids.indexOf(cake.pool)
+    s.saveCursor('legacy/trades',{after:ids[(index+ids.length-1)%ids.length]})
+    await n.run(()=>s.reader.legacyTrades())
+    const vol=s.volume.get('aptos',cake.pool,n.now-day,n.now)
+    assert.equal(vol.a,handle.events.reduce((n,e)=>n+Number(e.data.amount_x_in)+Number(e.data.amount_x_out),0))
+    assert.equal(s.cursor('swaps/'+cake.pool).next,Number(handle.events.at(-1).sequence_number)+1)
+    assert.ok(n.intel.newTokens.list().find(r=>r.asset==='aptos:'+z)?.trades>=4)
+  }finally{await n.stop();store.close()}
+})
+
+test('Cetus signed-pair object search persists each unfinished type page',async t=>{
+  const store=db(),queries=[]
+  const n=await node(t,'sui',store,(u,b)=>{
+    queries.push(b.variables)
+    const count=Object.keys(b.variables).filter(k=>k[0]==='t').length
+    return Object.fromEntries(Array.from({length:count},(_,i)=>['p'+i,{nodes:[{address:sui[0].object.address}],
+      pageInfo:{hasNextPage:queries.length===1 && i===0,endCursor:'second'}}]))
+  })
+  try{
+    await n.run(()=>n.source.reader.seed())
+    const c=n.source.cursor('cetus/seeds')
+    assert.deepEqual(c.pending,[{index:0,after:'second'}])
+    await n.run(()=>n.source.reader.seed())
+    assert.equal(queries[1].c0,'second')
+    assert.equal(queries[1].t0,queries[0].t0)
+    assert.equal(n.source.cursor('cetus/seeds').index,3)
+    assert.equal(n.source.backlog(),1)
   }finally{await n.stop();store.close()}
 })

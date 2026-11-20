@@ -1,0 +1,120 @@
+{
+  "pools": [
+    {
+      "venue": "cake",
+      "a": "0x1::aptos_coin::AptosCoin",
+      "b": "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC",
+      "type": "0xc7efb4076dbe143cbcd98cfaaa929ecfc8f299203dfff63b95ccb6bfe19850fa::swap::TokenPairReserve<0x1::aptos_coin::AptosCoin, 0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC>",
+      "at": 1795138475207,
+      "data": {
+        "block_timestamp_last": "1795138364",
+        "reserve_x": "36417544202058",
+        "reserve_y": "148613940586"
+      }
+    },
+    {
+      "venue": "cake",
+      "a": "0x1::aptos_coin::AptosCoin",
+      "b": "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDT",
+      "type": "0xc7efb4076dbe143cbcd98cfaaa929ecfc8f299203dfff63b95ccb6bfe19850fa::swap::TokenPairReserve<0x1::aptos_coin::AptosCoin, 0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDT>",
+      "at": 1795138475263,
+      "data": {
+        "block_timestamp_last": "1795138091",
+        "reserve_x": "130780298739",
+        "reserve_y": "534738099"
+      }
+    },
+    {
+      "venue": "cake",
+      "a": "0x159df6b7689437016108a019fd5bef736bac692b6d4a1f10c941f6fbb9a74ca6::oft::CakeOFT",
+      "b": "0x1::aptos_coin::AptosCoin",
+      "type": "0xc7efb4076dbe143cbcd98cfaaa929ecfc8f299203dfff63b95ccb6bfe19850fa::swap::TokenPairReserve<0x159df6b7689437016108a019fd5bef736bac692b6d4a1f10c941f6fbb9a74ca6::oft::CakeOFT, 0x1::aptos_coin::AptosCoin>",
+      "at": 1795138475327,
+      "data": {
+        "block_timestamp_last": "1795138364",
+        "reserve_x": "1181213486660",
+        "reserve_y": "4535845926144"
+      }
+    },
+    {
+      "venue": "liquid",
+      "a": "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC",
+      "b": "0x1::aptos_coin::AptosCoin",
+      "type": "0x190d44266241744264b964a37b8f09863167a12d3e70cda39376cfb4e3561e12::liquidity_pool::LiquidityPool<0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC, 0x1::aptos_coin::AptosCoin, 0x190d44266241744264b964a37b8f09863167a12d3e70cda39376cfb4e3561e12::curves::Uncorrelated>",
+      "at": 1795138475400,
+      "data": {
+        "coin_x_reserve": {
+          "value": "32702894050"
+        },
+        "coin_y_reserve": {
+          "value": "8013858782607"
+        },
+        "locked": false,
+        "x_scale": "0",
+        "y_scale": "0"
+      }
+    },
+    {
+      "venue": "liquid",
+      "a": "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDT",
+      "b": "0x1::aptos_coin::AptosCoin",
+      "type": "0x190d44266241744264b964a37b8f09863167a12d3e70cda39376cfb4e3561e12::liquidity_pool::LiquidityPool<0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDT, 0x1::aptos_coin::AptosCoin, 0x190d44266241744264b964a37b8f09863167a12d3e70cda39376cfb4e3561e12::curves::Uncorrelated>",
+      "at": 1795138475483,
+      "data": {
+        "coin_x_reserve": {
+          "value": "9631487767"
+        },
+        "coin_y_reserve": {
+          "value": "2354884210999"
+        },
+        "locked": false,
+        "x_scale": "0",
+        "y_scale": "0"
+      }
+    },
+    {
+      "venue": "liquid",
+      "a": "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC",
+      "b": "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDT",
+      "type": "0x190d44266241744264b964a37b8f09863167a12d3e70cda39376cfb4e3561e12::liquidity_pool::LiquidityPool<0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC, 0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDT, 0x190d44266241744264b964a37b8f09863167a12d3e70cda39376cfb4e3561e12::curves::Stable>",
+      "at": 1795138475597,
+      "data": {
+        "coin_x_reserve": {
+          "value": "16031168700"
+        },
+        "coin_y_reserve": {
+          "value": "19261862637"
+        },
+        "locked": false,
+        "x_scale": "1000000",
+        "y_scale": "1000000"
+      }
+    }
+  ],
+  "metadata": {
+    "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC": {
+      "type": "0x1::coin::CoinInfo<0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC>",
+      "data": {
+        "name": "USD Coin",
+        "symbol": "USDC",
+        "decimals": 6
+      }
+    },
+    "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDT": {
+      "type": "0x1::coin::CoinInfo<0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDT>",
+      "data": {
+        "name": "Tether USD",
+        "symbol": "USDT",
+        "decimals": 6
+      }
+    },
+    "0x159df6b7689437016108a019fd5bef736bac692b6d4a1f10c941f6fbb9a74ca6::oft::CakeOFT": {
+      "type": "0x1::coin::CoinInfo<0x159df6b7689437016108a019fd5bef736bac692b6d4a1f10c941f6fbb9a74ca6::oft::CakeOFT>",
+      "data": {
+        "name": "PancakeSwap Token",
+        "symbol": "Cake",
+        "decimals": 8
+      }
+    }
+  }
+}

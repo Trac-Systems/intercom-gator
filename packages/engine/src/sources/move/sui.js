@@ -1,4 +1,4 @@
-import { CETUS, TURBOS, SUI, digest, moveType, natural, objectId, units } from './identity.js'
+import { CETUS, TURBOS, SUI, STABLES, digest, moveType, natural, objectId, units } from './identity.js'
 import { once } from './client.js'
 
 const VENUES = {
@@ -20,6 +20,16 @@ function creation(dex, node) {
   const token0 = moveType(v?.coin_type_a), token1 = moveType(v?.coin_type_b)
   return { chain: 'sui', dex, kind: 'clmm', pool, token0, token1, block, tx: tx.digest, firstSeen }
 }
+function swap(dex, n, tx, at) {
+  const contents = n.contents, v = contents?.json
+  if (contents?.type?.repr !== VENUES[dex].pkg + '::pool::SwapEvent' || !objectId(v?.pool) ||
+      !digest(tx) || !natural(n.sequenceNumber) || !natural(at)) return null
+  if (dex === 'cetus' && typeof v.atob !== 'boolean') return null
+  const a = dex === 'turbos' ? v.amount_a : v.atob ? v.amount_in : v.amount_out
+  const b = dex === 'turbos' ? v.amount_b : v.atob ? v.amount_out : v.amount_in
+  return { pool:v.pool, event:tx + '/' + n.sequenceNumber, at, a, b }
+}
+
 export function suiState(dex, pool, obj) {
   if (!obj) return null
   const contents = obj.asMoveObject?.contents, v = contents?.json
@@ -39,10 +49,12 @@ export class SuiReader {
     this.source = source
     this.client = source.client
     const coins = source.engine.catalog.assets.filter(a => a.chain === 'sui').map(a => a.address === 'native' ? SUI : a.address)
-    this.pairs = coins.flatMap(a => coins.filter(b => b !== a).map(b => CETUS + '::pool::Pool<' + a + ',' + b + '>'))
+    const type = (a,b) => CETUS + '::pool::Pool<' + a + ',' + b + '>'
+    const anchors = coins.includes(SUI) && coins.includes(STABLES.sui[0]) ? [type(STABLES.sui[0],SUI),type(SUI,STABLES.sui[0])] : []
+    this.pairs = [...new Set([...anchors, ...coins.flatMap(a => coins.filter(b => b !== a).map(b => type(a,b)))])]
     this.tasks = [() => this.swaps('cetus'), () => source.state(), () => this.events('cetus'), () => source.state(),
       () => this.swaps('turbos'), () => source.state(), () => this.events('turbos'), () => this.seed(), () => this.origins(),
-      () => source.state(), () => this.events('cetus', true), () => source.state(), () => this.events('turbos', true)]
+      () => source.state(), () => this.events('cetus', true), () => source.state(), () => this.events('turbos', true), () => this.poolSwaps()]
   }
 
   async events(dex, history = false) {
@@ -118,31 +130,80 @@ export class SuiReader {
     const type = VENUES[dex].pkg + '::pool::SwapEvent'
     const data = await this.client.sui('query($type:String!){' + HEAD +
       ' events(last:40,filter:{type:$type}){nodes{' + EVENT + '}}}', { type })
-    const swaps = [], candidates = []
+    const swaps = [], candidates = [], seen = new Set()
+    const slots = Math.max(0,128 - s.backlog())
     for (const n of data.events.nodes) {
-      const v = n.contents?.json, tx = n.transaction?.digest, at = Date.parse(n.timestamp)
-      if (n.contents?.type?.repr !== type || n.transaction?.effects?.status !== 'SUCCESS' ||
-          !objectId(v?.pool) || !digest(tx) || !natural(n.sequenceNumber) || !natural(at) || at > data.at) continue
-      const a = dex === 'turbos' ? v.amount_a : v.atob ? v.amount_in : v.amount_out
-      const b = dex === 'turbos' ? v.amount_b : v.atob ? v.amount_out : v.amount_in
-      swaps.push({ pool: v.pool, event: tx + '/' + n.sequenceNumber, at, a, b })
-      candidates.push({ dex, kind: 'clmm', pool: v.pool, firstSeen: at, priority: 2 })
+      if (n.transaction?.effects?.status !== 'SUCCESS') continue
+      const t = swap(dex,n,n.transaction.digest,Date.parse(n.timestamp))
+      if (!t || t.at > data.at) continue
+      swaps.push(t)
+      if (!seen.has(t.pool) && (seen.size < slots || s.candidate(t.pool))) {
+        candidates.push({ dex, kind:'clmm', pool:t.pool, firstSeen:t.at, priority:2 })
+        seen.add(t.pool)
+      }
     }
     s.page(key, { next: now + MIN }, candidates, swaps)
+    return true
+  }
+
+  async poolSwaps() {
+    const s = this.source, rotation = 'swaps/rotation', p = s.suiVolumeTarget.get(s.cursor(rotation).after ?? '')
+    if (!p) return false
+    const key = 'swaps/' + p.pool, c = s.cursor(key)
+    const query = 'query($id:SuiAddress!,$cursor:String){' + HEAD +
+      ' transactions(last:8,before:$cursor,filter:{affectedObject:$id}){nodes{digest effects{status timestamp ' +
+      'events(first:24){nodes{sequenceNumber contents{type{repr}json}} pageInfo{hasNextPage}}}} ' + PAGE + '}}'
+    let data
+    try { data = await this.client.sui(query,{ id:p.pool, cursor:c.before ?? null }) }
+    catch (err) {
+      if (c.before && err.message === 'Invalid Sui GraphQL response') s.saveCursor(key,{})
+      throw err
+    }
+    const txs = data.transactions, swaps = []
+    if (!Array.isArray(txs?.nodes) || txs.nodes.length > 8 || !txs.pageInfo) throw new Error('Invalid Sui pool transactions')
+    for (const tx of txs.nodes) {
+      if (tx.effects?.status !== 'SUCCESS') continue
+      const at = Date.parse(tx.effects.timestamp)
+      for (const n of tx.effects.events.nodes) {
+        const t = swap(p.dex,n,tx.digest,at)
+        if (t?.pool === p.pool && at <= data.at) swaps.push(t)
+      }
+    }
+    const more = txs.pageInfo.hasPreviousPage && Date.parse(txs.nodes[0]?.effects?.timestamp) > data.at - 86400_000
+    const before = more ? txs.pageInfo.startCursor : null
+    if (more && (!before || before === c.before)) throw new Error('Stalled Sui trade cursor')
+    s.engine.store.transaction(() => {
+      s.page(key,{before},[],swaps)
+      s.saveCursor(rotation,{after:p.pool})
+    })
     return true
   }
 
   async seed() {
     const s = this.source, key = 'cetus/seeds', cursor = s.cursor(key), start = cursor.index ?? 0
     if (cursor.next > s.engine.clock() || !this.pairs.length || s.backlog() >= 96) return false
-    const batch = this.pairs.slice(start, start + 3)
-    const fields = batch.map((_, i) => 'p' + i + ':objects(first:12,filter:{type:$t' + i + '}){nodes{address}}')
-    const data = await this.client.sui('query(' + batch.map((_, i) => '$t' + i + ':String!').join(',') + '){' +
-      HEAD + ' ' + fields.join(' ') + '}', Object.fromEntries(batch.map((t, i) => ['t' + i, t])))
-    const pools = batch.flatMap((_, i) => data['p' + i].nodes.filter(n => objectId(n.address)).map(n =>
-      ({ pool: n.address, dex: 'cetus', kind: 'clmm', firstSeen: data.at, priority: 1 })))
-    const end = start + batch.length
-    s.page(key, end < this.pairs.length ? { index: end } : { next: data.at + 6 * 60 * MIN }, pools)
+    const batch = cursor.pending ?? this.pairs.slice(start, start + 3).map((_,i) => ({ index:start + i }))
+    const args = batch.map((_,i) => '$t' + i + ':String!,$c' + i + ':String')
+    const fields = batch.map((_,i) => 'p' + i + ':objects(first:12,after:$c' + i + ',filter:{type:$t' + i + '}){nodes{address} ' + PAGE + '}')
+    const variables = Object.fromEntries(batch.flatMap((p,i) => [['t' + i,this.pairs[p.index]],['c' + i,p.after ?? null]]))
+    const data = await this.client.sui('query(' + args.join(',') + '){' + HEAD + ' ' + fields.join(' ') + '}', variables)
+    const pools = [], pending = []
+    for (const [i,p] of batch.entries()) {
+      const page = data['p' + i]
+      if (!Array.isArray(page?.nodes) || page.nodes.length > 12 || !page.pageInfo) throw new Error('Invalid Sui pool list')
+      for (const node of page.nodes) {
+        if (!objectId(node.address)) throw new Error('Invalid Sui pool ID')
+        pools.push({ pool:node.address, dex:'cetus', kind:'clmm', firstSeen:data.at, priority:1 })
+      }
+      if (page.pageInfo.hasNextPage) {
+        const after = page.pageInfo.endCursor
+        if (!after || after === p.after) throw new Error('Stalled Sui pool list')
+        pending.push({ index:p.index, after })
+      }
+    }
+    const end = cursor.pending ? start : start + batch.length
+    s.page(key, pending.length || end < this.pairs.length ? { index:end, pending:pending.length ? pending : null } :
+      { next:data.at + 6 * 60 * MIN }, pools)
     return true
   }
 

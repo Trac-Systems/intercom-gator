@@ -1,13 +1,21 @@
 import { MARKET_POLICY } from '../../../../store/src/markets.js'
 import { RateLimited } from '../../scheduler/index.js'
 import { decimal } from '../../obs/index.js'
-import { AptosReader, thalaRatio } from './aptos.js'
+import { AptosReader, liquidStableRatio, thalaRatio } from './aptos.js'
 import { MoveClient, fresh, once } from './client.js'
 import { assetAddress, metadata, natural, objectId, rawRatio, STABLES, units, validPool } from './identity.js'
 import { SuiReader } from './sui.js'
 
 const MIN = 60_000, DAY = 24 * 60 * MIN
 const FLOOR = MARKET_POLICY.minPoolLiquidityUsd
+
+function spotPrice(row, r0, r1, d0, d1) {
+  if (row.kind === 'clmm') return rawRatio(row.sqrt, d0, d1)
+  if (row.thala) return thalaRatio(row.thala, r0, r1)
+  if (row.kind === 'stable') return liquidStableRatio(r0, r1)
+  return r1 / r0
+}
+
 export class MoveSource {
   constructor(engine, chain, client) {
     Object.assign(this, { engine, chain, client, turn: 0, stateTurn: 0 })
@@ -39,8 +47,14 @@ export class MoveSource {
        ORDER BY firstSeen DESC LIMIT -1 OFFSET 768)`)
     this.probes = db.prepare(`SELECT * FROM engine_move_candidates WHERE chain=? AND funded=1 AND tx IS NULL AND originDue<=?
       ORDER BY originDue, pool LIMIT 2`)
+    this.suiVolumeTarget = db.prepare(`SELECT pool,dex FROM engine_move_candidates WHERE chain='sui' AND funded=1
+      ORDER BY (pool<=?),pool LIMIT 1`)
     this.fundedIds = db.prepare(`SELECT pool FROM engine_move_candidates WHERE chain=? AND funded=1 AND dex IN ('hyperion','thalaswap')
       ORDER BY (pool<=?),pool LIMIT 2`)
+    this.legacyTrades = db.prepare(`SELECT * FROM engine_move_candidates WHERE chain='aptos' AND funded=1
+      AND dex IN ('liquidswap','pancakeswap-aptos') ORDER BY (pool<=?),pool LIMIT 1`)
+    this.legacyOrigin = db.prepare(`SELECT * FROM engine_move_candidates WHERE chain='aptos' AND dex='liquidswap'
+      AND funded=1 AND tx IS NULL AND version IS NULL AND originDue<=? ORDER BY originDue,pool LIMIT 1`)
     this.readOrigins = db.prepare(`SELECT pool FROM engine_move_candidates WHERE chain='aptos' AND dex IN ('hyperion','thalaswap')
       AND tx IS NULL AND version IS NULL AND originDue<=? ORDER BY originDue,funded DESC,priority DESC,slot DESC LIMIT 8`)
     this.setOrigin = db.prepare("UPDATE engine_move_candidates SET version=?,originBlock=?,originDue=? WHERE chain='aptos' AND pool=?")
@@ -59,7 +73,10 @@ export class MoveSource {
   originDone(pool, final) { this.originRetry.run(final ? Number.MAX_SAFE_INTEGER : this.engine.clock() + DAY, this.chain, pool) }
   cursor(k) { return this.engine.store.getSetting('engine-move/' + this.chain + '/' + k) ?? {} }
   saveCursor(k, value) { this.engine.store.setSetting('engine-move/' + this.chain + '/' + k, value) }
-  info(token) { return this.engine.registry.assets.get(this.chain + ':' + assetAddress(this.chain, token)) }
+  info(token) {
+    const asset = this.engine.registry.assets.get(this.chain + ':' + assetAddress(this.chain, token))
+    return asset?.decimals != null ? asset : null
+  }
   usd(token) {
     const p = this.assetPrice.get(this.chain + ':' + assetAddress(this.chain, token), this.engine.clock() - MARKET_POLICY.maxPriceAge)
     if (p) return p.trust === 'red' ? null : p.priceReal
@@ -134,8 +151,7 @@ export class MoveSource {
         }
         const [d0,d1] = info.map(t => t?.decimals ?? 0)
         const r0 = amounts[0] / 10 ** d0, r1 = amounts[1] / 10 ** d1
-        const price = thin ? 0 : row.sqrt != null ? rawRatio(row.sqrt, d0, d1) : row.thala ? thalaRatio(row.thala, r0, r1) :
-          row.kind === 'clmm' ? NaN : r1 / r0
+        const price = thin ? 0 : spotPrice(row, r0, r1, d0, d1)
         if (!thin && !(Number.isFinite(price) && price > 0)) { later(30 * MIN); continue }
         const liquidity = thin ? 0 : 2 * Math.min(r0 * (a || price * b), r1 * (b || a / price))
         if (!Number.isFinite(liquidity) || liquidity < FLOOR) {

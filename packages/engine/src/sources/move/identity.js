@@ -41,7 +41,8 @@ export function fa(value) {
 export const assetAddress = (chain, token) => (chain === 'sui' ? token === SUI : token === '0xa' || token === APT) ? 'native' : token
 export const validToken = (chain, v) => typeof v === 'string' && (moveType(v) === v || (chain === 'aptos' && fa(v) === v))
 export function validPool(p, seed = false) {
-  return moveChain(p.chain) && Object.hasOwn(TYPES[p.chain], p.dex) && TYPES[p.chain][p.dex] === p.kind &&
+  return moveChain(p.chain) && Object.hasOwn(TYPES[p.chain], p.dex) &&
+    (TYPES[p.chain][p.dex] === p.kind || (p.dex === 'liquidswap' && p.kind === 'stable')) &&
     objectId(p.pool) && validToken(p.chain, p.token0) && validToken(p.chain, p.token1) &&
     assetAddress(p.chain, p.token0) !== assetAddress(p.chain, p.token1) &&
     ((seed && p.tx == null && p.block == null) || (natural(p.block) && (p.chain === 'sui' ? digest(p.tx) : objectId(p.tx))))
@@ -55,4 +56,3 @@ export function resourcePool(account, type) {
   return '0x' + createHash('sha256').update(account + '/' + type).digest('hex')
 }
 export const rawRatio = (sqrt, d0, d1) => (units(sqrt) / 2 ** 64) ** 2 * 10 ** (d0 - d1)
-export const samePair = (a, b) => a.pool === b.pool && a.dex === b.dex && a.token0 === b.token0 && a.token1 === b.token1
