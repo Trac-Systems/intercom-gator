@@ -207,21 +207,23 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   and negative results retried after 6 h; tokens in seed-value order: own rank, else the best rank of a signed asset
   with the same coin group or ticker (a `W`-prefixed wrapper also its unwrapped ticker), then address; pages of 256
   probes (one Multicall3 call per 128); the quotes and the top 25/40/60 tokens by profile form a priority prefix
-  probed every 60/10/5 s while all chains' seed pages spent < 25% of the profile minute budget, the rest once per
-  period; a fresh node rebuilds its plan once ranks arrive; the cursor and the per-probe memo survive restarts),
+  probed every 60/10/5 s while all chains' seed pages spent < 25% of the profile minute budget (over it: until the
+  share frees, at most a period), the rest once per period; a fresh node rebuilds its plan once ranks arrive; the cursor and the per-probe memo survive restarts),
   `evm:<chain>:trades` (Swap/Sync logs only for a bounded tracked set — 32/128/256 pools per chain by profile, watched
   and held first, then depth/turnover — in address chunks; V4 by pool ID in topic 1; durable per-pool cursors; every
   max(15 s, hot interval) while a tracked pool has never been scanned, since a DEX-only token without 24 h turnover
   stays hidden as dust; otherwise once per period),
   `evm:<chain>:state` (decode queue plus one multicall refresh of 32 pools per period — half the deepest funded
-  pools of the tracked-set size in rotation, half the address rotation of all pools — which also runs while the
-  decode queue never empties); `sol:<api>`, `meta:<asset>` (links/risk), `candles:<market>`.
+  pools of the tracked-set size in rotation, half the address rotation of all pools — plus the 16 deepest funded
+  pools every 120/60/30 s by profile; the refresh also runs while the decode queue never empties, and a failing
+  refresh waits a period without holding up decoding); `sol:<api>`, `meta:<asset>` (links/risk), `candles:<market>`.
 - History import (`history:seed`): top 30/100/300 assets by profile get 8 days of 1 h bars from the asset's main
   (highest-volume) CEX market first, then USD pairs; a venue series ≥ 80% flat over ≥ 12 bars (a market nobody trades)
   is skipped for non-stable assets. Local bars from the aggregated price always win.
 - Choice: candidates below target weighted by relevance × gap × random(0.5–1.5); ~10% exploration (rarely covered
-  exchanges/chains, spot checks of popular items); one turn in eight goes to the longest-waiting ready price scanner
-  (`evm:<chain>:seed`, `:state`, `:trades`). Budget per profile; after a price scanner is refused by the budget,
+  exchanges/chains, spot checks of popular items); one turn in eight goes to the ready price scanner
+  (`evm:<chain>:seed`, `:state`, `:trades`) with the largest waiting time (capped at 1 h) × weight, weight =
+  1 + log2(1 + signed tokens on the chain), doubled for a seeder in its priority prefix. Budget per profile; after a price scanner is refused by the budget,
   other jobs may use at most 75% of it for one minute (the scanners' reserve); per-endpoint token buckets at ≤ 50% of the
   bundle's documented limit, else of a code default for keyless public gateways (publicnode, dRPC, Pocket 120/min,
   Tenderly 60/min), else of 12/min; reads that wait for a slot (risk checks, extras) hold at most half of a
