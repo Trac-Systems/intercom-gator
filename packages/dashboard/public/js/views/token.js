@@ -8,23 +8,45 @@ import { href } from '../lib/router.js';
 import { RANGES, rangeById, aggregate, TF_SECONDS, rangeChange, readoutTime, stepIndex } from '../lib/chart-format.js';
 import { icon, trustWord, flagsHTML, postHTML, tableHTML, sortRows, nextSort, ch24, dash, tokHref } from '../ui/components.js';
 import { flagSet } from '../lib/flags.js';
+import { createPager, pagerCache, countText } from '../lib/pager.js';
 
 const ui = { range: '1D', mode: 'line' };
-const MK_SHOWN = 25; // markets shown before "Show all"
-let mkAll = '';      // token id whose full market list is open
+// Markets page through the node's list (volume first, volumes it does not count last): 50 a page, and once the
+// reader asks for more, the next pages load as the end of the list scrolls into view.
+const MK_PAGE = 50;
+const mkPagers = pagerCache(60000);
+/** @type {Map<string, ''|'base'|'quote'>} token id → which side of its pairs the list shows */
+const mkSide = new Map();
+let mkAuto = '';     // token id whose list loads on scroll (after one "Show more")
+let mkFocus = false;
 const isNum = (x) => x != null && x !== '' && Number.isFinite(+x);
 let msort = null;
 
+/** One paged market list per token and side; the first page also brings the counted total and the side counts. */
+function mkPagerFor(ctx, id, side) {
+  return mkPagers.get(id + '|' + side, () => {
+    const meta = { volumeTotal: null, suspect: null, counts: null };
+    const pager = createPager(async (offset, limit) => {
+      const r = await ctx.api.assetMarkets(id, { limit, offset, side: side || undefined });
+      if (offset === 0) Object.assign(meta, { volumeTotal: r.volumeTotal ?? null, suspect: r.suspect ?? null, counts: r.counts ?? null });
+      return r;
+    }, { limit: MK_PAGE });
+    return Object.assign(pager, { meta });
+  });
+}
+
 async function load(ctx, route) {
   const id = route.params.id;
-  const [t, mk, posts] = await Promise.all([
+  const side = mkSide.get(id) || '';
+  const pager = mkPagerFor(ctx, id, side);
+  const [t, , posts] = await Promise.all([
     ctx.api.asset(id),
-    ctx.api.assetMarkets(id),
+    pager.state.pages ? null : pager.more(),
     ctx.api.feed({ asset: id }).catch(() => ({ items: [] })),
   ]);
   ctx.noteTokens([t]);
   for (const p of posts.items) ctx.notePerson(p);
-  return { t, markets: mk.items, marketsTotal: mk.total ?? mk.items.length, volumeTotal: mk.volumeTotal ?? null, posts: posts.items };
+  return { t, pager, side, markets: pager.state.items, posts: posts.items };
 }
 
 function priceBlock(t) {
@@ -67,22 +89,95 @@ function chartCard(t) {
     `<p class="credit"><span>Candles from reports your node accepted.</span><span>Chart by <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a> Lightweight Charts™ · © 2026 TradingView, Inc.</span></p></section>`;
 }
 
+/** Short words for a volume the node does not count (the API's `volumeNote` is the full sentence). */
+export const SUSPECT_LABEL = { 'underlying-stock': 'stock volume', unconfirmed: 'not counted' };
+
 function marketsTable(ctx, d) {
-  // Shares are of all pairs' volume; the node sends the top pairs by volume and the total.
-  const total = d.volumeTotal ?? d.markets.reduce((s, m) => s + (isNum(m.volume24h) ? +m.volume24h : 0), 0);
-  // Biggest first by default; a large asset has hundreds of pairs, so show the top ones until asked.
-  const byVol = msort ? msort : { k: 'volume24h', dir: -1 };
-  let rows = sortRows(d.markets, byVol, (m, k) => { const v = k === 'venue' ? String(m.venue).toLowerCase() : k === 'share' ? m.volume24h : m[k]; return v == null ? (byVol.dir > 0 ? Infinity : -Infinity) : v; });
-  if (mkAll !== d.t.id) rows = rows.slice(0, MK_SHOWN);
+  // Shares are of the counted volume of every pair (the node sends the total); flagged volumes have no share.
+  const meta = d.pager.meta;
+  const total = meta.volumeTotal ?? d.markets.reduce((s, m) => s + (isNum(m.volume24h) && !m.volumeSuspect ? +m.volume24h : 0), 0);
+  // The node's order by default (counted volume first); a header sorts the loaded rows, flagged volumes still last.
+  const val = (m, k) => { const v = k === 'venue' ? String(m.venue).toLowerCase() : k === 'share' ? m.volume24h : m[k]; return v == null ? (msort.dir > 0 ? Infinity : -Infinity) : v; };
+  const rows = msort && ['volume24h', 'share'].includes(msort.k)
+    ? sortRows(d.markets.filter((m) => !m.volumeSuspect), msort, val).concat(sortRows(d.markets.filter((m) => m.volumeSuspect), msort, val))
+    : sortRows(d.markets, msort, val);
   return tableHTML({
     cls: 't-mk', sort: msort, caption: 'Markets',
     cols: [['venue', 'Venue', 'l'], ['price', 'Price', ''], ['volume24h', 'Volume 24 h', 'c-vol2'], ['share', 'Share', ''], [null, 'Updated', 'c-upd']],
     rows,
-    row: (m) => `<tr><td class="l"><div class="venue">${exMark(m.venue, m.venueLogo, 24)}<div><b>${esc(pairText(m.pair))}</b><span>${esc(m.venue)}${marketChain(d.t, m)}</span></div></div></td>` +
+    row: (m) => `<tr${m.volumeSuspect ? ' class="sus"' : ''}><td class="l"><div class="venue">${exMark(m.venue, m.venueLogo, 24)}<div><b>${esc(pairText(m.pair))}</b><span>${esc(m.venue)}${marketChain(d.t, m)}</span></div></div></td>` +
       `<td><span class="prc"><span class="n">${quotePrice(m.price, m.pair)}</span><span class="trust ${String(m.trust || 'n')[0]}" data-tip="${esc(m.trust ? trustWord(m.trust) : 'Not compared yet')}" role="img" aria-label="${esc(m.trust ? trustWord(m.trust) : 'Not compared yet')}" tabindex="0"></span></span></td>` +
-      `<td class="c-vol2">${isNum(m.volume24h) ? money(m.volume24h) : dash()}</td><td class="n">${total && isNum(m.volume24h) ? (m.volume24h / total * 100).toFixed(1) + '%' : dash()}</td><td class="c-upd muted n">${isNum(m.updated) ? esc(updatedAgo(+m.updated)) : '—'}</td></tr>`,
-    empty: 'No markets seen yet.',
+      `<td class="c-vol2">${isNum(m.volume24h) ? (m.volumeSuspect ? `<span class="muted">${money(m.volume24h)}</span>` : money(m.volume24h)) : dash()}</td>` +
+      `<td class="n">${m.volumeSuspect ? suspectTag(m) : total && isNum(m.volume24h) ? (m.volume24h / total * 100).toFixed(1) + '%' : dash()}</td><td class="c-upd muted n">${isNum(m.updated) ? esc(updatedAgo(+m.updated)) : '—'}</td></tr>`,
+    empty: d.side ? 'No markets on this side yet.' : 'No markets seen yet.',
   });
+}
+
+/** The share cell of a flagged row: a short tag; the reason in plain words on hover and focus. */
+function suspectTag(m) {
+  const why = m.volumeNote || 'Reported volume not counted in totals, shares or ranking.';
+  return `<span class="nflag q vsus" data-tip="${esc(why)}" tabindex="0" aria-label="${esc((isNum(m.volume24h) ? money(m.volume24h).replace(/<[^>]+>/g, '') + ' reported. ' : '') + why)}">${esc(SUSPECT_LABEL[m.volumeSuspect] || 'not counted')}</span>`;
+}
+
+/** "All / USDT/… / …/USDT" for an asset that is the quote of some pairs and the base of others (stablecoins, BTC, ETH). */
+function sideControl(d, sym) {
+  const c = d.pager.meta.counts, side = d.side;
+  if (!c || !(c.quote > 0 && c.base > 0) && !side) return '';
+  const s = esc(sym || 'it');
+  const opts = [['', 'All', c.base + c.quote, 'All markets'], ['base', `${s}/…`, c.base, `Markets where ${s} is the base`],
+    ['quote', `…/${s}`, c.quote, `Markets where ${s} is the quote`]];
+  return `<span class="seg3 mk-side" role="group" aria-label="Pair side">${opts.map(([k, l, n, tip]) =>
+    `<button data-mkside="${k}" aria-pressed="${side === k}" title="${tip}">${l} <small class="n">${cnt(n)}</small></button>`).join('')}</span>`;
+}
+
+/** @type {{ ctx: any, d: any }|null} the open token page, so a new page of markets patches only its section */
+let mkView = null;
+/** @type {IntersectionObserver|null} */
+let mkObserver = null;
+
+/** Redraw the markets table and its foot in place (the chart and the rest of the page stay). */
+function patchMarkets() {
+  const sec = document.getElementById('markets');
+  if (!sec || !mkView) return;
+  const { ctx, d } = mkView;
+  const tw = sec.querySelector('.tw');
+  if (tw) tw.innerHTML = marketsTable(ctx, d);
+  sec.querySelectorAll('.mk-more, .mk-note').forEach((x) => x.remove());
+  sec.insertAdjacentHTML('beforeend', marketsFoot(d));
+  observeMore();
+}
+
+function moreMarkets(ctx) {
+  const d = mkView?.d;
+  if (!d || d.pager.state.done || d.pager.state.loading) return;
+  const p = d.pager.more();
+  patchMarkets();
+  p.then(() => {
+    patchMarkets();
+    if (mkFocus) /** @type {HTMLElement|null} */ (document.querySelector('[data-mkmore]'))?.focus({ preventScroll: true });
+    mkFocus = false;
+  }, () => { mkFocus = false; ctx.toast('Could not load more markets.', true); patchMarkets(); });
+}
+
+/** After one "Show more", the next pages load as the end of the list comes into view. */
+function observeMore() {
+  mkObserver?.disconnect();
+  const el = document.querySelector('.mk-more');
+  if (!el || !mkView || mkAuto !== mkView.d.t.id || mkView.d.pager.state.done || typeof IntersectionObserver !== 'function') return;
+  mkObserver = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) moreMarkets(mkView.ctx); }, { rootMargin: '400px 0px' });
+  mkObserver.observe(el);
+}
+
+/** Under the table: what is shown, the next page, and why some volumes are listed last. */
+function marketsFoot(d) {
+  const st = d.pager.state, sus = d.pager.meta.suspect;
+  const txt = countText(st, cnt) + (st.items.length ? ' · by volume' : '');
+  const btn = st.done ? '' : `<button class="btn sm" data-mkmore${st.loading ? ' disabled aria-busy="true"' : ''}>${st.loading ? 'Loading…' : st.error ? 'Try again' : 'Show ' + cnt(st.total != null ? Math.min(MK_PAGE, st.total - st.items.length) : MK_PAGE) + ' more'}</button>`;
+  const more = st.items.length > 0 && (btn || st.items.length > MK_PAGE) ? `<div class="more-row mk-more"><span class="n muted" aria-live="polite">${esc(txt)}</span>${btn}</div>` : '';
+  const note = sus && sus.count > 0
+    ? `<div class="note-row mk-note"><span>${cnt(sus.count)} ${sus.count === 1 ? 'market reports' : 'markets report'} ${money(sus.volume24h)} of volume your node does not count: tokenized stocks that carry the underlying stock market's volume, or numbers no other venue confirms. They are listed last, with the reported figure, and left out of totals, shares and rankings.</span></div>`
+    : '';
+  return more + note;
 }
 
 /** " · Ethereum": every market on a coin page names the chain of the contract it trades; elsewhere DEX pools only. */
@@ -235,8 +330,8 @@ function html(ctx, d) {
     `<div class="tk-acts"><button class="btn" data-star="${esc(t.id)}" aria-pressed="${watching}">${icon('star')}<span>Watch</span></button><button class="btn" id="alertbtn" aria-haspopup="dialog" aria-expanded="false">${icon('bell')}Alert</button></div>` +
     `<div class="tk-meta">${t.rank ? `<span class="rk n">#${t.rank}</span>` : '<span class="rk">New</span>'}${t.category ? `<span>${esc(t.category)}</span>${where || contract ? '<span>·</span>' : ''}` : ''}${where}${contract ? (where ? '<span>·</span>' : '') + contract : ''}</div></header>` +
     priceBlock(t) + chartCard(t) +
-    `<section class="sec" aria-labelledby="mk-h"><div class="sec-h"><h2 id="mk-h">Markets <small class="n">${cnt(d.marketsTotal)}</small></h2></div><div class="tw">${marketsTable(ctx, d)}</div>` +
-    (d.markets.length > MK_SHOWN ? `<div class="more-row"><span class="n muted">${mkAll === t.id ? (d.marketsTotal > d.markets.length ? `Top ${cnt(d.markets.length)} of ${cnt(d.marketsTotal)} by volume` : 'All ' + cnt(d.markets.length)) : `Top ${MK_SHOWN} of ${cnt(d.marketsTotal)} by volume`}</span><button class="btn sm" data-mkall aria-expanded="${mkAll === t.id}">${mkAll === t.id ? 'Show top ' + MK_SHOWN : 'Show ' + (d.marketsTotal > d.markets.length ? 'top ' : 'all ') + cnt(d.markets.length)}</button></div>` : '') + '</section>' +
+    `<section class="sec" id="markets" aria-labelledby="mk-h"><div class="sec-h"><h2 id="mk-h">Markets <small class="n">${cnt(d.pager.state.total ?? d.markets.length)}</small></h2>${sideControl(d, t.symbol)}</div><div class="tw">${marketsTable(ctx, d)}</div>` +
+    marketsFoot(d) + '</section>' +
     `<section class="sec" id="posts" aria-labelledby="ps-h"><div class="sec-h"><h2 id="ps-h">Posts mentioning $${esc(t.symbol)} <small class="n">${d.posts.length}</small></h2></div>` +
     (d.posts.length ? d.posts.slice(0, 12).map((p) => postHTML(ctx, p)).join('') : '<p class="muted">No posts in your feed mention it yet.</p>') + '</section>';
   const side = memberPanel(own, d.markets) + whyPanel(own) + riskPanel(own) + linksPanel(own);
@@ -316,7 +411,9 @@ function mount(ctx, d) {
   };
   document.addEventListener('keydown', onList);
   fig?.addEventListener('blur', () => { sel = -1; chartApi?.select(-1); readout(-1); });
-  return () => { alive = false; fig?.removeEventListener('keydown', onKey); document.removeEventListener('keydown', onList); chartApi?.destroy(); chartApi = null; series = []; };
+  mkView = { ctx, d };
+  observeMore();
+  return () => { alive = false; mkObserver?.disconnect(); mkObserver = null; mkView = null; fig?.removeEventListener('keydown', onKey); document.removeEventListener('keydown', onList); chartApi?.destroy(); chartApi = null; series = []; };
 }
 
 function alertForm(t) {
@@ -345,7 +442,8 @@ function click(ctx, e, el) {
   if ((b = el.closest('[data-copy]'))) { navigator.clipboard?.writeText(b.dataset.copy).then(() => ctx.toast('Address copied.'), () => ctx.toast('Copy failed.', true)); return; }
   if ((b = el.closest('[data-sort]'))) { msort = nextSort(msort, b.dataset.sort); ctx.rerender(); return; }
   if ((b = el.closest('[data-srcall]'))) { srcAll = srcAll === ctx.route.params.id ? '' : ctx.route.params.id; ctx.rerender(); document.querySelector('[data-srcall]')?.focus(); return; }
-  if ((b = el.closest('[data-mkall]'))) { mkAll = mkAll === ctx.route.params.id ? '' : ctx.route.params.id; ctx.rerender(); document.querySelector('[data-mkall]')?.focus(); return; }
+  if ((b = el.closest('[data-mkside]'))) { mkSide.set(ctx.route.params.id, /** @type {any} */ (b.dataset.mkside)); ctx.reload(); return; }
+  if ((b = el.closest('[data-mkmore]'))) { mkAuto = ctx.route.params.id; mkFocus = true; moreMarkets(ctx); return; }
   if ((b = el.closest('#alertbtn')) && t) {
     ctx.openPop(b, alertForm(t));
     const f = document.getElementById('alertform');

@@ -14,7 +14,8 @@
 
 /** Thresholds (local; no root-signed engine setting carries them yet). */
 export const VOLUME_GUARD = Object.freeze({
-  // (b) Out of line with the venue: more than this multiple of the venue's own largest BTC/ETH pair.
+  // (b) Out of line with the venue: more than this multiple of the venue's own largest BTC/ETH pair. Stablecoin bases
+  // skip it: on-ramp pairs (USDT/TRY, USDT/BRL, USDT/USD) can dwarf a venue's BTC pair; (c) and (d) still apply.
   venueMajorMultiple: 10,
   // (c) Out of line with the book: more than this multiple of the larger top-of-book side (price × size, USD).
   // Live 11-20: Bitget BTCUSDT 1,135× ($281k bid side, $319M/day); RANTUSDT 6.6 million× ($15k ask side, $102B/day).
@@ -39,7 +40,7 @@ const unresolved = id => typeof id !== 'string' || id.startsWith('unresolved:')
 
 /**
  * @typedef {{ id: string, kind: string, exchange?: string|null, base: string, quote: string, volume: number|null,
- *   stock?: boolean, bookUsd?: number|null }} GuardMarket
+ *   stock?: boolean, stable?: boolean, bookUsd?: number|null }} GuardMarket
  * @typedef {{ reason: 'underlying-stock'|'unconfirmed', checks: string[], note: string }} Suspect
  */
 
@@ -71,7 +72,8 @@ export function volumeSuspects(markets, { capUsd, settings = VOLUME_GUARD } = {}
     }
     const checks = []
     const major = majors.get(m.exchange)
-    if (!MAJOR_BASES.has(m.base) && major > 0 && m.volume > settings.venueMajorMultiple * major) checks.push('venue-majors')
+    if (!MAJOR_BASES.has(m.base) && !m.stable && major > 0 && m.volume > settings.venueMajorMultiple * major)
+      checks.push('venue-majors')
     if (m.bookUsd > 0 && m.volume > settings.bookTurnoverMultiple * m.bookUsd) checks.push('book-depth')
     const cap = unresolved(m.base) ? null : capUsd?.(m.base)
     if (cap > 0 && m.volume > settings.capTurnoverMultiple * cap) checks.push('market-cap')

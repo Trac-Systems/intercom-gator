@@ -132,7 +132,8 @@ export function createApi(opts = {}) {
     asset: (/** @type {string} */ id) => get('/assets/' + enc(id)),
     // A first chart load can import venue history before answering; allow it longer than ordinary reads.
     candles: (/** @type {string} */ id, /** @type {string} */ tf, /** @type {number} */ limit) => req('GET', '/assets/' + enc(id) + '/candles', { tf, limit }, undefined, Math.max(timeoutMs, 20000)),
-    assetMarkets: (/** @type {string} */ id) => get('/assets/' + enc(id) + '/markets'),
+    // ?limit=&offset= (max 500); side=base|quote keeps the pairs where the asset is the base or the quote.
+    assetMarkets: (/** @type {string} */ id, /** @type {{limit?:number, offset?:number, side?:string}} */ q = {}) => get('/assets/' + enc(id) + '/markets', q),
     // look: let the node start its by-address lookup for an unknown contract address; otherwise only read its status.
     search: (/** @type {string} */ q, look = false) => get('/search', look ? { q } : { q, lookup: '0' }),
     extras: () => get('/extras'),

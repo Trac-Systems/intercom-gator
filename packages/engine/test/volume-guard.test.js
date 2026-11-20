@@ -58,6 +58,15 @@ test('a legitimate new giant passes once a second independent venue or DEX turno
   assert.equal(volumeSuspects([...alone, { ...cex('binance', giant, 30e9), id: 'cex:binance:0xgiant-USDC' }]).size, 2)
 })
 
+test('a stablecoin on-ramp pair larger than the venue\'s BTC pair is not out of line with the venue', () => {
+  // A one-venue world: USDT/TRY at 25x the venue's BTC pair, nothing to confirm it.
+  const rows = [cex('btcturk', BTC, 2e5), { ...cex('btcturk', USDT, 5e6, { stable: true }), id: 'cex:btcturk:USDT-TRY' }]
+  assert.equal(volumeSuspects(rows).size, 0)
+  assert.deepEqual(volumeSuspects([rows[0], { ...rows[1], stable: false }]).get('cex:btcturk:USDT-TRY').checks, ['venue-majors'])
+  // A fake stable with a tiny cap is still caught by the cap check.
+  assert.deepEqual(volumeSuspects(rows, { capUsd: () => 1e5 }).get('cex:btcturk:USDT-TRY').checks, ['market-cap'])
+})
+
 test('market-cap turnover flags a resolved base the venue cannot confirm', () => {
   const rows = [...liveLike(), cex('bitget', 'ethereum:0xsmall', 3e8)]
   assert.equal(volumeSuspects(rows).size, 0)

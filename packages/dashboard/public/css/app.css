@@ -148,6 +148,14 @@ input[type=range]{width:100%;accent-color:var(--acc)}
 .sec>.sec-h{margin-top:0}
 .sec-h .cnt2{font-size:13px;color:var(--ink3);font-weight:520;margin-left:8px;letter-spacing:0;font-stretch:100%}
 .sec-h h2 small{font-size:13px;font-weight:520;color:var(--ink3);letter-spacing:0;font-stretch:100%;margin-left:6px}
+/* token page markets: pair side (All / USDT/… / …/USDT) and volumes the node does not count */
+.sec-h:has(.mk-side){flex-wrap:wrap;gap:8px 16px;align-items:center}
+.sec-h .mk-side button{padding:5px 11px;font-size:12.5px;font-weight:600;color:var(--ink2);white-space:nowrap}
+.sec-h .mk-side button:hover{text-decoration:none;background:var(--s2)}
+.sec-h .mk-side button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.mk-side small{font-size:11.5px;font-weight:520;opacity:.72;margin-left:3px;font-variant-numeric:tabular-nums}
+.t-mk .vsus{cursor:help;white-space:nowrap}
+.mk-note{padding-top:8px;max-width:72ch}
 td .venue{display:flex;align-items:center;gap:10px}
 td .venue .kp{width:24px;height:24px}
 td .venue b{font-weight:620}

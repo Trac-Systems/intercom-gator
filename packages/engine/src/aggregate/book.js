@@ -344,7 +344,8 @@ export class MarketBook {
       const evidence = p.kind === 'cex' ? this.registry.venues.get(p.exchange)?.volumeEvidence?.get(p.id) : null
       const rate = evidence?.book ? quoteRate(snapshots, p.quote) : null
       rows.push({ id: p.id, kind: p.kind, exchange: p.exchange ?? null, base: p.base, quote: p.quote,
-        volume: marketUsdVolume(p, snapshots), stock: evidence?.stock === true, bookUsd: rate ? evidence.book * rate : null })
+        volume: marketUsdVolume(p, snapshots), stock: evidence?.stock === true,
+        stable: !!this.registry.assets.get(p.base)?.stable, bookUsd: rate ? evidence.book * rate : null })
     }
     return volumeSuspects(rows, { capUsd: id => snapshots.get(id)?.marketCap ?? null })
   }
