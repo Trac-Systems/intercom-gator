@@ -11,6 +11,9 @@ export const ADD_LIMITS = Object.freeze({ perHour: 12, perDay: 60, inlineSearchC
   // An explicitly added token is registered down to this measured depth (the dust rules still hide it from ranked
   // lists); the ordinary $10k seed floor decides which of its pools the node keeps re-announcing.
   minDepthUsd: 100 })
+/** Lookups a search for an unknown contract address starts by itself (see `lookup`). */
+export const LOOKUP_LIMITS = Object.freeze({ perHour: 20, perDay: 100, negativeMs: DAY, negativeKept: 500, retryMs: 2 * 60_000,
+  maxQueued: 4 })
 const TOKEN = /^0x[0-9a-f]{40}$/i, POOL = /^0x(?:[0-9a-f]{40}|[0-9a-f]{64})$/i
 const isWord = raw => typeof raw === 'string' && /^0x[0-9a-f]{64}$/i.test(raw)
 const hex = n => '0x' + n.toString(16)
@@ -65,6 +68,10 @@ export function registerAddTokens(engine) {
   const recentKey = 'engine-add-token/recent'
   const sleep = ms => (engine.addTokenSleep ?? (t => new Promise(resolve => setTimeout(resolve, t))))(ms)
   let running = false
+  /** Settles when the add in flight ends (either way); a queued search lookup waits on it instead of polling. */
+  let settled = Promise.resolve()
+  /** The add in flight (or the last one): chains checked and where the token was found, for the lookup status. */
+  let inflight = null
 
   function evmChains() {
     return catalog.chains.filter(c => c.family === 'evm' && c.endpoints?.length)
@@ -379,21 +386,25 @@ export function registerAddTokens(engine) {
     return result
   }
 
-  async function add(input = {}, { by = 'agent' } = {}) {
+  async function add(input = {}, { by = 'agent', quota = true } = {}) {
     const address = typeof input.address === 'string' ? input.address.trim().toLowerCase() : ''
     if (!TOKEN.test(address) || address === ZERO) throw new AddTokenError(400, 'address must be a 0x-prefixed 20-byte EVM contract address')
     const pool = input.pool == null || input.pool === '' ? null : String(input.pool).trim().toLowerCase()
     if (pool != null && !POOL.test(pool)) throw new AddTokenError(400, 'pool must be a pool address or a 32-byte V4 pool id')
     const only = chainOf(input.chain)
     if (running) throw new AddTokenError(409, 'another token add is running on this node; retry in a few seconds')
-    admit(clock())
+    if (quota) admit(clock())
     running = true
+    let release
+    settled = new Promise(resolve => { release = resolve })
     const account = { requests: 0 }
+    const chains = only ? [only] : evmChains()
+    inflight = { address, checked: 0, tokenOn: [], done: false }
     try {
       return await engine.budget.trackRequests(account, async () => {
-        const chains = only ? [only] : evmChains()
         const rpc = patientRpc(engine.rpc, clock, sleep)
-        const probes = await Promise.allSettled(chains.map(c => verifyToken(c, address, rpc)))
+        const probes = await Promise.allSettled(chains.map(c => verifyToken(c, address, rpc).finally(() => { inflight.checked++ })))
+        inflight.tokenOn = chains.filter((c, i) => probes[i].status === 'fulfilled' && probes[i].value.ok).map(c => c.id)
         const checked = chains.map((c, i) => ({ chain: c, result: probes[i] }))
         const tokens = checked.filter(x => x.result.status === 'fulfilled' && x.result.value.ok)
         if (!tokens.length) {
@@ -407,14 +418,154 @@ export function registerAddTokens(engine) {
         }
         const budget = { calls: engine.addTokenInlineCalls ?? ADD_LIMITS.inlineSearchCalls, rpc }
         const results = []
-        for (const { chain, result } of tokens) results.push(await addOnChain(chain, address, result.value, pool, by, budget))
+        let failure
+        for (const { chain, result } of tokens) {
+          // One chain's failed pool search must not lose the others; the token stays registered there.
+          try { results.push(await addOnChain(chain, address, result.value, pool, by, budget)) } catch (error) {
+            if (tokens.length === 1) throw error
+            failure ??= error
+            results.push({ asset: chain.id + ':' + address, chain: chain.id, address, symbol: result.value.symbol,
+              name: result.value.name, decimals: result.value.decimals, pools: [],
+              notes: ['pool search on ' + chain.id + ' failed (' + (error.message ?? 'error') + '); add again later'] })
+          }
+        }
+        if (failure && results.every(r => !r.pools.length)) throw failure
         const best = results.find(r => r.pools.some(p => p.registered)) ?? results[0]
         return { asset: best.asset, tokens: results, chainsProbed: chains.length, rpcCalls: account.requests }
       })
     } finally {
       running = false
+      release()
+      inflight.done = true
       engine.book?.refresh?.()
     }
+  }
+
+  // ---- Search-triggered lookup (DESIGN §5.3): a search for a full EVM contract address the node does not know runs
+  // the same add on every bundle EVM chain by itself. One lookup per address at a time, one add on the node at a time
+  // (queued behind an explicit add), its own per-node quota, and a persisted 24 h negative cache for addresses that
+  // hold no contract or no ERC-20 on any chain.
+  const negativeKey = 'engine-add-token/negative', lookupKey = 'engine-add-token/lookups'
+  /** @type {Map<string, any>} address → lookup in flight or recently finished */
+  const lookups = new Map()
+  let queue = Promise.resolve(), queued = 0
+
+  function knows(address) {
+    return evmChains().some(c => registry.assets.has(c.id + ':' + address) || registry.markets.has('dex:' + c.id + ':' + address))
+  }
+  function negative(now) {
+    const all = store.getSetting(negativeKey) ?? {}
+    return Object.fromEntries(Object.entries(all).filter(([, v]) => v?.at > now - LOOKUP_LIMITS.negativeMs))
+  }
+  function remember(address, state, now) {
+    const all = Object.entries({ ...negative(now), [address]: { at: now, state } })
+      .sort((a, b) => b[1].at - a[1].at).slice(0, LOOKUP_LIMITS.negativeKept)
+    store.setSetting(negativeKey, Object.fromEntries(all))
+  }
+  /** Search lookups have their own quota so wallet addresses and typos pasted into search never use up the explicit
+   * add_token quota an agent relies on; both stay bounded (worst case 12 + 20 adds per hour on a node). */
+  function admitLookup(now) {
+    const recent = (store.getSetting(lookupKey) ?? []).filter(t => Number.isFinite(t) && t > now - DAY)
+    const hour = recent.filter(t => t > now - HOUR)
+    if (hour.length >= LOOKUP_LIMITS.perHour) return hour[0] + HOUR
+    if (recent.length >= LOOKUP_LIMITS.perDay) return recent[0] + DAY
+    recent.push(now)
+    store.setSetting(lookupKey, recent)
+    return null
+  }
+  const chainLabel = id => {
+    const c = catalog.chains.find(x => x.id === id)
+    return String(c?.name ?? id).replace(/ (?:Mainnet|Smart Chain Mainnet|C-Chain|One|Opera)$/, '').replace(/^BNB$/, 'BNB Chain')
+  }
+  const checked = l => (l.chains - (l.unchecked ?? 0)) + ' of ' + l.chains + ' chains checked' +
+    (l.unchecked ? '; the others did not answer, search again in a few minutes' : '')
+  function message(l) {
+    const n = l.chains + ' chain' + (l.chains === 1 ? '' : 's')
+    const live = inflight && !inflight.done && inflight.address === l.address ? inflight : null
+    switch (l.state) {
+      case 'queued': return 'Looking this address up on ' + n + '…'
+      case 'running':
+        if (live?.tokenOn?.length) return 'Token found on ' + live.tokenOn.map(chainLabel).join(', ') + '; finding its pools…'
+        return 'Looking this address up on ' + n + '…' + (live?.checked ? ' (' + live.checked + ' of ' + l.chains + ' checked)' : '')
+      case 'found': {
+        const t = l.tokens.find(x => x.pools) ?? l.tokens[0], name = t.symbol ?? t.name ?? 'the token'
+        return 'Found ' + name + ' on ' + chainLabel(t.chain) + ' with ' + t.pools + ' pool' + (t.pools === 1 ? '' : 's') + '.'
+      }
+      case 'no-pools': {
+        const t = l.tokens[0]
+        return 'Found ' + (t.symbol ?? t.name ?? 'the token') + ' on ' + l.tokens.map(x => chainLabel(x.chain)).join(', ') +
+          ', but no trading pool with enough depth yet.'
+      }
+      case 'not-token': return 'This is a contract, but not a token, on every chain it exists on (' + checked(l) + ').'
+      case 'no-contract': return 'No contract at this address on ' + (l.unchecked ? checked(l) : 'any of the ' + n) +
+        '. A wallet? Watch it from Portfolio.'
+      case 'limited': return 'Lookup limit reached on this node (' + LOOKUP_LIMITS.perHour + ' per hour). Search again later, or ask an agent to add it.'
+      case 'busy': return 'Other lookups are running on this node. Search again in a minute.'
+      default:
+        if (l.unchecked) return 'No token here on ' + (l.chains - l.unchecked) + ' of ' + l.chains + ' chains; ' + l.unchecked +
+          ' did not answer. Search again in a few minutes.'
+        return 'Could not check this address right now (' + (l.reason ?? 'public endpoints busy') + '). Search again in a minute.'
+    }
+  }
+  const view = l => {
+    const out = { address: l.address, state: l.state, chains: l.chains, startedAt: l.startedAt }
+    if (l.state === 'running' && inflight?.address === l.address && !inflight.done) out.checked = inflight.checked
+    if (l.asset) out.asset = l.asset
+    if (l.tokens) out.tokens = l.tokens
+    if (l.retryAt) out.retryAt = l.retryAt
+    if (l.finishedAt) out.finishedAt = l.finishedAt
+    return { ...out, message: message(l) }
+  }
+  async function runLookup(entry) {
+    // An explicit add holds the node's single add slot; a queued lookup waits for it, never runs alongside it.
+    while (running) await settled
+    entry.state = 'running'
+    try {
+      const result = await add({ address: entry.address }, { by: 'search', quota: false })
+      entry.tokens = result.tokens.map(t => ({ asset: t.asset, chain: t.chain, symbol: t.symbol, name: t.name,
+        pools: t.pools.filter(p => p.registered).length }))
+      entry.asset = result.asset
+      entry.state = entry.tokens.some(t => t.pools) ? 'found' : 'no-pools'
+    } catch (error) {
+      const text = String(error?.message ?? '')
+      entry.state = error?.status === 422 ? (/not an ERC-20/.test(text) ? 'not-token' : 'no-contract') : 'unavailable'
+      entry.reason = error?.status === 409 ? 'another add is running' : error?.status === 503 ? 'chains unavailable' : undefined
+      // Cached for 24 h only when every chain answered; with chains left unchecked the answer may be incomplete
+      // (a token at the same address on one of them), so it stands only for the short retry window.
+      entry.unchecked = Object.values(error?.details?.chains ?? {}).filter(r => /^unavailable/.test(r)).length
+      if (entry.state !== 'unavailable' && !entry.unchecked) remember(entry.address, entry.state, clock())
+    } finally {
+      entry.finishedAt = clock()
+      queued--
+    }
+  }
+
+  /** Status of the lookup for a searched address, starting it when the address is a full EVM contract address the
+   * node does not know. `null` when no lookup applies (partial address, known token or pool). Never throws. */
+  function lookup(input, { start = true } = {}) {
+    const address = typeof input === 'string' ? input.trim().toLowerCase() : ''
+    if (!TOKEN.test(address) || address === ZERO) return null
+    const now = clock()
+    for (const [a, l] of lookups) {
+      const short = l.state === 'unavailable' || l.unchecked
+      if (l.finishedAt && l.finishedAt < now - (short ? LOOKUP_LIMITS.retryMs : HOUR)) lookups.delete(a)
+    }
+    const current = lookups.get(address)
+    if (current) return view(current)
+    if (knows(address)) return null
+    const chains = evmChains().length
+    const cached = negative(now)[address]
+    if (cached) return view({ address, state: cached.state, chains, startedAt: cached.at, finishedAt: cached.at,
+      retryAt: cached.at + LOOKUP_LIMITS.negativeMs })
+    if (!start) return null
+    if (queued >= LOOKUP_LIMITS.maxQueued) return view({ address, state: 'busy', chains })
+    const retryAt = admitLookup(now)
+    if (retryAt) return view({ address, state: 'limited', chains, retryAt })
+    const entry = { address, state: 'queued', chains, startedAt: now }
+    lookups.set(address, entry)
+    queued++
+    queue = queue.then(() => runLookup(entry))
+    return view(entry)
   }
 
   function list(limit = 100) {
@@ -436,5 +587,7 @@ export function registerAddTokens(engine) {
       if (registry.markets.has('dex:' + done.chain + ':' + done.pool) || await identifiedLater(done)) await share(done)
     } })
 
-  return { add, list, searchStep, share, limits: ADD_LIMITS }
+  return { add, lookup, status: input => lookup(input, { start: false }), list, searchStep, share, limits: ADD_LIMITS,
+    /** Settles when every queued search lookup has finished (tests, shutdown). */
+    lookupsIdle: () => queue }
 }

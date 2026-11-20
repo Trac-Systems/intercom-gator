@@ -24,7 +24,8 @@ function summary(name, value) {
   if (name === 'follow') return 'Following ' + (value.handle ?? value.key);
   if (name === 'set_avatar') return value.avatar ? 'Avatar published in your signed card (sha256 ' + value.avatar + ').' : 'Avatar removed; your key-print is shown.';
   if (value.items) return value.items.length + ' ' + name.replaceAll('_',' ') + ' results.';
-  if (name === 'search') return value.tokens.length + ' tokens, ' + value.profiles.length + ' profiles, ' + value.posts.length + ' posts.';
+  if (name === 'search') return value.tokens.length + ' tokens, ' + value.profiles.length + ' profiles, ' + value.posts.length + ' posts.'
+    + (value.lookup ? ' Address lookup: ' + value.lookup.message + (value.lookup.asset ? ' Asset ' + value.lookup.asset + '.' : '') : '');
   if (name === 'briefing') return 'Market facts as of ' + new Date(value.at).toISOString() + '.';
   if (name === 'candles') return value.candles.length + ' ' + value.tf + ' candles for ' + value.asset + '.';
   if (name === 'fear_greed') return value.value == null ? 'Insufficient market history.' : value.value + '/100 · ' + value.label;
@@ -92,7 +93,9 @@ export function createMcpServer(request) {
     slot: z.enum(['promoted-token','spotlight']), assetId: z.string().min(1).max(79),
     purchaseId: z.string().regex(/^0x[0-9a-f]{64}$/),
   }, b => post('/placements', b), false);
-  tool('search','Find tokens, addresses, profiles and posts.',{ q: z.string().min(1).max(256) },q => get('/search', q));
+  tool('search','Find tokens, addresses, profiles and posts. A full EVM contract address the node does not know starts an '
+    + 'on-chain lookup on every EVM chain (same as add_token); lookup.state is queued/running until it ends as found (lookup.asset), '
+    + 'no-pools, not-token, no-contract, limited or unavailable. Search the same address again to read the result.',{ q: z.string().min(1).max(256) },q => get('/search', q));
   tool('markets','Ranked markets with optional network and category filters.',{
     tab: z.enum(['all','watch','trending','gainers','losers']).optional(), chain: z.string().max(100).optional(),
     category: z.string().max(100).optional(), limit, offset: z.number().int().nonnegative().optional() },q => get('/markets',q));

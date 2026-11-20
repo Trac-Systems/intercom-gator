@@ -226,11 +226,14 @@ export function createRouter(app) {
       }
       case 'search': {
         const query = (q.q ?? '').trim();
-        if (!query) return { tokens: [], profiles: [], posts: [], address: null };
+        if (!query) return { tokens: [], profiles: [], posts: [], address: null, lookup: null };
         check(query.length <= 256, 'query too long');
         const kind = addressKind(query);
+        // A full EVM contract address the node does not know starts the add-by-address lookup by itself (DESIGN §5.3);
+        // the answer carries its status at once. lookup=0 only reads the status (the dashboard while typing).
+        const lookup = kind === 'evm' ? (q.lookup === '0' ? engine.addTokens.status(query) : engine.addTokens.lookup(query)) : null;
         return { tokens: engine.search(query.replace(/^\$/, ''), { limit: 6 }), profiles: people.directory({ q: query }).items.slice(0,5),
-          posts: people.searchPosts(query), address: kind ? { kind, value: query } : null };
+          posts: people.searchPosts(query), address: kind ? { kind, value: query } : null, lookup };
       }
       case 'feed': return people.feed(q.author && !q.asset ? { ...q, author: authorKey(q.author) } : q, Math.min(100,limit));
       case 'directory': return people.directory(q);

@@ -11,22 +11,25 @@ const shape = filter => JSON.stringify([filter.address, filter.topics])
 /** Replays recorded public reads in the order they were recorded, whichever endpoint the replayed node picks (its
  * rotation can differ). An eth_getLogs window that the recording covered for the same filter, but asked from a
  * slightly different head, is answered from the recorded logs. Any other unrecorded read fails at once. */
+const hostChain = new Map(loadBundle().chains.flatMap(c => (c.endpoints ?? []).map(e => [new URL(e.url ?? e).host, c.id])))
+const chainOf = host => hostChain.get(host) ?? host
+
 export function replay(records) {
   const byKey = new Map(), covered = new Map(), logs = new Map()
   for (const r of records) {
-    const key = r.method + ' ' + JSON.stringify(r.params)
+    const key = chainOf(r.url) + ' ' + r.method + ' ' + JSON.stringify(r.params)
     if (!byKey.has(key)) byKey.set(key, [])
     byKey.get(key).push(r)
     if (r.method === 'eth_getLogs' && Array.isArray(r.result)) {
-      const s = shape(r.params[0])
+      const s = chainOf(r.url) + ' ' + shape(r.params[0])
       if (!covered.has(s)) covered.set(s, [])
       covered.get(s).push(span(r.params[0]))
       for (const log of r.result) logs.set(log.transactionHash + ':' + log.logIndex, log)
     }
   }
-  const coveredBy = filter => {
+  const coveredBy = (chain, filter) => {
     let [from, to] = span(filter)
-    for (const [a, b] of (covered.get(shape(filter)) ?? []).sort((x, y) => y[1] - x[1]))
+    for (const [a, b] of (covered.get(chain + ' ' + shape(filter)) ?? []).sort((x, y) => y[1] - x[1]))
       if (a <= from && b >= to) return true
       else if (b >= to - 16 && a <= to) to = a - 1 // windows walk from a head read a few blocks apart
     return to < from + 16
@@ -35,10 +38,11 @@ export function replay(records) {
   return async (url, init) => {
     if (!init?.body) return new Response('{}', { status: 503 })
     const req = JSON.parse(init.body), list = Array.isArray(req) ? req : [req]
+    const chain = chainOf(new URL(url).host)
     const out = list.map(r => {
-      const key = r.method + ' ' + JSON.stringify(r.params)
+      const key = chain + ' ' + r.method + ' ' + JSON.stringify(r.params)
       const hits = byKey.get(key)
-      if (!hits && r.method === 'eth_getLogs' && coveredBy(r.params[0])) {
+      if (!hits && r.method === 'eth_getLogs' && coveredBy(chain, r.params[0])) {
         const [from, to] = span(r.params[0])
         const result = [...logs.values()].filter(log => Number(log.blockNumber) >= from && Number(log.blockNumber) <= to &&
           [r.params[0].address].flat().map(a => a.toLowerCase()).includes(log.address.toLowerCase()) &&

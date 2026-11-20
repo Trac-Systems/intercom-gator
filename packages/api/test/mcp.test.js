@@ -15,7 +15,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 const expected = ['price','token','search','markets','candles','new_tokens','trending','movers','risk_check',
   'fear_greed','portfolio','alerts','briefing','sentiment','why_trusted','feed_read','feed_post','reply','follow','set_avatar','announce_placement',
   'unfollow','like','repost','mute','directory','profile','profile_set','overview','categories','chains','exchanges','derivatives',
-  'focus','focus_list','coverage','token_markets','splits','extras','extras_quote','extras_receipt','watchlist','watch','alert_set','alert_remove','portfolio_watch','portfolio_holding','node_status'];
+  'focus','add_token','added_tokens','focus_list','coverage','token_markets','splits','extras','extras_quote','extras_receipt','watchlist','watch','alert_set','alert_remove','portfolio_watch','portfolio_holding','node_status'];
 
 test('SDK client negotiates all tools, validates schemas and receives structured observations', async t => {
   const app = await fixture(t).start('stdio');

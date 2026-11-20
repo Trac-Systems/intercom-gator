@@ -167,14 +167,15 @@ export function createDemoServer(opts = {}) {
 
     if (GET && a === 'search') {
       const l = String(q.q || '').trim().toLowerCase();
-      if (!l) return { tokens: [], profiles: [], posts: [], address: null };
+      if (!l) return { tokens: [], profiles: [], posts: [], address: null, lookup: null };
       const s = l.replace(/^\$/, '');
       const tokens = allTokens().filter((t) => t.symbol.toLowerCase().includes(s) || t.name.toLowerCase().includes(l) || (l.length >= 8 && t.id.toLowerCase().includes(l))).sort((x, y) => (x.symbol.toLowerCase() === s ? -1 : 0) - (y.symbol.toLowerCase() === s ? -1 : 0) || (x.rank || 999) - (y.rank || 999)).slice(0, 6);
       const handle = l.replace(/^@/, '');
       const profiles = W.people.filter((p) => !p.me && (p.handle.slice(1).includes(handle) || p.name.toLowerCase().includes(l) || p.key.startsWith(l))).slice(0, 5).map(profileOut);
       const posts = allPosts().filter((p) => organic(p) && p.text.toLowerCase().includes(l)).sort(newest).slice(0, 5).map(decorate);
       const kind = addressKind(q.q);
-      return { tokens, profiles, posts, address: kind ? { kind, value: String(q.q).trim() } : null };
+      // The demo world has no chains to read: no by-address lookup (a real node starts one for unknown contracts).
+      return { tokens, profiles, posts, address: kind ? { kind, value: String(q.q).trim() } : null, lookup: null };
     }
 
     if (GET && a === 'feed') {
