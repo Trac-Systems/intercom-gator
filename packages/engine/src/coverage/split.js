@@ -5,6 +5,8 @@ function score(market, reporter) {
   return parseInt(hash('sha256', market + '\0' + reporter).slice(0, 13), 16)
 }
 
+export { score as reporterScore }
+
 export class ReporterSlice {
   constructor(own, reporters) {
     this.scores = new Map()

@@ -77,7 +77,7 @@ async function node(t, { Legacy = Engine, schema = migrations, bundle = loadBund
   wire, storage = openStore, file = ':memory:' } = {}) {
   let now = at
   const sent = [], channels = new Set()
-  const transport = wire ?? Object.assign(new EventEmitter(), { publicKey:own, channels:()=>[...channels], peerCount:()=>0,
+  const transport = wire ?? Object.assign(new EventEmitter(), { publicKey:own, channels:()=>[...channels], peerCount:()=>1,
     join:async ch=>{channels.add(ch);return true}, leave:async ch=>channels.delete(ch),
     send:()=>true })
   const send = transport.send.bind(transport)
@@ -264,6 +264,7 @@ test('archived ae1c336 verifies every emitted pool record with unchanged standin
 
 test('row pressure keeps the first unregistered creation as the restart point; an old hint at capacity is inconclusive', async t => {
   const sender = await node(t), {engine} = sender, h = engine.backfill
+  engine.transport.peerCount=()=>0
   const task = h.tasks.find(t => t.factory.kind === 'v4' && t.source.chain.id === 'ethereum')
   task.bounds = { mode:'logs' }
   h.rpc = replay()
@@ -280,6 +281,8 @@ test('row pressure keeps the first unregistered creation as the restart point; a
   assert.equal(h.count.get().n, 1)
   const receiver = await node(t,{own:'2'.repeat(64)})
   receiver.engine.backfill.capacity = 1
+  assert.equal(h.nextRow(at),null)
+  engine.transport.peerCount=()=>1
   await h.shareStep(h.sendRow.get(at))
   const frame = sender.sent.find(f => f.channel === 'gator/new')
   receiver.engine.hints.rpc = replay()
@@ -335,6 +338,7 @@ test('a full connected reader resumes its bounded forwarding queue on disk and a
   assert.equal(h.count.get().n,0)
   await a.stop()
   const resumed=await node(t,{file}), saved=resumed.engine.backfill
+  resumed.engine.transport.peerCount=()=>0
   assert.deepEqual(select(saved).bounds,task.bounds)
   const progress=saved.progress.all('ethereum',task.factory.address,'logs')
   assert.ok(progress.some(r=>r.start===unit(second.block).start && r.next===second.block))

@@ -470,7 +470,8 @@ A funded creation uses the ordinary v1 pool message on `gator/new`. For array en
 sender narrows the creation block by querying historical array lengths, then searches the
 currency-filtered creation logs. An endpoint lacking old state can fall back to a bounded log
 walk. The sender checks the successful creation receipt against the signed deployment, block,
-pool and both currencies before broadcasting. It sends at most one historical pool per minute
+pool and both currencies before broadcasting. A disconnected reader keeps its proof work pending
+until a peer connects. It sends at most one historical pool per minute
 per node across restart, retries sent identities after a day and suppresses an exact recent
 announcement from a proven peer for an hour. A current receiver independently verifies the
 receipt and measures the pool through public endpoints. Up to 64 funded peer-origin pools per

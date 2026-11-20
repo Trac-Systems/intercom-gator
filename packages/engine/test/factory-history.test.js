@@ -128,3 +128,19 @@ test('a rising chain head cannot postpone the unfinished older log snapshot', as
   assert.equal(task.bounds.end,40_000-64+1)
   assert.equal(backfill.plan(task).ranges.some(r=>r.start===0),false)
 })
+
+test('the projection separates storage-limited identities from a connected bounded forwarding sweep', async () => {
+  const {simulate} = await import('../scripts/sim-factory-history.js')
+  const chain='ethereum', factory='factory'
+  const unit={chain,factory,key:'history:ethereum:factory:index:0',pools:10_000,liquid:5000,requests:30}
+  const work={units:[unit],chains:new Map([[chain,{...unit,rate:3}]]),rate:3,refreshRate:0}
+  const solo=simulate(work,1,'small'), three=simulate(work,3,'small')
+  assert.equal(solo.distinctCovered,4000)
+  assert.equal(solo.distinctScanned,4000)
+  assert.equal(solo.chains[0].sweepDays,null)
+  assert.equal(three.distinctCovered,4000)
+  assert.equal(three.distinctScanned,5000)
+  assert.equal(three.coveredWithPeerSlotsUpperBound,5000)
+  assert.ok(three.chains[0].sweepDays>three.chains[0].days)
+  assert.equal(three.peakRpcPerMinute,3)
+})

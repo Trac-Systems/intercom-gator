@@ -100,6 +100,7 @@ export class FactoryBackfill {
   }
 
   nextRow(now) {
+    if (!this.connected()) return null
     // Give queued forwards two of every three outbox turns, while keeping ordinary proofs moving.
     if (this.turn % 3 !== 0) return this.forwardRow.get(now) ?? this.sendRow.get(now)
     return this.sendRow.get(now) ?? this.forwardRow.get(now)
@@ -330,7 +331,7 @@ export class FactoryBackfill {
   async shareStep(row) {
     const now = this.clock(), { engine } = this
     const { evidence,search,snooze } = this.outboxes[row.forwardOnly ? 1 : 0]
-    if (row.forwardOnly && !this.connected()) { snooze.run(now + MINUTE,row.chain,row.pool); return }
+    if (!this.connected()) { snooze.run(now + MINUTE,row.chain,row.pool); return }
     const task = this.tasks.find(t => t.source.chain.id === row.chain && t.factory.address === row.factory)
     if (!task) { snooze.run(now + DAY, row.chain, row.pool); return }
     const { factory, source } = task
@@ -373,7 +374,7 @@ export class FactoryBackfill {
         snooze.run(now + DAY, row.chain, row.pool)
         return
       }
-      if (row.forwardOnly && !this.connected()) { snooze.run(this.clock() + MINUTE,row.chain,row.pool); return }
+      if (!this.connected()) { snooze.run(this.clock() + MINUTE,row.chain,row.pool); return }
       this.nextSend = this.clock() + MINUTE
       engine.store.transaction(() => {
         engine.store.setSetting('engine-history/next-send', this.nextSend)
