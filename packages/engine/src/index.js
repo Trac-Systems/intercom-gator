@@ -5,6 +5,7 @@ import { RpcClient } from './rpc/index.js'
 import { Scheduler, RequestBudget, RateLimited, seededRandom } from './scheduler/index.js'
 import { ObservationExchange, PeerQuota, NEW_POLICY, keyPattern } from './obs/index.js'
 import { MarketBook } from './aggregate/book.js'
+import { priceSiblings } from './aggregate/coins.js'
 import { Queries } from './aggregate/queries.js'
 import { collisionReport } from './aggregate/collisions.js'
 import { PoolHints } from './sources/pool-hints.js'
@@ -97,6 +98,7 @@ export class Engine extends EventEmitter {
       ownKey: transport.publicKey,
       clock,
       followed: rpcConfig.isFollowed,
+      siblings: priceSiblings(this.bundle.tokens.tokens),
       onPrice: (p) => this.emit('price', p),
       onDisagreement: id => {
         const market = this.registry.markets.get(id)

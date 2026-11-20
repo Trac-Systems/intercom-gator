@@ -83,8 +83,9 @@ class UnprovenIngest {
 }
 
 export class MarketBook {
-  constructor({ store, registry, ownKey, clock, followed, onPrice = () => {}, onDisagreement = () => {} }) {
-    Object.assign(this, { store, registry, ownKey, clock, onPrice, onDisagreement })
+  constructor({ store, registry, ownKey, clock, followed, siblings = new Map(), onPrice = () => {}, onDisagreement = () => {} }) {
+    // siblings (`priceSiblings`): a quote deployment without a price of its own borrows a signed sibling's as its USD rate.
+    Object.assign(this, { store, registry, ownKey, clock, siblings, onPrice, onDisagreement })
     this.snapshots = new Map()
     this.marketPrices = new Map()
     this.halted = marketHalts(registry)
@@ -411,7 +412,8 @@ export class MarketBook {
     }
     const collisions = new Map()
     const next = aggregateAssets(this.registry.assets, this.marketPrices.values(), now, anchors,
-      { pinned: m => this.registry.mapped(m), collisions, referencePrices, dayRatio: m => this.dayRatio(m, now) })
+      { pinned: m => this.registry.mapped(m), collisions, referencePrices, dayRatio: m => this.dayRatio(m, now),
+        lenders: this.siblings })
     this.registry.applySplits(collisions, this.marketPrices, now, review)
     this.collisions = collisions
     // Retain a last-known value after raw-history pruning. If raw evidence still exists

@@ -359,7 +359,7 @@ export function registerSupplyJobs(engine) {
     if (!registry.seedIds.has(id)) return rpc.publicOnly
     const why = book.snapshots.get(id)?.why
     if (!why || why.stale) return rpc.publicOnly
-    if (why.referenceProviders?.length) return rpc
+    if (why.referenceProviders?.length || why.borrowedFrom) return rpc
     if (why.ownSources) {
       for (const m of book.marketPrices.values()) if (m.base === id && m.ownFresh && !m.fromHint) return rpc
     }

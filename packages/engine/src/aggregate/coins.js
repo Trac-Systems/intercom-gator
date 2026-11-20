@@ -129,3 +129,35 @@ export function rowOrder(sort, order) {
     return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
   }
 }
+
+const isStable = (/** @type {any} */ t) => /^stablecoin$/i.test(t?.category ?? '')
+/**
+ * Signed price siblings: deployment id → the ids whose price it may borrow as its USD rate when it has none of its own
+ * (book: a chain's USD quote must not rest on one third-party reference). Members of one signed coin group lend to each
+ * other (the same coin). A stablecoin record without a coin whose reciprocal signed `links` reach stablecoin members of
+ * exactly one coin group (a third-party peg: Binance-Peg USDT on BSC, bridged USDT on Base) borrows from that group.
+ * Never by symbol.
+ * @param {(TokenRecord & { category?: string })[]} tokens
+ * @returns {Map<string, string[]>}
+ */
+export function priceSiblings(tokens) {
+  const byId = new Map(tokens.map(t => [t.id, t]))
+  const coins = Map.groupBy(tokens.filter(t => t.coin), t => /** @type {string} */ (t.coin))
+  /** @type {Map<string, string[]>} */
+  const out = new Map()
+  for (const t of tokens) {
+    if (t.coin) {
+      const members = (coins.get(t.coin) ?? []).filter(m => m.id !== t.id).map(m => m.id)
+      if (members.length) out.set(t.id, members)
+      continue
+    }
+    if (!isStable(t)) continue
+    const linked = new Set()
+    for (const id of t.links ?? []) {
+      const other = byId.get(id)
+      if (other?.coin && isStable(other) && other.links?.includes(t.id)) linked.add(other.coin)
+    }
+    if (linked.size === 1) out.set(t.id, (coins.get([...linked][0]) ?? []).map(m => m.id))
+  }
+  return out
+}
