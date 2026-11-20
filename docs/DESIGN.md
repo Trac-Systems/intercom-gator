@@ -432,7 +432,8 @@ funded discovered jettons against TON and USDT (repeated every six hours). Secon
 directory `GET api.ston.fi/v1/pools/by_market/<a>/<b>`, which has unclear terms, so its rows only supply
 addresses: only pools on a router listed in code, at most eight per pair, skipping rows whose own TVL is under
 $5k. Third, the DeDust factory's recent transactions (16 per page, durable top `lt`, paging back after a busy
-interval), whose outgoing messages name deployed pools. The full pool lists of both DEXes are 25–36 MB without
+interval), whose outgoing messages name deployed pools. On spare turns, while fewer than eight candidates wait,
+a second cursor walks older factory transactions (`archival=true`) below the live scan's first page. The full pool lists of both DEXes are 25–36 MB without
 paging and are not used. A candidate is proven one get-method per turn, with progress kept in the row. A DeDust
 pool needs `get_assets` plus the factory recomputing the same address (stable-curve pools are skipped). A STON.fi
 pool needs `get_pool_data`, the router's own `get_pool_address(wallet0, wallet1)`, and `get_wallet_data` on both

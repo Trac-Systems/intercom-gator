@@ -45,6 +45,8 @@ async function node(t, store, pools) {
     calls.push({ origin, account: params.account_id, method: params.method_name, args })
     if (params.method_name === 'ft_metadata') {
       if (params.account_id === 'meta-pool.near') return answer(META)
+      if (params.account_id === 'gone.near') return Response.json({ jsonrpc: '2.0', id: 'gator',
+        error: { name: 'HANDLER_ERROR', cause: { name: 'UNKNOWN_ACCOUNT', info: {} }, code: -32000 } })
       return Response.json({ jsonrpc: '2.0', id: 'gator', result: { error: 'wasm execution failed', logs: [] } })
     }
     assert.equal(params.account_id, REF)
@@ -162,6 +164,17 @@ test('a pool appended after the pass registers its new token, prices it and ente
     assert.ok(entry?.markets.includes(id))
     assert.ok(entry.liquidityUsd > 10_000)
     assert.equal(n.transport.sent.some(m => m.ch === 'gator/new'), false)
+  } finally { await n.stop(); store.close() }
+})
+
+test('a token account that does not exist is remembered as failed, not retried every turn', async t => {
+  const store = database(), n = await node(t, store, new Map())
+  try {
+    n.source.remember({ pool: refKey(9), ref: '9', dex: 'ref-finance', kind: 'v2', token0: 'gone.near', token1: 'native',
+      firstSeen: n.now, stage: 1 })
+    assert.equal(await n.step(() => n.source.meta()), true)
+    assert.ok(store.getSetting('engine-near/meta-fail/gone.near') > n.now)
+    assert.equal(await n.step(() => n.source.meta()), false)
   } finally { await n.stop(); store.close() }
 })
 

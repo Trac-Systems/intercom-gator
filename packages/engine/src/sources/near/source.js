@@ -15,6 +15,7 @@ const PAGE = 250, BATCH = 48
 // The signed NEAR endpoints publish no keyless limit; each host bucket uses the engine default (6/min per host) and
 // the reader rotates over the three signed hosts.
 const SHARES = { small: 4, normal: 10, large: 15 }
+const ANSWERS = new Set(['CONTRACT_EXECUTION_ERROR', 'UNKNOWN_ACCOUNT', 'NO_CONTRACT_CODE', 'INVALID_ACCOUNT'])
 const ACCOUNT = /^(?=.{2,64}$)(?:[a-z\d]+[-_])*[a-z\d]+(?:\.(?:[a-z\d]+[-_])*[a-z\d]+)*$/
 
 export const nearToken = id => (id === WNEAR ? 'native' : typeof id === 'string' && ACCOUNT.test(id) ? id : null)
@@ -31,8 +32,8 @@ export class NearClient extends FamilyClient {
     const r = json?.result
     if (json?.error || !Array.isArray(r?.result)) {
       const error = new Error('NEAR view failed: ' + method_name)
-      // A contract that panics (missing method, bad args) is an answer, not an endpoint failure.
-      if (r?.error || json?.error?.cause?.name === 'CONTRACT_EXECUTION_ERROR') error.answer = true
+      // A contract that panics (missing method, bad args) or a missing account is an answer, not an endpoint failure.
+      if (r?.error || ANSWERS.has(json?.error?.cause?.name)) error.answer = true
       throw error
     }
     return { block: r.block_height, value: JSON.parse(Buffer.from(r.result).toString('utf8')) }

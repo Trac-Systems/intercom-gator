@@ -246,7 +246,13 @@ export class TonSource extends FamilyDex {
     const missing = this.needMeta.all(now).flatMap(r => [r.token0, r.token1])
       .find(t => t && t !== 'native' && this.decimals(t) == null && !(this.setting('meta-fail/' + t) > now))
     if (!missing) return false
-    const info = jettonInfo(await this.client.token(missing), missing)
+    let json = null
+    try { json = await this.client.token(missing) }
+    catch (error) {
+      // A non-jetton account is an answer (failed metadata), not an endpoint failure to retry every turn.
+      if (!(error.status >= 400 && error.status < 500 && ![403, 429].includes(error.status))) throw error
+    }
+    const info = jettonInfo(json, missing)
     if (info) this.save('meta/' + missing, info)
     else this.save('meta-fail/' + missing, now + DAY)
     return true
