@@ -92,8 +92,8 @@ export class FamilyDex {
       extra=CASE WHEN extra='{}' THEN excluded.extra ELSE extra END`)
     this.get = db.prepare('SELECT * FROM engine_family_candidates WHERE chain=? AND pool=?')
     // Seeds and directory rows (likely funded) alternate with fresh creations (often empty launches).
-    this.pending = db.prepare(`SELECT * FROM engine_family_candidates WHERE chain=?1 AND stage=0 AND due<=?2
-      ORDER BY isNew=?4 DESC,due,firstSeen DESC LIMIT ?3`)
+    this.pending = db.prepare(`SELECT * FROM engine_family_candidates WHERE chain=? AND stage=0 AND due<=?
+      ORDER BY isNew=? DESC,due,firstSeen DESC LIMIT ?`)
     this.verifiedDue = db.prepare('SELECT * FROM engine_family_candidates WHERE chain=? AND stage=1 AND due<=? ORDER BY funded DESC,due,pool LIMIT ?')
     this.count = db.prepare('SELECT count(*) AS n FROM engine_family_candidates WHERE chain=? AND stage=0 AND due<=?')
     this.setStage = db.prepare('UPDATE engine_family_candidates SET stage=?,token0=?,token1=?,extra=?,due=? WHERE chain=? AND pool=?')
@@ -102,8 +102,8 @@ export class FamilyDex {
     this.price = db.prepare('SELECT priceReal,trust FROM prices WHERE asset=? AND at>=? AND priceReal>0')
     this.known = db.prepare('SELECT * FROM pools WHERE chain=? AND pool=?')
     this.depth = db.prepare('UPDATE pools SET liquidity=? WHERE chain=? AND pool=?')
-    this.trim = db.prepare(`DELETE FROM engine_family_candidates WHERE chain=?1 AND funded=0 AND pool IN (
-      SELECT pool FROM engine_family_candidates WHERE chain=?1 AND funded=0 AND due>0 ORDER BY firstSeen DESC,pool LIMIT -1 OFFSET 4096)`)
+    this.trim = db.prepare(`DELETE FROM engine_family_candidates WHERE chain=? AND funded=0 AND pool IN (
+      SELECT pool FROM engine_family_candidates WHERE chain=? AND funded=0 AND due>0 ORDER BY firstSeen DESC,pool LIMIT -1 OFFSET 4096)`)
   }
   remember(p) {
     this.upsert.run(this.chain, p.pool, p.dex, p.kind, p.ref, p.token0 ?? '', p.token1 ?? '', p.firstSeen,
@@ -171,7 +171,7 @@ export class FamilyDex {
         else if (known) this.depth.run(liquidity, this.chain, p.pool)
         rows.push([market.id, decimal(market.inverse ? 1 / state.price : state.price), this.turnover(p, market), null, null, null, at])
       }
-      this.trim.run(this.chain)
+      this.trim.run(this.chain, this.chain)
     })
     // Old pools found by a seed or a directory pass have no creation time; only fresh creations enter the New list.
     for (const d of discoveries) this.engine.discovery(d, false)

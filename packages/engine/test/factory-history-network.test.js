@@ -382,8 +382,11 @@ test('an announced-pool tie keeps 64 deterministic slots and a locally promoted 
 
 test('a full connected reader resumes its bounded forwarding queue on disk and another node registers the pool', async t => {
   const dir = mkdtempSync(join(import.meta.dirname,'history-restart-'))
-  t.after(()=>rmSync(dir,{recursive:true,force:true}))
+  // Close both file-backed nodes before removing their directory: Windows cannot unlink an open database.
+  const open=[]
+  t.after(async()=>{ for (const n of open) await n.stop(); rmSync(dir,{recursive:true,force:true}) })
   const file = join(dir,'history.db'), a = await node(t,{file}), h = a.engine.backfill
+  open.push(a)
   const select = reader=>reader.tasks.find(t=>t.source.chain.id==='ethereum' && t.factory.kind==='v4')
   const task = select(h), [first,second] = fixture.ethereum
   task.bounds = {mode:'logs',end:second.block+1,at}
@@ -404,6 +407,7 @@ test('a full connected reader resumes its bounded forwarding queue on disk and a
   assert.equal(h.count.get().n,0)
   await a.stop()
   const resumed=await node(t,{file}), saved=resumed.engine.backfill
+  open.push(resumed)
   resumed.engine.transport.peerCount=()=>0
   assert.deepEqual(select(saved).bounds,task.bounds)
   const progress=saved.progress.all('ethereum',task.factory.address,'logs')

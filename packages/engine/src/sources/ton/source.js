@@ -185,7 +185,7 @@ export class TonSource extends FamilyDex {
   async verify() {
     const now = this.engine.clock()
     this.fresh = !this.fresh
-    const [p] = this.pending.all('ton', now, 1, Number(this.fresh)).map(r => ({ ...r, extra: JSON.parse(r.extra) }))
+    const [p] = this.pending.all('ton', now, Number(this.fresh), 1).map(r => ({ ...r, extra: JSON.parse(r.extra) }))
     if (!p) return false
     const x = p.extra
     const keep = () => this.setExtra.run(JSON.stringify(x), 'ton', p.pool)
