@@ -4,6 +4,7 @@ import test from 'node:test'
 import { bundleDigest, loadBundle } from '@gator/bundle'
 import { channelFor } from '../src/obs/index.js'
 import { aptosCreations } from '../src/sources/move/aptos.js'
+import { CAKE, LIQUID_ACCOUNT, resourcePool, validPool } from '../src/sources/move/identity.js'
 import { suiState } from '../src/sources/move/sui.js'
 import { archive, LocalTransport } from './helpers/archived-receiver.js'
 
@@ -14,6 +15,19 @@ const hints = sui.map((r, i) => {
   return { ...p, chain:'sui', tx:r.tx.digest, block:r.tx.effects.checkpoint.sequenceNumber }
 })
 hints.push({ ...aptosCreations(aptos.tx)[0],block:Number(aptos.block.block_height) })
+
+// Archived nodes must discard these layouts before any receipt lookup. Exercise recorded pool
+// and coin identities for every supported venue, using a fixed receipt locator for the layout cases.
+const locator = { chain:'aptos', tx:aptos.tx.hash, block:Number(aptos.block.block_height) }
+const hyperion = fixture('aptos-pools')[0].page[0][0]
+hints.push({ ...locator, dex:'hyperion', kind:'clmm', pool:hyperion.pool.inner,
+  token0:hyperion.token_a.inner, token1:hyperion.token_b.inner })
+for (const row of fixture('aptos-legacy').pools) {
+  const liquid = row.venue === 'liquid'
+  hints.push({ ...locator, dex:liquid ? 'liquidswap' : 'pancakeswap-aptos',
+    kind:liquid ? (row.type.endsWith('::Stable>') ? 'stable' : 'uncorrelated') : 'v2',
+    pool:resourcePool(liquid ? LIQUID_ACCOUNT : CAKE, row.type.replaceAll(', ',',')), token0:row.a, token1:row.b })
+}
 
 for (const version of ['0.1.0','0.1.1','0.1.2','0.1.3']) {
   test('archived v' + version + ' accepts the control and ignores both Move families without penalty', async t => {
@@ -35,7 +49,9 @@ for (const version of ['0.1.0','0.1.1','0.1.2','0.1.3']) {
       assert.equal(engine.obs.digest,bundleDigest(loadBundle()).slice(0,16))
       const rank = engine.hints.rank(from)
       for (const {chain,dex,kind,pool,token0,token1,block,tx} of hints) {
-        send('gator/new',{ t:'pool',v:1,chain,dex,kind,pool,token0,token1,block,tx })
+        const msg={ t:'pool',v:1,chain,dex,kind,pool,token0,token1,block,tx }
+        assert.ok(validPool(msg))
+        send('gator/new',msg)
         const id='dex:'+chain+':'+pool
         px(id)
         assert.equal(engine.registry.markets.has(id),false)
