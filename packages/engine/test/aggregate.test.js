@@ -76,6 +76,25 @@ test('a 1.5% rise across ten staggered venue reads stays green (previously yello
   assert.ok(result.why.spreadPct > 0.6 && result.why.spreadPct < 0.7)
 })
 
+test('reporters of one market reading another instrument (WEEX XBT as BTC) are set aside, not a 100% spread', () => {
+  // Live 11-20 17:56: three peers sent WEEX XBTUSDT ($0.00006131) as BTC/USDT; BTC turned red (spreadPct 100.18).
+  const row = (reporter, price, extra = {}) => ({ reporter, price: String(price), weight: 1, proven: true, srcTs: now - 5_000,
+    baseVol24h: 500, quoteVol24hUsd: null, ...extra })
+  const weex = (rows) => marketMedian({ id: 'Wcoin', kind: 'cex', rank: 100, exchange: 'W', base: 'coin', quote: 'fiat:USD' }, rows, now)
+  const majority = weex([row('1', 59_066), row('2', 59_050), row('3', 59_080), row('4', 0.00006131), row('5', 0.00006131)])
+  assert.equal(majority.price, 59_066)
+  assert.deepEqual(majority.agents, ['1', '2', '3'])
+  assert.ok(majority.alignedSpread < 0.001 && majority.spread < 0.001)
+  const others = [market('A', 'coin', 'fiat:USD', 59_060, ['6', '7', '8'], 50_000)]
+  assert.equal(aggregateAssets(assets, [...others, majority], now).get('coin').trust, 'green')
+  // Our own fresh read decides; without one an even split withholds the market for this round.
+  const own = weex([row('1', 59_066, { own: true }), row('4', 0.00006131), row('5', 0.00006131)])
+  assert.equal(own.price, 59_066)
+  assert.equal(weex([row('1', 59_066), row('4', 0.00006131)]), null)
+  // A real 3x move stays one instrument (inside SPLIT_FACTOR).
+  assert.equal(weex([row('1', 100), row('2', 300)]).agents.length, 2)
+})
+
 test('within one market, a peer read minutes before ours is not a disagreement, a same-time one is', () => {
   // Rank 100: ten-minute window, so a peer row five minutes old still counts as current (ETH yellow, calm, 11-20).
   const pair = (peerPrice, peerAge) => marketMedian({ id: 'Acoin', kind: 'cex', rank: 100, exchange: 'A', base: 'coin', quote: 'fiat:USD' }, [

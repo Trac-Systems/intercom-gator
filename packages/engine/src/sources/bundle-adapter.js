@@ -346,9 +346,11 @@ function splitPair(raw, format, base, quote) {
   }
   if (typeof base !== 'string' || typeof quote !== 'string') return null
   const normalize = (label) => format.aliases?.[label.toUpperCase()] ?? label.toUpperCase()
-  base = normalize(base)
-  quote = normalize(quote)
-  return symbolPattern.test(base) && symbolPattern.test(quote) && base !== quote ? [base, quote] : null
+  const pair = [normalize(base), normalize(quote)]
+  if (!(symbolPattern.test(pair[0]) && symbolPattern.test(pair[1]) && pair[0] !== pair[1])) return null
+  // tickerRecords drops an aliased row when the venue also lists the canonical label for the same pair.
+  if (pair[0] !== base.toUpperCase() || pair[1] !== quote.toUpperCase()) pair.aliased = true
+  return pair
 }
 
 export async function loadCatalog(venue, http, now, raw) {
@@ -415,7 +417,18 @@ export function dayRatio(fields, field, price) {
   return ratio >= 0.01 && ratio <= 100 ? ratio : null
 }
 
+/**
+ * An alias is a venue's own spelling of a coin (Kraken's XBT for BTC). A venue that also lists the canonical label for
+ * the same pair trades a different coin under the alias: WEEX lists BTCUSDT and XBTUSDT, an unrelated $0.00006 token
+ * that peers through v0.1.13 sent as Bitcoin's price. Such aliased rows are dropped.
+ */
 export function* tickerRecords(venue, json) {
+  const records = [...readTickerRecords(venue, json)]
+  const canonical = new Set(records.filter((r) => r.pair && !r.pair.aliased).map((r) => r.pair.join('-')))
+  for (const record of records) if (!(record.pair?.aliased && canonical.has(record.pair.join('-')))) yield record
+}
+
+function* readTickerRecords(venue, json) {
   const spec = venue.ticker
   const fields = spec.fields
   const joined = atPath(json, spec.join)

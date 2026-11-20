@@ -63,6 +63,23 @@ test('the shipped bundle starts the registry, exchange feeds, chain jobs and DEX
   cdc.catalogCache.set('ETH_BTC', { pair: ['ETH', 'BTC'], derivative: false })
   const [cross] = tickerRecords(cdc, { result: { data: [{ i: 'ETH_BTC', a: '0.028249', v: '720.3399', vv: '1274447.57' }] } })
   assert.deepEqual([cross.usdVolume, cross.quoteVolume, cross.baseVolume], ['1274447.57', null, '720.3399'])
+  // WEEX lists BTCUSDT and XBTUSDT, an unrelated token (live 2026-11-20: 59066.00 vs 0.00006131). Peers through v0.1.13
+  // aliased XBT to BTC on every venue and sent the token as Bitcoin. The alias stays only where no BTC label exists.
+  const weex = e.registry.venues.get('weex')
+  weex.catalogCache.set('BTCUSDT', { pair: ['BTC', 'USDT'], derivative: false })
+  weex.catalogCache.set('XBTUSDT', { pair: ['XBT', 'USDT'], derivative: false })
+  weex.catalogCache.set('XBTUSDC', { pair: ['XBT', 'USDC'], derivative: false })
+  const weexRows = [...tickerRecords(weex, [
+    { symbol: 'XBTUSDT', lastPrice: '0.00006131', volume: '16794951.5' },
+    { symbol: 'BTCUSDT', lastPrice: '59066.00', volume: '24080.987465' },
+    { symbol: 'XBTUSDC', lastPrice: '0.00006', volume: '1' },
+  ])]
+  assert.deepEqual(weexRows.map(r => [r.raw, r.pair.join('-'), r.price]), [['BTCUSDT', 'BTC-USDT', '59066.00'], ['XBTUSDC', 'BTC-USDC', '0.00006']],
+    'only the same-pair duplicate is dropped; a lone alias stays and the collision split handles its price')
+  const kraken = e.registry.venues.get('kraken')
+  kraken.catalogCache.set('XXBTZUSD', { pair: ['XBT', 'USD'], derivative: false })
+  const krakenRows = [...tickerRecords(kraken, { error: [], result: { XXBTZUSD: { c: ['59050.1', '1'], v: ['10', '20'], b: ['59050', '1', '1'], a: ['59051', '1', '1'], o: '58000' } } })]
+  assert.deepEqual(krakenRows.map(r => r.pair.join('-')), ['BTC-USD'], "Kraken's XBT is Bitcoin")
 })
 
 test('a Solana pool quoted in wrapped SOL prices native SOL instead of a second SOL asset', async (t) => {

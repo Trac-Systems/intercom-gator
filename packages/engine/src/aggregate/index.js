@@ -83,12 +83,41 @@ export const ALIGN_MS = 30_000
 const MATERIAL_SHARE = 0.01
 
 /** rows contains the latest sample per distinct, eligible reporter for this market. */
+/**
+ * Reporters of one market can be reading different instruments: peers through v0.1.13 mapped WEEX's XBT token
+ * ($0.00006) onto its BTC/USDT market. Rows more than SPLIT_FACTOR apart are not a disagreement about one price.
+ * Keep the group holding this node's own fresh read, else the one with more proven reporters, else more reporters;
+ * an even split withholds the market for this round instead of guessing.
+ */
+function oneInstrument(rows, now, window) {
+  if (rows.length < 2) return rows
+  const sorted = [...rows].sort((a, b) => Number(a.price) - Number(b.price))
+  const groups = [[sorted[0]]]
+  for (let i = 1; i < sorted.length; i++) {
+    if (Number(sorted[i].price) > Number(sorted[i - 1].price) * SPLIT_FACTOR) groups.push([])
+    groups.at(-1).push(sorted[i])
+  }
+  if (groups.length === 1) return rows
+  const score = (group) => [
+    group.some((r) => r.own && r.srcTs >= now - window) ? 1 : 0,
+    new Set(group.filter((r) => r.proven).map((r) => r.reporter)).size,
+    new Set(group.map((r) => r.reporter)).size,
+  ]
+  const ranked = groups.map((group) => ({ group, score: score(group) }))
+    .sort((a, b) => b.score[0] - a.score[0] || b.score[1] - a.score[1] || b.score[2] - a.score[2])
+  const [best, next] = ranked
+  if (best.score.every((n, i) => n === next.score[i])) return []
+  const kept = new Set(best.group)
+  return rows.filter((r) => kept.has(r))
+}
+
 export function marketMedian(market, rows, now) {
   if (!rows.length) return null
   const { window } = coverageTarget(market.rank)
   const at = rows.reduce((n, row) => Math.max(n, row.srcTs), 0)
   const cutoff = at >= now - window ? now - window : at - window
-  const recent = rows.filter((r) => r.srcTs >= cutoff && r.weight > 0)
+  const recent = oneInstrument(rows.filter((r) => r.srcTs >= cutoff && r.weight > 0), now, window)
+  if (!recent.length) return null
   const own = recent.find(r => r.own && r.srcTs >= now - window)
   const proven = recent.filter(r => r.proven)
   const weights = capUnproven(recent)
