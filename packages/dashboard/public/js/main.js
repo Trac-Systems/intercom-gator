@@ -344,8 +344,8 @@ function renderSR() {
     const a = ` role="option" id="r${i}" data-i="${i}" class="res${i === act ? ' on' : ''}" aria-selected="${i === act}"`;
     if (r.k === 'look') {
       const l = r.l, live = l.state === 'queued' || l.state === 'running';
-      const tone = live ? ' live' : l.state === 'found' ? ' g' : ['limited', 'busy', 'unavailable'].includes(l.state) ? ' y' : '';
-      html += `<button${a.replace('class="res', 'class="res look')}><span class="look-dot${tone}" aria-hidden="true"></span><span class="t1">${esc(LOOK_TITLE[l.state] || 'Token lookup')}</span><span class="r small muted">${live ? esc(l.chains + ' chains') : ''}</span><span class="t2" role="status">${esc(l.message)}</span></button>`;
+      const tone = live ? ' run' : l.state === 'found' ? ' g' : ['limited', 'busy', 'unavailable'].includes(l.state) ? ' y' : '';
+      html += `<button${a.replace('class="res', 'class="res look')}><span class="look-dot${tone}" aria-hidden="true"></span><span class="t1">${esc(LOOK_TITLE[l.state] || 'Token lookup')}</span><span class="r"></span><span class="t2" role="status">${esc(l.message)}</span></button>`;
     } else if (r.k === 'tok') {
       const t = r.t, c = ch24(t);
       html += `<button${a}>${tokMark(t, 24)}<span class="t1">${hl(t.name, q)} <span>${hl(t.symbol, q.replace(/^\$/, ''))}</span></span><span class="r n">${priceH(t.price)}<br><span class="${dir(c)}">${pct(c)}</span></span><span class="t2">${t.rank ? '#' + t.rank + ' · ' + esc(t.category) : esc(t.chain) + ' · new · ' + esc(t.age || '')}</span></button>`;
