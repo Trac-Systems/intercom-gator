@@ -259,15 +259,21 @@ export class Registry {
     const label = venueLabel(market)
     return !!(label && this.curated.get(label.venue)?.has(label.label))
   }
-  /** Point every market of one venue label at `base`, keeping its observations (the pair itself is unchanged). */
-  rebindLabel(key, base) {
+  /** Reclassify a venue's base label after a price split. A contract-managed quote carries the same identity. */
+  rebindLabel(key, asset) {
     const changed = []
+    const [venue, label] = key.split(':')
+    const managesQuote = this.venues.get(venue)?.contracts?.bindings.has(label)
     for (const market of this.markets.values()) {
-      if (venueLabel(market)?.key !== key || market.base === base) continue
-      const next = { ...market, base }
-      this.db.prepare('DELETE FROM asset_markets WHERE asset=? AND market=?').run(market.base, market.id)
+      if (market.kind !== 'cex' || market.exchange !== venue) continue
+      const [baseLabel, quoteLabel] = market.id.split(':')[2].split('-')
+      const base = baseLabel === label ? asset : market.base
+      const quote = managesQuote && quoteLabel === label ? asset : market.quote
+      if (market.base === base && market.quote === quote) continue
+      const next = { ...market, base, quote }
+      if (market.base !== base) this.db.prepare('DELETE FROM asset_markets WHERE asset=? AND market=?').run(market.base, market.id)
       this.store.upsertMarket(next)
-      if (this.assets.has(base)) this.store.linkAssetMarket(base, market.id)
+      if (market.base !== base && this.assets.has(base)) this.store.linkAssetMarket(base, market.id)
       this.markets.set(market.id, next)
       changed.push(market.id)
     }
@@ -342,7 +348,11 @@ export class Registry {
         confirmed.add(key)
         for (const id of this.rebindLabel(key, 'unresolved:' + key)) {
           const p = prices?.get(id)
-          if (p) p.base = 'unresolved:' + key
+          if (p) {
+            const market = this.markets.get(id)
+            p.base = market.base
+            p.quote = market.quote
+          }
         }
       }
       for (const key of review) {

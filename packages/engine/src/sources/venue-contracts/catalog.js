@@ -95,6 +95,7 @@ export function currencyContracts(venue, json, chains) {
         const normalized = contractAddress(family, address)
         if (!normalized) continue
         const id = slug + ':' + normalized
+        if ((venue.id === 'binance' || venue.id === 'weex') && network.coin != null && network.coin !== raw) conflict = true
         // Some venue units stand for a multiple of the on-chain token. A plain ERC-20 price cannot represent them.
         if (network.denomination != null && Number(network.denomination) !== 1) conflict = true
         const other = owners.get(id)

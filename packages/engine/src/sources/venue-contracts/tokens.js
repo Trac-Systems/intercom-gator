@@ -38,7 +38,7 @@ export async function registerVenueTokens(engine, chain, ids, stillWanted, reads
   engine.store.transaction(() => {
     for (const [i, asset] of assets.entries()) {
       const row = rows[i], fields = labels(row, asset.address)
-      if (!fields || !Number.isInteger(row.decimals) || row.decimals > 77 || !stillWanted(asset.id)) continue
+      if (!fields || !Number.isInteger(row.decimals) || row.decimals < 0 || row.decimals > 77 || !stillWanted(asset.id)) continue
       const saved = engine.registry.registerToken(chain.id, asset.address, { ...fields, decimals: row.decimals })
       engine.names.recordVerified(saved, { ...row, ...fields })
     }

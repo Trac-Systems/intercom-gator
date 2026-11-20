@@ -55,12 +55,14 @@ export function dexEvidence(engine) {
 export function venueQuotes(venue, registry, now) {
   const result = new Map()
   for (const [id, tick] of venue.lastTickers ?? []) {
-    if (!(tick.price > 0) || now - tick.at > HOUR || registry.halted?.has(id)) continue
+    if (!(tick.price > 0) || now - (tick.contractPriceAt ?? tick.at) > HOUR ||
+        now - tick.at > HOUR || registry.halted?.has(id) || venue.contracts?.missing.has(id)) continue
     const m = registry.markets.get(id)
     if (!m) continue
     const [base, quote] = id.split(':')[2].split('-')
-    add(result, base, { market: id, quote: m.quote, price: tick.price })
-    add(result, quote, { market: id, quote: m.base, price: 1 / tick.price })
+    const until = Math.min(tick.at, tick.contractPriceAt ?? tick.at) + HOUR + 1
+    add(result, base, { market: id, quote: m.quote, price: tick.price, until })
+    add(result, quote, { market: id, quote: m.base, price: 1 / tick.price, until })
   }
   return result
 }
