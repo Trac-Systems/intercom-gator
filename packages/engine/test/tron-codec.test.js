@@ -61,3 +61,16 @@ test('one solidified block prices real V2 reserves, V3 slot0 and legacy native T
   assert.equal(rows[0].info.token1.symbol, 'USDT')
   assert.ok(rows.every(r => r.at === at))
 })
+
+test('SunSwap V1.5 resolves its current exchange and measures sub-dollar depth', async () => {
+  const { at, pool, calls } = fixture('v1-5')
+  const p = { pool, dex: 'sunswap-v1-5', kind: 'v1', token0: USDT, token1: 'native', fee: 0 }
+  const client = { async aggregate(requests) {
+    assert.deepEqual(requests, calls.map(({ to, data }) => ({ to, data })))
+    return { at, values: calls.map(c => c.result) }
+  } }
+  const known = new Map([[USDT, 6], ['native', 6]].map(([a, decimals]) => ['tron:' + a, { decimals }]))
+  const [row] = await snapshots([p], client, { assets: known })
+  assert.equal(row.state.reserve0, 0.194394)
+  assert.equal(row.state.reserve1, 0.597007)
+})

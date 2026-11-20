@@ -19,7 +19,10 @@ export function seedPlan(assets) {
         for (const fee of f.fees ?? [0]) probes.push({ dex: f.dex, kind: f.kind, token0, token1, fee })
       }
     }
-    if (a !== WTRX) probes.push({ dex: 'sunswap-v1', kind: 'v1', token0: a, token1: 'native', fee: 0 })
+    if (a !== WTRX) {
+      for (const { dex, kind } of FACTORIES.filter(f => f.kind === 'v1'))
+        probes.push({ dex, kind, token0: a, token1: 'native', fee: 0 })
+    }
   }
   return probes
 }

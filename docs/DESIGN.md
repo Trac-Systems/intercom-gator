@@ -371,6 +371,48 @@ insufficient. The sender attempts at most one record per minute and waits at lea
 The rotation and timing survive restart. Each receiver uses the existing public receipt verifier before it registers
 the market. Graduation and sender standing confer no authority to register it.
 
+#### TRON DEX reader
+
+`tron:sunswap` is one scheduler job. It probes the signed TRON assets against WTRX, TRC-20 USDT,
+USDD and USDC using SunSwap V2 `getPair` and V3 `getPool` at 100, 500, 3,000 and 10,000 ppm.
+The V1 and V1.5 factories also expose a cheap `getExchange(token)` lookup for native TRX pairs.
+A complete seed pass, including missing pairs, is cached for six hours. Factory addresses, fee tiers,
+quote contracts and the TRON Multicall3 deployment ship in the reader's code under the release data rule
+in §5.4. The effective signed chain record must enable the public TronGrid endpoint.
+
+Each batch uses one solidified `triggerconstantcontract` call to Multicall3. The reader checks the factory
+mapping again alongside the pool state. V2 supplies both reserves. V3 supplies `slot0`, active liquidity
+and both token balances. V1 and V1.5 supply the exchange's native and token balances. New TRC-20s supply
+their ABI name, symbol and decimals in the same batch. Registry addresses use mainnet Base58Check, and WTRX
+markets resolve to native TRX. Each observation carries the block's timestamp and the existing
+`dex:tron:<pool>` market ID. Admission requires at least $10,000 of two-sided depth. State reads carry
+zero measured turnover. The ordinary USD conversion, outlier, dust and trust rules apply.
+
+Recent confirmed `PairCreated` and `PoolCreated` events come from TronGrid's contract event index. Each factory
+has a durable time window and pagination fingerprint. A page and its candidate pools commit together. An
+expired fingerprint resumes at the last timestamp inclusively. The live scan starts seven days back and
+overlaps its next window by one minute. Separate, lower-priority cursors page through older creations as the
+verification queue drains. A funded pool enters the registry. A thin or drained pool gets a later state check.
+
+A factory event with verified pool membership can announce its base58 pool and currencies, block and
+0x-prefixed transaction hash on `gator/new`. A deterministic seed publishes prices on the ordinary
+`gator/px` shard. On a hint, a receiver verifies the solidified transaction's success, block, factory
+emitter, event signature, currencies and pool. It checks the factory mapping and funded state independently.
+Eligible pools can rotate through the existing hourly re-announcement policy after another receipt check.
+The 0x prefix distinguishes the hash from a Solana signature for older New-token readers. Unmodified
+v0.1.0 and v0.1.3 nodes drop these hints and observations for unknown TRON markets before scoring the sender.
+
+TronGrid applies dynamic limits to keyless traffic. The job caps all its reads at 2, 4 or 6 requests/minute
+on small, normal or large profiles, respectively, and at one twelfth of a lowered node budget. Peer-triggered
+work gets at most one in three of those request slots. The shared HTTP host bucket and node budget charge each
+dispatch. HTTP 403 and 429 pause the host for at least one minute, increasing on repeated refusals and honoring
+longer retry delays. [TronGrid rate limits](https://developers.tron.network/reference/rate-limits)
+
+Readers for another non-EVM family can use the same engine interfaces. Keep address validation, deployment
+lookups, confirmed-event decoding and public receipt checks in the family module. Register one budgeted job,
+persist the cursor with its pending candidates, then pass verified identities to `registry.pool` and measured
+rows to `engine.publish`. Test both old receivers before sending a new pool hint.
+
 #### Recent pool history on join
 
 An EVM node starts one catch-up pass on first use and after six hours offline. It records its last connected time

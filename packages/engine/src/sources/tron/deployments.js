@@ -9,4 +9,6 @@ export const FACTORIES = [
   { dex: 'sunswap-v3', kind: 'v3', address: 'TThJt8zaJzJMhCEScH7zWKnp5buVZqys9x', event: 'PoolCreated',
     fees: [100, 500, 3000, 10000] },
   { dex: 'sunswap-v1', kind: 'v1', address: 'TXk8rQSAvPvBBNtqSoY6nCfsXWCSSpTVQF' },
+  // Same getExchange/token balance/native balance interface (SUN's sunswap-interfaces_en.pdf §2).
+  { dex: 'sunswap-v1-5', kind: 'v1', address: 'TB2LM4iegvhPJGWn9qizeefkPMm7bqqaMs' },
 ]

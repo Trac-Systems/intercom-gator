@@ -161,6 +161,20 @@ test('event pagination resumes the identical window after restart and commits a 
       next.advance(3 * minute)
       await next.source.state()
       assert.equal(next.transport.sent.filter(x => x.ch === 'gator/new').length, 1)
+      store.writer.prepare('INSERT INTO intel_graduated VALUES (?,?)').run(asset.id, next.now)
+      next.advance()
+      const reannounce = next.engine.scheduler.jobs.get('discovery:reannounce')
+      await reannounce.run()
+      assert.equal(next.calls.at(-1).pathname, '/walletsolidity/gettransactioninfobyid')
+      assert.deepEqual(next.transport.sent.at(-1), { ch: 'gator/new', msg: wire(creation) })
+      const sends = next.transport.sent.length
+      next.advance()
+      await reannounce.run()
+      assert.equal(next.transport.sent.length, sends)
+      next.values.set(abiAddress(creation.pool) + '0x1a686502', '0x' + word(0))
+      await next.source.state()
+      assert.equal(next.source.pool.get(creation.pool).liquidity, 0)
+      assert.equal(next.transport.sent.length, sends)
     } finally { await next.stop() }
   } finally { await n.stop(); store.close() }
 })
@@ -240,4 +254,40 @@ test('403 and 429 back off the whole public host, honor Retry-After and charge e
   await assert.rejects(client.request('/test'), { status: 429 })
   assert.equal(client.next, now + 180_000)
   assert.equal(budget.dispatches, 2)
+})
+
+test('expired fingerprint replays the timestamp boundary and retains unprocessed work', async t => {
+  const store = database(), n = await node(t, store)
+  const factory = FACTORIES[1], key = 'engine-tron/' + factory.dex
+  try {
+    const from = creation.firstSeen - minute, until = creation.firstSeen + minute
+    store.setSetting(key, { from, until })
+    n.pages.push(page([funded.event], 'expired'))
+    await n.source.events(factory)
+    const request = n.source.client.request.bind(n.source.client)
+    n.source.client.request = async () => { throw Object.assign(new Error('expired fingerprint'), { status: 400 }) }
+    await assert.rejects(n.source.events(factory), { status: 400 })
+    assert.deepEqual(store.getSetting(key), { from: creation.firstSeen, until })
+    assert.ok(n.source.candidate.get(creation.pool))
+    n.source.client.request = request
+    n.advance()
+    n.pages.push(page([funded.event]))
+    await n.source.events(factory)
+    assert.equal(store.reader.prepare('SELECT count(*) n FROM engine_tron_candidates').get().n, 1)
+  } finally { await n.stop(); store.close() }
+})
+
+test('a lowered node allowance spaces TRON reads even when other sources are idle', async () => {
+  let now = 1000
+  const clock = () => now, budget = new RequestBudget('small', 1, clock)
+  const http = new HttpSources({ budget, clock, fetch: async () => Response.json({}) })
+  const client = new TronClient({ http, budget, clock, profile: 'small', bundle })
+  await client.request('/test')
+  now += minute
+  await assert.rejects(client.request('/test'), RateLimited)
+  assert.equal(budget.used, 0)
+  budget.take() // Capacity is available to an unrelated chain.
+  now += 11 * minute
+  await client.request('/test')
+  assert.equal(budget.dispatches, 3)
 })

@@ -5,10 +5,12 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync } from 'node:
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import test from 'node:test'
+import { loadBundle, bundleDigest } from '@gator/bundle'
 import { FACTORIES } from '../src/sources/tron/deployments.js'
 import { parsePage } from '../src/sources/tron/events.js'
 import { channelFor } from '../src/obs/index.js'
 
+const signedDigest = bundleDigest(loadBundle()).slice(0, 16)
 const root = fileURLToPath(new URL('../../../', import.meta.url))
 const releases = { '0.1.0': 'ae1c336b49cc37240b1410b768484ccf96368bfa', '0.1.3': '6dc3f3e626c5e72fd4130d931b9b4d4ba16095a9' }
 const { at, event } = JSON.parse(readFileSync(new URL('./fixtures/tron/funded-event.json', import.meta.url)))
@@ -57,6 +59,7 @@ for (const [version, commit] of Object.entries(releases)) {
     try {
       await engine.start()
       await intel.start()
+      assert.equal(engine.obs.digest, signedDigest)
       const rank = engine.hints.rank(peer), id = 'dex:tron:' + p.pool
       const send = (channel, message) => transport.emit('message', channel, { channel, message, from: peer, ts: now })
       const hint = { t: 'pool', v: 1, chain: 'tron', pool: p.pool, kind: p.kind, dex: p.dex,
