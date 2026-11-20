@@ -62,6 +62,12 @@ try {
     reports.push({ venue: venue.id, liveBases: active.length, unresolved, eligible: 0, initiallyBound: 0 })
     quotes.set(venue.id, live)
   }
+  function boundBase(venue, label) {
+    const asset = venue.contracts.bindings.get(label)
+    if (!asset || registry.resolve(venue, label) !== asset) return null
+    return quotes.get(venue.id).get(label)?.some(tick => tick.market.split(':')[2].split('-')[0] === label &&
+      registry.markets.get(tick.market)?.base === asset) ? asset : null
+  }
   book.refresh()
   for (const [i, v] of manifest.venues.entries()) {
     const venue = registry.venues.get(v.venue), r = reports[i]
@@ -73,7 +79,7 @@ try {
     for (const label of r.unresolved) {
       const id = chooseContract(venue.contracts.directory.get(label), tokens, registry.assets, new Map())
       if (id) r.eligible++
-      if (venue.contracts.bindings.get(label)) r.initiallyBound++
+      if (boundBase(venue, label)) r.initiallyBound++
     }
   }
   const pending = new Set(manifest.venues.flatMap(v => [...registry.venues.get(v.venue).contracts.pending]))
@@ -106,7 +112,7 @@ try {
     }
   }
   const sample = (manifest.sample ?? []).map(s => {
-    const venue = registry.venues.get(s.venue), id = registry.resolve(venue, s.label)
+    const venue = registry.venues.get(s.venue), id = boundBase(venue, s.label)
     const own = prices.find(p => p.venue === s.venue && p.label === s.label && p.asset === s.asset)
     const others = prices.filter(p => p.venue !== s.venue && p.asset === s.asset)
     return { ...s, bound: id === s.asset, symbol: registry.assets.get(s.asset)?.symbol ?? null,
@@ -114,9 +120,6 @@ try {
   })
   console.log(JSON.stringify({ at: now, digest: engine.patches.digest(), reports: reports.map(r => ({
     venue: r.venue, liveBases: r.liveBases, unresolved: r.unresolved.length, eligible: r.eligible,
-    initiallyBound: r.initiallyBound, bound: r.unresolved.filter(label => {
-      const venue = registry.venues.get(r.venue)
-      return venue.contracts.bindings.get(label) && !registry.resolve(venue, label).startsWith('unresolved:')
-    }).length,
+    initiallyBound: r.initiallyBound, bound: r.unresolved.filter(label => boundBase(registry.venues.get(r.venue), label)).length,
   })), sample }, null, 2))
 } finally { store.close() }
