@@ -372,7 +372,7 @@ export class MarketBook {
       if (median) this.marketPrices.set(id, median)
     }
     const references = new Map()
-    for (const ref of this.referenceRows.all(now - 600_000)) {
+    for (const ref of this.referenceRows.all(now - (this.referenceValidity ?? 600_000))) {
       if (!references.has(ref.asset)) references.set(ref.asset, [])
       references.get(ref.asset).push(ref)
     }

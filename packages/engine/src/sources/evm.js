@@ -15,8 +15,12 @@ const LIMITS = {
   normal: { tracked: 128, chunk: 16, seed: 256, hot: 40, hotInterval: 10_000, deepInterval: 60_000, tokens: 300, blocks: 4, period: 90_000 },
   large: { tracked: 256, chunk: 32, seed: 256, hot: 60, hotInterval: 5_000, deepInterval: 30_000, tokens: 300, blocks: 8, period: 45_000 },
 }
-// Pools per state refresh: one Multicall3 eth_call carries up to 128 reads (4 per concentrated pool).
+// Pools per state refresh: one Multicall3 eth_call carries up to 128 reads (4 per concentrated pool, 1 per V2
+// pair); a page is filled by reads, so V2-heavy chains refresh up to 128 pools per call.
 const REFRESH_POOLS = 32
+const REFRESH_CALLS = 128
+// Anchors (the deepest funded pool of each token) with this many first get the deep cadence.
+const DEEP_POOLS = 16
 // Hot seed pages of all chains together may spend this share of the profile's minute budget.
 export const SEED_SHARE = 0.25
 const seedSpend = new WeakMap()
@@ -234,15 +238,26 @@ export class EvmSource {
     this.expireSeed = db.prepare('DELETE FROM engine_seed_attempts WHERE chain=? AND retryAt<=?')
     this.assetPrice = db.prepare('SELECT priceReal,trust FROM prices WHERE asset=? AND at>=? AND priceReal>0')
     this.saveDepth = db.prepare('UPDATE pools SET liquidity=? WHERE chain=? AND pool=?')
-    this.deepest = db.prepare(`SELECT p.*,k.spacing,k.stable FROM pools p JOIN engine_market_data d
-      ON d.market='dex:'||p.chain||':'||p.pool LEFT JOIN engine_pool_parameters k USING(chain,pool)
-      WHERE p.chain=? AND d.fromHint=0 AND p.kind IN ('v2','v3','v4','pancake-v3','slipstream','velodrome-v2','solidly-v1')
-      AND p.liquidity>=? ORDER BY p.liquidity DESC,p.pool LIMIT ?`)
+    // The deepest funded pool of each token: one fresh pool keeps a token's price confirmed. The 16 deepest pools
+    // overall were mostly one token's fee tiers (BSC: USDT/WBNB), and a token's other pools waited for a rotation.
+    this.anchors = db.prepare(`WITH funded AS (SELECT p.*,k.spacing,k.stable FROM pools p JOIN engine_market_data d
+        ON d.market='dex:'||p.chain||':'||p.pool LEFT JOIN engine_pool_parameters k USING(chain,pool)
+        WHERE p.chain=? AND d.fromHint=0 AND p.kind IN ('v2','v3','v4','pancake-v3','slipstream','velodrome-v2','solidly-v1')
+        AND p.liquidity>=?),
+      sides AS (SELECT pool,token0 AS token,liquidity FROM funded UNION ALL SELECT pool,token1,liquidity FROM funded),
+      best AS (SELECT pool,row_number() OVER (PARTITION BY token ORDER BY liquidity DESC,pool) AS r FROM sides)
+      SELECT * FROM funded WHERE pool IN (SELECT pool FROM best WHERE r=1) ORDER BY liquidity DESC,pool LIMIT ?`)
     this.refreshAt = 0
     this.nextPool = 0
     this.nextDeep = 0
     this.deepAt = 0
     this.seedHot = true
+    // One-time swap look-back for funded tracked pools without a decoded swap (lookback()).
+    this.recentTrade = db.prepare('SELECT 1 FROM engine_trades WHERE market=? AND at>=? LIMIT 1')
+    this.lookbackKey = 'engine-lookback/' + chain.id
+    this.lookbackBlocks = Math.min(this.lookupRange, Math.ceil(DAY / (chain.blockTime > 0 ? chain.blockTime : 12_000)))
+    this.lookbackJob = null
+    this.lookbackAt = 0
     this.adoptQueue()
   }
   adoptQueue() {
@@ -405,6 +420,81 @@ export class EvmSource {
         (emitter ? s.emitter === emitter : e.emitter === 'pool'), to => {
         for (const p of group) this.trackCursor.run(chain, p.pool, Math.max(to, p.scanned ?? 0), this.clock())
       }, group.some(p => p.fromHint) ? this.rpc.publicOnly : this.rpc)
+    await this.lookback(tracked)
+  }
+  /** One-time swap look-back (DESIGN 5.3). A funded tracked pool's first scan starts at the chain head, so its token
+   * stayed dust until someone swapped while we watched (Polygon UNI/CRV with priced pools, 11-20). Once per pool,
+   * walk back up to a day of blocks (bundle log window), newest first in growing chunks, and enqueue only each pool's
+   * newest swap: one header decodes it. At most one call per max(15 s, hot interval); errors never fail the scan. */
+  async lookback(tracked) {
+    const chain = this.chain.id, now = this.clock()
+    if (this.lookbackAt > now) return
+    let job = this.lookbackJob
+    if (!job) {
+      const done = new Set(this.store.getSetting(this.lookbackKey) ?? [])
+      const group = [], topics = new Set()
+      let emitter
+      // Deepest first: the main pool of a token decides whether the token leaves dust.
+      for (const p of [...tracked].sort((a, b) => (b.liquidity ?? 0) - (a.liquidity ?? 0))) {
+        if (p.scanned == null || done.has(p.pool) || !(p.liquidity >= MARKET_POLICY.minPoolLiquidityUsd) ||
+            this.recentTrade.get('dex:' + chain + ':' + p.pool, now - DAY)) continue
+        const d = this.chain.deployments.find(d => d.name === p.dex && d.kind === p.kind)
+        const swaps = (d?.topics ?? []).filter(t => this.chain.events[t]?.signature.startsWith('Swap('))
+        if (!swaps.length) continue
+        const singleton = p.pool.length === 66 ? d.address : null
+        if (group.length && emitter !== singleton) continue
+        emitter = singleton
+        group.push(p)
+        for (const t of swaps) topics.add(t)
+        if (group.length === this.tradeChunk) break
+      }
+      if (!group.length) return
+      job = this.lookbackJob = { group: group.map(p => p.pool), pools: new Set(group.map(p => p.pool)), emitter,
+        topics: [...topics], to: Math.min(...group.map(p => p.scanned)), left: this.lookbackBlocks,
+        span: Math.min(this.lookbackBlocks, 4 * this.chain.range), fails: 0,
+        rpc: group.some(p => p.fromHint) ? this.rpc.publicOnly : this.rpc }
+    }
+    this.lookbackAt = now + Math.max(15_000, this.limits.hotInterval ?? this.limits.period)
+    const from = Math.max(0, job.to - job.span + 1), ids = [...job.pools]
+    let logs
+    try {
+      logs = await job.rpc.call(chain, 'eth_getLogs', [{ address: job.emitter ?? ids,
+        topics: job.emitter ? [job.topics, ids] : [job.topics], fromBlock: hex(from), toBlock: hex(job.to) }])
+      if (!Array.isArray(logs)) throw new Error('Invalid log result')
+    } catch (error) {
+      if (error instanceof RateLimited) { this.lookbackAt = Math.max(this.lookbackAt, error.retryAt ?? 0); return }
+      job.span = Math.max(1, Math.floor(job.span / 2))
+      if (++job.fails >= 3) this.finishLookback(job)
+      return
+    }
+    const newest = new Map()
+    for (const log of logs) {
+      const block = uint(log?.blockNumber), idx = uint(log?.logIndex)
+      if (block == null || block < from || block > job.to || idx == null || !/^0x[0-9a-f]{64}$/i.test(log.transactionHash))
+        continue
+      const event = this.chain.events[log.topics?.[0]]
+      if (!event || !job.topics.includes(event.topic)) continue
+      const s = decodeEvent(log, event)
+      if (!s || s.type !== 'swap' || !job.pools.has(s.pool) ||
+          (job.emitter ? s.emitter !== job.emitter : event.emitter !== 'pool')) continue
+      const prev = newest.get(s.pool)
+      if (!prev || block > prev.block || (block === prev.block && idx > prev.idx)) newest.set(s.pool, { block, idx, log })
+    }
+    this.store.transaction(() => {
+      for (const [pool, { block, idx, log }] of newest) {
+        this.enqueue.run(chain, block, idx, JSON.stringify(log))
+        job.pools.delete(pool)
+      }
+    })
+    job.left -= job.to - from + 1
+    job.to = from - 1
+    job.span = Math.min(2 * job.span, this.lookbackBlocks, 10_000)
+    if (!job.pools.size || job.left <= 0 || job.to < 0) this.finishLookback(job)
+  }
+  finishLookback(job) {
+    const done = (this.store.getSetting(this.lookbackKey) ?? []).filter(p => !job.group.includes(p))
+    this.store.setSetting(this.lookbackKey, [...done, ...job.group].slice(-1024))
+    this.lookbackJob = null
   }
   deployment(emitter, event) {
     return this.chain.deployments.find((d) => d.address === emitter.toLowerCase() && d.topics.includes(event.topic))
@@ -969,43 +1059,54 @@ export class EvmSource {
     })
     this.seedWork = null
   }
-  /** One multicall per period: half the deepest funded pools (the tracked-set size, in rotation), half the
-   * address-ordered rotation of all pools. Address order alone took 40 min on large (and hours on normal and
-   * small) to revisit BSC's 1,701 pools, so its main pools went stale between visits (11-20). */
+  /** One multicall per period (DESIGN 5.3): the token anchors (deepest funded pool per token) in rotation, then the
+   * address rotation of all pools, filled up to 128 reads. The 16 deepest anchors are also read every deepInterval.
+   * Address order alone took 40 min on large to revisit BSC's 1,701 pools (11-20); and while the deep read was due
+   * (every 60 s against a 90 s period on normal) the old deepest-pool rotation never ran, so a token's pools beyond
+   * the 16 deepest aged past their 10 min window and its price fell back to unconfirmed around minute 10. */
   async refreshState() {
-    const now = this.clock(), chain = this.chain.id
-    const limit = this.chain.multicall ? REFRESH_POOLS : 1
-    // The 16 deepest funded pools are also read every deepInterval: a top asset's market goes stale after three
-    // one-minute windows, and BSC's $31.7M USDT/USDC pool was read once in 17 min (normal run, 11-20).
-    const fixed = this.chain.multicall && this.deepAt <= now
-      ? this.deepest.all(chain, MARKET_POLICY.minPoolLiquidityUsd, limit / 2) : []
+    const now = this.clock(), chain = this.chain.id, multicall = !!this.chain.multicall
+    const anchors = multicall ? this.anchors.all(chain, MARKET_POLICY.minPoolLiquidityUsd, this.limits.tracked) : []
+    const fixed = multicall && this.deepAt <= now ? anchors.slice(0, DEEP_POOLS) : []
     if (fixed.length || this.deepAt <= now) this.deepAt = now + (this.limits.deepInterval ?? this.limits.period)
     if (this.refreshAt > now) {
       if (fixed.length) await this.readPoolState(fixed, this.rpc)
       return
     }
     if (this.coverage?.members().split) {
-      // Split: the deepest funded pools keep every node's cadence (like the shared core); the page is the slice.
+      // Split: the deepest anchors keep every node's cadence (like the shared core); the page is the slice.
       if (fixed.length) await this.readPoolState(fixed, this.rpc)
-      await this.coverage.state(this, limit)
+      await this.coverage.state(this, multicall ? REFRESH_POOLS : 1)
       this.refreshAt = this.clock() + this.limits.period
       return
     }
-    const deep = this.chain.multicall
-      ? this.deepest.all(chain, MARKET_POLICY.minPoolLiquidityUsd, this.limits.tracked) : []
-    if (this.nextDeep >= deep.length) this.nextDeep = 0
-    const rotating = deep.slice(this.nextDeep, this.nextDeep + limit / 2)
-    this.nextDeep += rotating.length
-    const picked = fixed.length ? fixed : rotating
-    const chosen = new Set(picked.map(p => p.pool))
+    const page = new Map()
+    let calls = 0
+    const add = (p, room) => {
+      if (page.has(p.pool)) return true
+      const n = multicall ? poolStateCalls({ ...p, manager: ZERO }).length : REFRESH_CALLS
+      if (page.size && calls + n > room) return false
+      page.set(p.pool, p)
+      calls += n
+      return true
+    }
+    for (const p of fixed) add(p, REFRESH_CALLS)
+    // Anchors beyond the deep set rotate through three quarters of the page, the address rotation takes the rest.
+    const rotation = anchors.slice(DEEP_POOLS)
+    if (this.nextDeep >= rotation.length) this.nextDeep = 0
+    let taken = 0
+    while (multicall && taken < rotation.length && add(rotation[(this.nextDeep + taken) % rotation.length], REFRESH_CALLS * 3 / 4))
+      taken++
+    this.nextDeep += taken
     const rest = this.store.reader.prepare(`SELECT p.*,k.spacing,k.stable FROM pools p JOIN engine_market_data d
       ON d.market='dex:'||p.chain||':'||p.pool LEFT JOIN engine_pool_parameters k USING(chain,pool)
       WHERE p.chain=? AND d.fromHint=0 AND p.kind IN
       ('v2','v3','v4','pancake-v3','slipstream','velodrome-v2','solidly-v1') ORDER BY p.pool LIMIT ? OFFSET ?`)
-      .all(chain, limit - picked.length, this.nextPool)
-    const pools = [...picked, ...rest.filter(p => !chosen.has(p.pool))]
-    if (pools.length) await this.readPoolState(pools, this.rpc)
-    this.nextPool = rest.length < limit - picked.length ? 0 : this.nextPool + rest.length
+      .all(chain, multicall ? REFRESH_CALLS : 1, this.nextPool)
+    let used = 0
+    while (used < rest.length && add(rest[used], REFRESH_CALLS)) used++
+    if (page.size) await this.readPoolState([...page.values()], this.rpc)
+    this.nextPool = used === rest.length && rest.length < (multicall ? REFRESH_CALLS : 1) ? 0 : this.nextPool + used
     this.refreshAt = this.clock() + this.limits.period
   }
   async spotCheck(market, rpc, reads = new Map()) {

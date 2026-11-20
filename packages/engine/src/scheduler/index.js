@@ -149,8 +149,9 @@ export class EndpointBucket {
 export class Scheduler {
   /** scoreTtl: reuse a market job's coverage score this long (ms); scoring every market of every job on each
    * 66 ms tick took 10% of a large node's CPU. 0 recomputes every turn. */
-  constructor({ clock = Date.now, random = Math.random, coverage, targets = TARGETS, backgroundJobs, scoreTtl = 0 }) {
-    Object.assign(this, { clock, random, coverage, scoreTtl })
+  constructor({ clock = Date.now, random = Math.random, coverage, targets = TARGETS, backgroundJobs, scoreTtl = 0,
+    scannerEvery = 8 }) {
+    Object.assign(this, { clock, random, coverage, scoreTtl, scannerEvery })
     this.backgroundJobs = backgroundJobs == null ? null : new Set(backgroundJobs)
     this.setTargets(targets)
     this.jobs = new Map()
@@ -188,7 +189,9 @@ export class Scheduler {
     // on a small node (one turn per second) Polygon's scanners got no turn in the first minutes (11-20).
     // Waiting time counts times the job's weight (chain value, hot seeding), capped at an hour so unvisited jobs
     // start in weight order: plain round robin over ~60 scanners revisited Polygon's seeder every few minutes.
-    if (this.turn % 8 === 6) {
+    // A small node ticks once a second (60 turns a minute): one in eight left 20 chains' ~60 scanners 7.5 turns a
+    // minute, so its found pools aged past their windows; it gives them one turn in four (same request budget).
+    if (this.turn % this.scannerEvery === this.scannerEvery - 2) {
       let best = null, highest = -1
       for (const job of this.jobs.values()) {
         if (job.lane !== 'scanner' || (this.backgroundJobs && !this.backgroundJobs.has(job.id))) continue

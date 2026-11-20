@@ -16,7 +16,7 @@ import { registerVenueContracts } from './sources/venue-contracts/index.js'
 import { PendingDexQuotes } from './coverage/seed-identity.js'
 import { StoredDiscoveries } from './coverage/discoveries.js'
 import { DexCoverage } from './coverage/dex.js'
-import { EvmSource } from './sources/evm.js'
+import { EvmSource, seedValue } from './sources/evm.js'
 import { SolanaCoverage } from './coverage/solana.js'
 import { checkSolanaPrice, fetchSolana } from './sources/solana.js'
 import { registerNamesJob } from './sources/metadata.js'
@@ -41,6 +41,16 @@ export const migrations = [...coreMigrations, ...patchMigrations]
 export const CONCURRENCY = Object.freeze({ small: 2, normal: 4, large: 8 })
 const REFRESH_GAP_MS = 5000
 const REFERENCE_PINNED = 8
+/** Reference-only chain deployments of top coins (Polygon WBTC: no price of its own until a pool is live) ride along
+ * in every llama request, 24 at a time from the best 192 by seed value: each is re-read every ~4 min, inside the
+ * reference validity, so the row stops flipping live/stale. Same request, same budget (11-20, WP-evmcov2). */
+const REFERENCE_ROTATING = 24
+const REFERENCE_TOP = 192
+/** A reference stays valid for one full rotation plus the 10 min a provider timestamp may already lag on arrival
+ * (at most an hour): with 10 min against a ~23 min rotation, reference-only rows went live/stale periodically. */
+export function referenceValidity(rotationMs) {
+  return Math.min(3_600_000, Math.max(600_000, rotationMs + 600_000))
+}
 export { RpcClient, Scheduler, seededRandom }
 
 /** @typedef {{endpoints?: Record<string,Array<string|object>>, requestsPerMinute?: number,
@@ -98,6 +108,7 @@ export class Engine extends EventEmitter {
     this.scheduler = new Scheduler({
       clock,
       backgroundJobs,
+      scannerEvery: profile === 'small' ? 4 : 8,
       random: typeof random === 'function' ? random : seededRandom(random),
       coverage: (id, window) => this.book.coverage(id, window),
       scoreTtl: 5000,
@@ -275,8 +286,10 @@ export class Engine extends EventEmitter {
         const assets = this.catalog.assets
           .filter((a) => a.address !== 'native' && (!jupiter || a.chain === sol?.id))
           .sort((a, b) => Number(b.stable) - Number(a.stable))
-        let cursor = 0
+        let cursor = 0, rotationStart = clock(), rotationMs = 0
         const size = source.id === 'dexscreener' ? 1 : 32
+        const general = source.id === 'llama-prices'
+        if (general) this.book.referenceValidity = referenceValidity(Math.ceil(assets.length / size) * 30000)
         if (assets.length)
           this.scheduler.add({
             id: (jupiter ? 'sol:' : 'api:') + source.id,
@@ -286,7 +299,7 @@ export class Engine extends EventEmitter {
                 source,
                 http,
                 clock,
-                assets: this.referenceBatch(assets, cursor, size, source.id === 'llama-prices'),
+                assets: this.referenceBatch(assets, cursor, size, general),
                 slot: jupiter && sol ? await this.rpc.call(sol.id, 'getSlot', []) : null,
                 slotMs: sol?.blockTime,
                 save: (...args) => {
@@ -295,6 +308,12 @@ export class Engine extends EventEmitter {
                 },
               })
               cursor = cursor + size >= assets.length ? 0 : cursor + size
+              if (general && cursor === 0) {
+                // A busy scheduler stretches the rotation; the validity follows the measured one.
+                rotationMs = clock() - rotationStart
+                rotationStart = clock()
+                this.book.referenceValidity = referenceValidity(Math.max(rotationMs, Math.ceil(assets.length / size) * 30000))
+              }
             },
           })
       }
@@ -323,7 +342,14 @@ export class Engine extends EventEmitter {
       .filter((a) => !this.registry.main.get(a.id) && !batch.includes(a))
       .sort((a, b) => (this.registry.assets.get(a.id)?.rank ?? Infinity) - (this.registry.assets.get(b.id)?.rank ?? Infinity))
       .slice(0, REFERENCE_PINNED)
-    return [...pinned, ...batch]
+    if (!this.book || !this.registry.catalog) return [...pinned, ...batch]
+    // Rotating top reference-only deployments: no own or proven price yet, ranked by own or coin/ticker rank.
+    const value = seedValue(this.registry), taken = new Set([...pinned, ...batch])
+    const top = assets.filter(a => !taken.has(a) && !(this.book.snapshots.get(a.id)?.why?.provenSources > 0))
+      .map(a => ({ a, v: value(this.registry.assets.get(a.id) ?? a) })).filter(x => x.v < Infinity)
+      .sort((x, y) => x.v - y.v || (x.a.id < y.a.id ? -1 : 1)).slice(0, REFERENCE_TOP).map(x => x.a)
+    const turn = this.referenceTurn = ((this.referenceTurn ?? -1) + 1) % Math.max(1, Math.ceil(top.length / REFERENCE_ROTATING))
+    return [...pinned, ...top.slice(turn * REFERENCE_ROTATING, (turn + 1) * REFERENCE_ROTATING), ...batch]
   }
   control(message) {
     if (!message) return

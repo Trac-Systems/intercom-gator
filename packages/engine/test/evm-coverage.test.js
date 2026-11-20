@@ -210,7 +210,7 @@ test('one turn in eight goes to the longest-waiting price scanner despite many o
 
 test('state refresh reads the deepest pools first and also runs while the decode queue is busy', async t => {
   const f = fixture(t, { profile: 'small' })
-  const pools = Array.from({ length: 40 }, (_, i) => addr(0x500 + i))
+  const pools = Array.from({ length: 200 }, (_, i) => addr(0x500 + i))
   for (const [i, pool] of pools.entries())
     f.registry.pool({ chain: 'poly', pool, token0: EARLY, token1: QUOTE, dex: 'v2', kind: 'v2', firstSeen: f.now() },
       { token0: { decimals: 18 }, token1: { decimals: 6 } })
@@ -222,7 +222,8 @@ test('state refresh reads the deepest pools first and also runs while the decode
   const read = []
   f.rpc.answer = (to, input) => { if (input === '0x0902f1ac') read.push(to); return data(0) }
   await source.scheduledState().catch(() => {})
-  assert.equal(read.length, 32, 'one multicall of 32 pools')
+  assert.equal(read.length, 128, 'one multicall filled with 128 reads (one per V2 pair)')
+  assert.equal(f.requests.filter(r => r.method === 'eth_call').length, 1)
   assert.equal(read[0], deep, 'deepest pool first although its address sorts last')
   read.length = 0
   await source.scheduledState().catch(() => {})
@@ -232,6 +233,40 @@ test('state refresh reads the deepest pools first and also runs while the decode
   assert.equal(source.stateReady(), true)
   await source.scheduledState().catch(() => {})
   assert.deepEqual(read, [deep])
+})
+
+test('each token\'s deepest funded pool is re-read within its window even while the deep read is always due', async t => {
+  const f = fixture(t, { profile: 'normal', extra: 40, tiers: [500, 3000, 10000] })
+  const anchors = [], depth = []
+  // Empty answers would zero the measured depth; keep the fixture's depths for every page.
+  const fund = () => { for (const row of depth) f.store.writer.prepare('UPDATE pools SET liquidity=? WHERE pool=?').run(...row) }
+  // 40 tokens with three concentrated pools each (fee tiers); the deepest tiers of the top tokens fill the 16
+  // deepest pools overall, so a pool-depth deep set covered only ~6 tokens.
+  for (let i = 0; i < 40; i++) {
+    const token = addr(0x100 + i)
+    for (let j = 0; j < 3; j++) {
+      const pool = addr(0x1000 + i * 4 + j)
+      f.registry.pool({ chain: 'poly', pool, token0: token, token1: QUOTE, dex: 'v3', kind: 'v3', firstSeen: f.now() },
+        { token0: { decimals: 18 }, token1: { decimals: 6 } })
+      depth.push([(1e7 - i * 1e5) / (j + 1), pool])
+      if (j === 0) anchors.push(pool)
+    }
+  }
+  const source = f.open()
+  const reads = []
+  f.rpc.answer = (to, input) => { if (input === '0x3850c7bd') reads.at(-1).push(to); return data(0) }
+  for (let turn = 0; turn < 4; turn++) {
+    fund()
+    reads.push([])
+    const calls = f.requests.length
+    await source.refreshState()
+    assert.equal(f.requests.slice(calls).filter(r => r.method === 'eth_call').length, 1, 'one multicall per page')
+    assert.equal(reads.at(-1).length, 32, '128 reads = 32 concentrated pools')
+    assert.deepEqual(reads.at(-1).slice(0, 16), anchors.slice(0, 16), 'the 16 deepest tokens every deep interval')
+    f.advance(90_000) // one period; the 60 s deep read is due at every refresh
+  }
+  const seen = new Set(reads.slice(0, 3).flat())
+  assert.deepEqual(anchors.filter(p => !seen.has(p)), [], 'every token anchor within three periods (4.5 min)')
 })
 
 test('a refused price scanner reserves a quarter of the profile budget for a minute', async () => {

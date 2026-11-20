@@ -71,8 +71,8 @@ test('one to three signers preserve the legacy seed plan, tracked pool prioritie
       page.push(...rows.map(p => 'dex:bsc:' + p.pool))
     }
     await source.refreshState()
-    // Solo page (DESIGN 5.3): the 16 deepest funded pools on their own cadence, then the address rotation.
-    assert.deepEqual(page, [...ids.slice(0, 16), ...(n > 1 ? ids.slice(16 * (n - 1), 16 * n) : [])])
+    // Solo page (DESIGN 5.3): the token anchors (here one pool), then the address rotation up to 128 reads.
+    assert.deepEqual(page, ids)
   }
   peer(4)
   advance(60_000)
