@@ -28,8 +28,8 @@ export class TonClient extends FamilyClient {
     return json.result.exit_code === 0 || json.result.exit_code === 1 ? json.result.stack : null
   }
   token(address) { return this.request('/getTokenData?address=' + encodeURIComponent(address)) }
-  transactions(address, from) {
-    const q = new URLSearchParams({ address, limit: String(PAGE), archival: 'false' })
+  transactions(address, from, archival = false) {
+    const q = new URLSearchParams({ address, limit: String(PAGE), archival: String(archival) })
     if (from) { q.set('lt', from.lt); q.set('hash', from.hash) }
     return this.request('/getTransactions?' + q)
   }
@@ -61,7 +61,7 @@ export class TonSource extends FamilyDex {
     this.client = client
     this.turn = 0
     this.tasks = [() => this.state(), () => this.verify(), () => this.pairs(), () => this.state(),
-      () => this.factory(), () => this.verify(), () => this.meta()]
+      () => this.factory(), () => this.verify(), () => this.meta(), () => this.history()]
     this.tokenRows = engine.store.writer.prepare(`SELECT token0 AS t FROM engine_family_candidates WHERE chain='ton' AND stage=1 AND funded=1
       UNION SELECT token1 FROM engine_family_candidates WHERE chain='ton' AND stage=1 AND funded=1`)
     this.needMeta = engine.store.writer.prepare(`SELECT token0, token1 FROM engine_family_candidates WHERE chain='ton' AND stage=1 AND due<=?
@@ -148,13 +148,43 @@ export class TonSource extends FamilyDex {
       const more = fresh.length === txs.length && txs.length === PAGE
       if (cursor.back) {
         this.save('factory', more ? { ...cursor, back: { lt: oldest.lt, hash: oldest.hash } } :
-          { top: cursor.top, back: null, stopAt: cursor.top, next: now + 3 * MINUTE })
+          { top: cursor.top, back: null, stopAt: cursor.top, next: now + 3 * MINUTE, bottom: cursor.bottom })
       } else {
         const top = newest && BigInt(newest) > BigInt(cursor.top) ? newest : cursor.top
         // A busy factory produced more than one page since the last poll: page back to the previous top.
-        this.save('factory', more && cursor.top !== '0' ? { top, back: { lt: oldest.lt, hash: oldest.hash }, stopAt: cursor.top } :
-          { top, back: null, stopAt: top, next: now + 3 * MINUTE })
+        const bottom = cursor.bottom ?? (oldest && { lt: oldest.lt, hash: oldest.hash })
+        this.save('factory', more && cursor.top !== '0' ? { top, back: { lt: oldest.lt, hash: oldest.hash }, stopAt: cursor.top, bottom } :
+          { top, back: null, stopAt: top, next: now + 3 * MINUTE, bottom })
       }
+    })
+    return true
+  }
+  /**
+   * Older DeDust creations, newest first from below the live scan's first page, on spare turns: only while the
+   * verification queue is short. Each page commits with its candidates; a short page ends the backfill for a week.
+   */
+  async history() {
+    const now = this.engine.clock()
+    const live = this.setting('factory'), cursor = this.setting('factory-history') ?? {}
+    if (!live?.bottom || cursor.next > now || this.count.get('ton', now).n >= 8) return false
+    const from = cursor.from ?? live.bottom
+    const json = await this.client.transactions(DEDUST_FACTORY, from, true)
+    if (json?.ok !== true || !Array.isArray(json.result)) throw new Error('toncenter transactions failed')
+    const txs = json.result.filter(tx => /^\d{1,20}$/.test(tx?.transaction_id?.lt ?? '') && Number.isSafeInteger(tx.utime) &&
+      BigInt(tx.transaction_id.lt) <= BigInt(from.lt))
+    this.engine.store.transaction(() => {
+      for (const tx of txs) {
+        for (const m of tx.out_msgs ?? []) {
+          const ref = tonAddress(m?.destination)
+          if (!ref || ref === tonAddress(tx.in_msg?.source)) continue
+          this.remember({ pool: poolKey(ref), ref, dex: 'dedust', kind: 'v2', firstSeen: Math.min(tx.utime * 1000, now), extra: {} })
+        }
+      }
+      const oldest = txs.at(-1)?.transaction_id
+      // toncenter repeats the starting transaction; a page with nothing older ends the walk.
+      const older = oldest && BigInt(oldest.lt) < BigInt(from.lt)
+      this.save('factory-history', older && json.result.length === PAGE ? { from: { lt: oldest.lt, hash: oldest.hash }, pages: (cursor.pages ?? 0) + 1 } :
+        { from: null, pages: cursor.pages ?? 0, next: now + 7 * DAY })
     })
     return true
   }

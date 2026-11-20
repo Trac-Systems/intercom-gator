@@ -177,6 +177,15 @@ test('DeDust factory transactions queue fresh creations, resume from the stored 
     assert.ok(rows.every(r => r.isNew === 1 && r.firstSeen <= n.now))
     const cursor = store.getSetting('engine-ton/factory')
     assert.equal(cursor.top, page[0].transaction_id.lt)
+    assert.equal(cursor.bottom.lt, page.at(-1).transaction_id.lt)
+    // The history backfill waits while the verification queue is long, then walks below the first page.
+    store.writer.prepare("UPDATE engine_family_candidates SET due=? WHERE chain='ton'").run(n.now + 60 * minute)
+    assert.equal(await n.step(() => n.source.history()), true)
+    const walk = n.calls.at(-1)
+    assert.equal(walk.pathname, '/api/v2/getTransactions')
+    assert.equal(store.getSetting('engine-ton/factory-history').next > n.now + 6 * 86_400_000, true) // short page: done
+    assert.equal(await n.step(() => n.source.history()), false)
+    store.writer.prepare("UPDATE engine_family_candidates SET due=0 WHERE chain='ton'").run()
     assert.equal(await n.step(() => n.source.factory()), false) // polled again only after three minutes
     await n.stop()
     const again = await node(t, store)
