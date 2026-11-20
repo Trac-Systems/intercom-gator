@@ -90,6 +90,16 @@ test('within one market, a peer read minutes before ours is not a disagreement, 
   assert.equal(trust(pair(102.1, 300_000)).trust, 'red', 'any reporter more than 3% away still counts for red')
 })
 
+test('a thin market whose reporters disagree does not turn a widely traded asset yellow, a heavy one does', () => {
+  // T sits in the middle of the price range, so it stays in the core; only its own reporters disagree.
+  const split = (prices, volume) => market('T', 'coin', 'fiat:USD', prices, ['7', '8', '9'], volume)
+  const heavy = [market('A', 'coin', 'fiat:USD', 100.2, ['1', '2', '3'], 50_000), market('B', 'coin', 'fiat:USD', 101, ['4', '5', '6'], 50_000)]
+  const trust = (t) => aggregateAssets(assets, [...heavy, t], now).get('coin').trust
+  assert.equal(trust(split([100, 100.6, 101.36], 100)), 'green', 'was yellow: 1.36% between reads of a market with 0.1% of the volume')
+  assert.equal(trust(split([100, 100.6, 101.36], 50_000)), 'yellow')
+  assert.equal(trust(split([98, 100.6, 103.5], 100)), 'red', 'a thin market more than 3% apart still turns it red')
+})
+
 test('two venues read in the same second 1.2% apart are yellow', () => {
   const result = aggregateAssets(assets, [
     market('A', 'coin', 'fiat:USD', 100, ['1', '2', '3'], 500, 800),

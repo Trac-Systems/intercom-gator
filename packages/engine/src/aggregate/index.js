@@ -79,6 +79,8 @@ function capVenues(entries, weights) {
  * peer spot check: a 1.5% move in a few minutes made reads minutes apart look like disagreement (ETH yellow on a calm
  * market, owner node 11-20). The 3% (red) line still compares every core and reporter price. */
 export const ALIGN_MS = 30_000
+/** Share of the core weight from which one market's internal spread can decide the 1% line. */
+const MATERIAL_SHARE = 0.01
 
 /** rows contains the latest sample per distinct, eligible reporter for this market. */
 export function marketMedian(market, rows, now) {
@@ -213,6 +215,9 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
   const record = split && describeSplit(split, new Set(current), price)
   if (record) collisions?.set(asset.id, record)
   const core = coreEntries(used, capped)
+  // A thin market's own reporter or quote-path spread (its last trade jumps between two reads) does not decide the 1%
+  // line for the whole asset (Gate ETH/USD1 kept ETH yellow, owner node 11-20); it still counts toward red.
+  const coreTotal = used.reduce((sum, e, i) => (core.has(e) ? sum + capped[i].weight : sum), 0)
   const coreQuotes = []
   const agents = new Set(),
     provenAgents = new Set(),
@@ -250,7 +255,8 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
       if (market.ownFresh) ownSources.add(source)
     }
     fullSpread = Math.max(fullSpread, market.spread, fxSpread)
-    alignedSpread = Math.max(alignedSpread, market.alignedSpread ?? market.spread, fxSpread)
+    if (!(coreTotal > 0) || capped[i].weight >= MATERIAL_SHARE * coreTotal)
+      alignedSpread = Math.max(alignedSpread, market.alignedSpread ?? market.spread, fxSpread)
     low = Math.min(low, usd)
     high = Math.max(high, usd)
     if (proven) [provenLow, provenHigh] = [Math.min(provenLow, usd), Math.max(provenHigh, usd)]
