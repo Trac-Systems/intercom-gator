@@ -283,3 +283,19 @@ test('an address-only pool placeholder needs verification and a confirmed split 
   assert.equal(f.registry.markets.get(q).quote, 'unresolved:gate:LOCALX')
   assert.equal(prices.get(q).quote, 'unresolved:gate:LOCALX')
 })
+
+test('CEX.IO accepts its current public ticker spelling and keeps the resulting listing local', async t => {
+  const { engine, registry } = await setup(t)
+  registry.registerToken('ethereum', A, { decimals: 18 })
+  const jobs = engine.scheduler.jobs
+  engine.http.getPublic = async (url, rpm, cost, body) => {
+    assert.deepEqual(body, {})
+    if (url.endsWith('/get_processing_info')) return { ok: 'ok', data: { LOCALX: { blockchains: { ethereum: { contract: A } } } } }
+    assert.ok(url.endsWith('/get_ticker'))
+    return { ok: 'ok', data: { 'LOCALX-USD': { last: '2', volume: '100', bestBid: '1.99', bestAsk: '2.01' } } }
+  }
+  await jobs.get('cex:cex-io:contracts').run()
+  await jobs.get('cex:cex-io').run()
+  assert.equal(registry.markets.get('cex:cex-io:LOCALX-USD').base, ID)
+  assert.ok(!JSON.stringify(engine.transport.sent).includes('cex:cex-io:'))
+})

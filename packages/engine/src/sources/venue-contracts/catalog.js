@@ -10,6 +10,7 @@ const directories = new Map(Object.entries({
   kucoin:   { path: '/api/v3/currencies', list: 'data', code: '200000', cost: 3, label: 'currency', networks: 'chains', chain: 'chainId', address: 'contractAddress' },
   htx:      { path: '/v2/reference/currencies', list: 'data', code: 200, label: 'currency', networks: 'chains', chain: 'baseChain', address: 'contractAddress' },
   hitbtc:   { path: '/api/3/public/currency', keyed: true, networks: 'networks', chain: 'network', address: 'contract_address' },
+  'cex-io': { path: '/api/spot/rest-public/get_processing_info', cost: 10, body: {}, list: 'data', keyed: true, networks: 'blockchains' },
   poloniex: { path: '/v2/currencies', label: 'coin', networks: 'networkList', chain: 'blockchain', address: 'contractAddress' },
   backpack: { path: '/api/v1/assets', label: 'symbol', networks: 'tokens', chain: 'blockchain', address: 'contractAddress' },
   coinbase: { path: 'https://api.exchange.coinbase.com/currencies', label: 'id', networks: 'supported_networks', chain: 'id', address: 'contract_address' },
@@ -23,7 +24,7 @@ export function directoryFor(venue) {
 // Exact network identifiers only. A generic token standard on another L1 and an explorer/deposit URL are not chain IDs.
 const aliases = {
   ethereum: ['ETH', 'ETHEREUM', 'ERC20', 'ERC-20'],
-  bsc: ['BSC', 'BNB SMART CHAIN', 'BEP20', 'BEP20(BSC)'],
+  bsc: ['BSC', 'BNB SMART CHAIN', 'BINANCESMARTCHAIN', 'BEP20', 'BEP20(BSC)'],
   arbitrum: ['ARBITRUM', 'ARBITRUM ONE', 'ARBITRUMONE', 'ARB', 'ARBEVM', 'ETHARB'],
   optimism: ['OP', 'OPTIMISM', 'OPETH', 'ETHOP'],
   base: ['BASE', 'BASEEVM', 'ETHBASE'],
@@ -68,6 +69,7 @@ export function currencyContracts(venue, json, chains) {
   const spec = directoryFor(venue)
   const list = spec.list ? json?.[spec.list] : json
   if ((spec.code != null && json?.code !== spec.code) || (venue.id === 'xt' && json?.rc !== 0) ||
+      (venue.id === 'cex-io' && json?.ok !== 'ok') ||
       (spec.keyed ? !list || typeof list !== 'object' || Array.isArray(list) : !Array.isArray(list)))
     throw new Error('Invalid currency directory for ' + venue.id)
   const rows = Object.entries(list)
@@ -77,8 +79,15 @@ export function currencyContracts(venue, json, chains) {
     const raw = spec.keyed ? key : row?.[spec.label]
     if (typeof raw !== 'string' || !symbolPattern.test(raw.toUpperCase())) continue
     const label = venue.format?.aliases?.[raw.toUpperCase()] ?? raw.toUpperCase()
-    const hyper = venue.id === 'hyperliquid-spot'
-    const networks = hyper ? [{ chain: 'HYPEREVM', address: row?.evmContract?.address }] : row?.[spec.networks]
+    let networks = row?.[spec.networks]
+    if (venue.id === 'hyperliquid-spot') networks = [{ chain: 'HYPEREVM', address: row?.evmContract?.address }]
+    if (venue.id === 'cex-io') {
+      const entries = networks && typeof networks === 'object' && !Array.isArray(networks) ? Object.entries(networks) : []
+      networks = entries.map(([name, net]) => ({
+        chain: name === 'avalanche' && net?.type === 'ERC20' ? 'AVAXC' : name,
+        address: net?.contract,
+      }))
+    }
     const ids = new Map()
     let conflict = false, hasAddress = false
     const inactive = row?.delisted === true || row?.trade_disabled === true || row?.tradeEnable === false ||

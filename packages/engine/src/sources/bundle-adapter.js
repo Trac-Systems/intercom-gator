@@ -410,6 +410,8 @@ export function* tickerRecords(venue, json) {
       entry?.pair[0] ?? field(fields.base),
       entry?.pair[1] ?? field(fields.quote)
     )
+    // CEX.IO's public bulk ticker also spells lastTradePrice as last.
+    const tradedPrice = field(fields.price) ?? (venue.id === 'cex-io' ? row.last : null)
     yield {
       raw,
       row,
@@ -419,8 +421,8 @@ export function* tickerRecords(venue, json) {
       funding: field(funding?.field),
       openInterest: field(interest?.field),
       // Some feeds omit the trade price on quiet markets; the bundle names an indicative fallback.
-      price: field(fields.price) ?? field(fields.referencePrice),
-      dayRatio: dayRatio(fields, field, field(fields.price)),
+      price: tradedPrice ?? field(fields.referencePrice),
+      dayRatio: dayRatio(fields, field, tradedPrice),
       baseVolume: field(fields.baseVolume?.replace('{base}', pair?.[0].toLowerCase())),
       quoteVolume: field(fields.quoteVolume?.replace('{quote}', pair?.[1].toLowerCase())),
       usdVolume: field(fields.usdVolume),

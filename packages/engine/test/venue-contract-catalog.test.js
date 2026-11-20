@@ -30,6 +30,7 @@ test('bulk venue schemas read contract fields only, including the HyperEVM link 
     ['htx', { code: 200, data: [{ currency: 'x', chains: [{ baseChain: 'ETH', contractAddress: eth }] }] }, 'ethereum'],
     ['poloniex', [{ coin: 'X', networkList: [{ blockchain: 'ETH', contractAddress: eth }] }], 'ethereum'],
     ['hitbtc', { X: { networks: [{ network: 'ETH', contract_address: eth }] } }, 'ethereum'],
+    ['cex-io', { ok: 'ok', data: { X: { blockchains: { ethereum: { contract: eth } } } } }, 'ethereum'],
     ['backpack', [{ symbol: 'X', tokens: [{ blockchain: 'Ethereum', contractAddress: eth }] }], 'ethereum'],
     ['xt', { rc: 0, result: [{ currency: 'x', supportChains: [{ chain: 'Ethereum', contract: eth }] }] }, 'ethereum'],
     ['coinbase', [{ id: 'X', status: 'online', supported_networks: [{ id: 'ethereum', contract_address: eth }] }], 'ethereum'],
