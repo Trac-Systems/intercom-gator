@@ -696,6 +696,61 @@ chain receive regular announced-pool pricing, with depth and pool ID breaking ti
 reporter can supply a yellow tail observation under the existing rules. A v0.1.0 receiver can
 verify the same creation record with its original verifier.
 
+#### TON and NEAR DEX readers
+
+`ton:dex` and `near:ref` are one budgeted scheduler job each (`sources/ton/`, `sources/near/`, shared queue and
+pricing in `sources/family-dex.js`). Both keep their candidates in `engine_family_candidates` keyed by chain and
+market key, with the venue's own pool reference, a verification stage, the next due time and resumable step state.
+Market IDs are `dex:ton:0x<account hash>` (basechain pools) and `dex:near:0x<first 24 bytes of
+sha256("v2.ref-finance.near")><pool id as u64>` (invertible for a future hint check), so the existing v1 `obs` pattern
+accepts them. Registry asset IDs keep each chain's own spelling: TON jetton masters in mainnet bounceable form
+(`ton:EQ…`, as in the signed data) and NEAR account IDs (`near:usdt.tether-token.near`). STON.fi proxy-TON (pTON v1
+and v2.1) and `wrap.near` resolve to the native assets. Contract addresses ship in reader code under the release data
+rule (§5.4). No signed file changes.
+
+TON reads go through toncenter v2 get-methods (`runGetMethod`, `getTokenData`, `getTransactions`) on the signed
+`toncenter-v2` endpoint: 6, 12 or 20 requests/minute for small, normal or large profiles, at most one twelfth of a
+lowered node budget, inside a shared host bucket at half the documented 1 request/s. Candidates come from three
+places. First, deterministic DeDust factory `get_pool_address(volatile, a, b)` lookups for signed TON assets and
+funded discovered jettons against TON and USDT (repeated every six hours). Second, STON.fi's keyless per-pair
+directory `GET api.ston.fi/v1/pools/by_market/<a>/<b>`, which has unclear terms, so its rows only supply addresses:
+only pools on a router listed in code, at most eight per pair, skipping rows whose own TVL is under $5k. Third, the
+DeDust factory's recent transactions (16 per page, durable top `lt`, paging back after a busy interval), whose
+outgoing messages name deployed pools. On spare turns, while fewer than eight candidates wait, a second cursor walks
+older factory transactions (`archival=true`) below the live scan's first page. The DEXes' full pool lists (5–36 MB, no
+paging or ranking) are not used. A candidate is proven one get-method per turn, with progress kept in the row. A
+DeDust pool needs `get_assets` plus the factory recomputing the same address (stable-curve pools are skipped). A
+STON.fi pool needs `get_pool_data`, the router's own `get_pool_address(wallet0, wallet1)`, and `get_wallet_data` on
+both pool wallets showing the router as owner and the jetton masters. Verified pools then cost one reserves read
+(`get_reserves` / `get_pool_data`) per refresh, spread so the funded set fits the share. Jetton name, symbol and
+decimals come only from on-chain TEP-64 content (decimals default to 9). Off-chain metadata URIs are not fetched, and
+such jettons keep their address as label. A pool with one unnamed jetton is first measured on its priced side, so
+metadata is read only for pools that reach the depth floor. Seeds and directory rows alternate with fresh factory
+creations in the verification queue. Accounts that were never deployed answer exit code −13 and wait a day.
+
+NEAR reads use `query/call_function` at `final` finality, rotated over the three signed `near-jsonrpc` endpoints (4,
+10 or 15 requests/minute by profile, each host in its own bucket). The rotation also serves as fallback: no extension
+host is needed. Ref Finance v2 `get_pools` pages 250 pools per call from a durable index. A complete pass records the
+pool count as the tail, which is polled every two minutes. Pools appended there are fresh creations, and only those
+enter the local New list. A full pass repeats after six hours, or after two minutes when it ran before NEAR had a USD
+price. Two-token `SIMPLE_POOL`s are queued when a side with known decimals and a USD price shows $10,000 of two-sided
+depth. Stable and rated pools are not priced. `ft_metadata` supplies NEP-141 identity, and `get_pool_by_ids` refreshes
+up to 48 queued pools per call, checking that the contract's token list still matches. Ref DCL `list_pools` exceeds
+the view gas limit and is not read. Turnover comes from `get_pool_volumes`, Ref's cumulative swap amounts keyed by
+input token: entry i holds token i paid in and the other token paid out. Base turnover is the growth of the base
+token's `input` plus the quote's `output` between samples at least 15 minutes apart, kept for 24 hours. A younger
+window is a lower bound. TON pools expose no cumulative counter, so TON rows carry zero measured turnover, and dust
+rules can keep their DEX-only assets off ranked lists.
+
+Admission uses the ordinary $10,000 two-sided depth floor. USD conversion, outlier, dust and trust rules are
+unchanged. Readers value the depth of a side through the local price table, with USDT (and USDC on NEAR) anchored at
+$1 before their first price. Prices go out on the ordinary `gator/px` shard. Discoveries stay local:
+`engine.discovery` never sends TON/NEAR `pool` records, and the receiving engine drops peer `pool` records for these
+chains before scoring. No receiver-side check exists yet; both market keys are invertible, so a later release can
+verify hints (TON: `get_assets` and a factory or router recompute; NEAR: `get_pool_by_ids`) without changing market
+IDs. Unmodified v0.1.0 and v0.1.3 nodes drop both the prices and such records before scoring the sender (archived
+receiver test).
+
 #### Recent pool history on join
 
 An EVM node starts one catch-up pass on first use and after six hours offline. It records its last connected time

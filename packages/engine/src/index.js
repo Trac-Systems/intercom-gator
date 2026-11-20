@@ -18,9 +18,13 @@ import { PendingDexQuotes } from './coverage/seed-identity.js'
 import { StoredDiscoveries } from './coverage/discoveries.js'
 import { FactoryBackfill } from './coverage/backfill.js'
 import { DexCoverage } from './coverage/dex.js'
+import { dexJobs } from './sources/dex-jobs.js'
 import { registerMove } from './sources/move/source.js'
 import { assetAddress, moveChain } from './sources/move/identity.js'
 import { registerTron } from './sources/tron/source.js'
+import { registerTon } from './sources/ton/source.js'
+import { registerNear } from './sources/near/source.js'
+import { LOCAL_POOL_CHAINS } from './sources/family-tokens.js'
 import { EvmSource, seedValue } from './sources/evm.js'
 import { SolanaCoverage } from './coverage/solana.js'
 import { checkSolanaPrice, fetchSolana } from './sources/solana.js'
@@ -106,8 +110,7 @@ export class Engine extends EventEmitter {
       onDisagreement: id => {
         const market = this.registry.markets.get(id)
         const job = market.kind === 'cex' ? 'cex:' + market.exchange :
-          market.chain === 'tron' ? 'tron:sunswap' : moveChain(market.chain) ? market.chain + ':pools' :
-          this.evm.has(market.chain) ? 'evm:' + market.chain + ':state' : 'sol:' + market.exchange
+          dexJobs.get(market.chain)?.id ?? (this.evm.has(market.chain) ? 'evm:' + market.chain + ':state' : 'sol:' + market.exchange)
         this.scheduler.requestSpotCheck(job, id)
       },
     })
@@ -255,6 +258,9 @@ export class Engine extends EventEmitter {
     }
     this.hints.tron = this.tron = registerTron(this)
     this.hints.move = this.move = registerMove(this)
+    // TON and NEAR pools share prices on gator/px; their discoveries stay local (no hint verifier for these families).
+    this.ton = registerTon(this)
+    this.near = registerNear(this)
     const sol = this.catalog.chains.find((c) => c.family === 'solana')
     this.solanaReaders = new Map()
     for (const source of this.catalog.apis) {
@@ -447,9 +453,10 @@ export class Engine extends EventEmitter {
       : { t: 'listing', v: 1, exchange, symbol, firstSeen }
     if (pool) this.pendingDexQuotes.flush('dex:' + chain + ':' + pool)
     this.emit('discovery', msg, data.firstSeen, fromHint, historyReporter)
-    if (historyReporter && chain !== 'tron' && !moveChain(chain)) return
+    const needsReceipt = chain === 'tron' || moveChain(chain)
+    if (historyReporter && !needsReceipt) return
     const archivedHint = pool && fromHint && this.evm.has(chain) && firstSeen < this.clock() - 7 * 86400_000
-    const share = pool ? (chain !== 'tron' && !moveChain(chain)) || !!tx : this.registry.venues.get(exchange)?.publishMarketData
+    const share = pool ? !LOCAL_POOL_CHAINS.has(chain) && (!needsReceipt || !!tx) : this.registry.venues.get(exchange)?.publishMarketData
     if (share && !historyReporter && !archivedHint) this.transport.send('gator/new', msg)
     if (pool) for (const address of [token0, token1]) {
       const id = chain + ':' + (moveChain(chain) ? assetAddress(chain, address) : address)

@@ -29,5 +29,6 @@ export class LocalTransport extends EventEmitter {
   channels() { return [] }
   async join() { return true }
   async leave() { return true }
-  send() { return true }
+  sent = []
+  send(ch, msg) { this.sent.push({ ch, msg }); return true }
 }
