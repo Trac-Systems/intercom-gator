@@ -7,6 +7,7 @@ function score(market, reporter) {
 
 export class ReporterSlice {
   constructor(own, reporters) {
+    this.scores = new Map()
     this.own = own
     this.peers = [...new Set(reporters)].filter(key => key !== own).sort()
     this.size = 1 + this.peers.length
@@ -17,6 +18,15 @@ export class ReporterSlice {
 
   /** Null outside our top-k. Remaining reporters cannot affect the answer once k outrank us. */
   priority(market) {
+    if (this.scores.has(market)) return this.scores.get(market)
+    const priority = this.#rank(market)
+    // Bound the memo even when a large directory keeps discovering pools.
+    if (this.scores.size >= 16_384) this.scores.clear()
+    this.scores.set(market, priority)
+    return priority
+  }
+
+  #rank(market) {
     const mine = score(market, this.own)
     let ahead = 0
     for (const key of this.peers) {
@@ -26,6 +36,15 @@ export class ReporterSlice {
       }
     }
     return mine
+  }
+
+  /** Before a pool has an address, its canonical currency pair is the assignment key. Recheck a small
+   * rotating sample of other pairs for mixed-version networks and nodes with different inventories. */
+  seedPairs(chain, pairs, now) {
+    const { core, tail, rest } = this.partition(pairs, p => ['seed', chain, ...p].join(':'), 1)
+    const count = Math.ceil(Math.max(1, tail.length) / 16)
+    const epoch = Math.floor(now / (6 * 3_600_000))
+    return core.concat(tail, take(rest, score(chain, this.own) % Math.max(1, rest.length) + epoch * count, count))
   }
 
   /** Input is in local relevance order. Core/pins overlap. Start the tail with our strongest assignments. */
@@ -78,6 +97,6 @@ export function nextPoolPage(plan, limit, cursor = {}, covered = () => false) {
 
 /** Keep a bounded active trade set, rotating the tail each hour. Old per-pool block cursors remain valid. */
 export function trackedPools({ core, tail }, limit, hour) {
-  const head = take(core, 0, tail.length ? Math.min(limit - 1, Math.max(4, limit >> 2)) : limit)
+  const head = core.slice(0, tail.length ? limit - 1 : limit)
   return head.concat(take(tail, hour * (limit - head.length), limit - head.length))
 }

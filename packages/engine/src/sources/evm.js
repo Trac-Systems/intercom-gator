@@ -71,13 +71,8 @@ export function seedPlan(source) {
     }
   }
   const methods = chain.deployments.flatMap(d => variants(d).map(args => ({ d, args })))
-  let ordered = [...pairs.values()]
-  if (roster?.split) {
-    // Before a factory lookup there is no pool address. Assign its canonical currency pair across all factories.
-    const { core, tail, rest } = roster.partition(ordered, p => ['seed', chain.id, ...p].join(':'), 1)
-    ordered = core.concat(tail, rest) // Complete the ordinary identity-discovery pass, including state-only pools.
-  }
-  return { pairs: ordered, methods }
+  const ordered = [...pairs.values()]
+  return { pairs: roster?.split ? roster.seedPairs(chain.id, ordered, source.clock()) : ordered, methods }
 }
 
 function probe(pair, method) {
@@ -94,6 +89,14 @@ function probe(pair, method) {
     candidate.call = { to: d.address, data: args[0] + word(a) + word(b) + (args.length > 1 ? word(args[1]) : '') }
   }
   return candidate
+}
+
+/** Regenerate only the signed factory's supported methods for a claimed seed pair. */
+export function seedProbesFor(source, { dex, kind, token0, token1, pool }) {
+  const pair = [token0 === 'native' ? ZERO : token0, token1]
+  return source.chain.deployments.filter(d => d.name === dex && d.kind === kind)
+    .flatMap(d => variants(d).map(args => probe(pair, { d, args })))
+    .filter(p => p && (kind !== 'v4' || p.pool === pool))
 }
 
 /** A successful log scan advances a durable cursor atomically with its decode queue. */
@@ -847,8 +850,10 @@ export class EvmSource {
           }
         }
       })
-      // There is no creation transaction for a state discovery. Publish the price, never a fabricated pool hint.
-      if (rows.length) this.publish(rows)
+      if (rows.length) {
+        this.coverage?.announceSeeds(this, rows)
+        this.publish(rows)
+      }
     }
     this.store.transaction(() => {
       for (const p of batch) this.cacheSeed.run(chain, p.key, now + (retry.get(p.key) ?? 6 * 3600_000))
@@ -927,6 +932,7 @@ export class EvmSource {
         this.saveDepth.run(state.empty ? 0 : state.liquidity, p.chain, p.pool)
       if (!state.empty) rows.push(this.stateRow(m, state.price, at))
     }
+    this.coverage?.announceSeeds(this, rows)
     this.publish(rows)
   }
 }

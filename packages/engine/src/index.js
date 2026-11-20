@@ -12,6 +12,7 @@ import { CATCHUP_JOB, PoolCatchup, POOL_CHANNEL } from './intel/pool-catchup.js'
 import { HttpSources } from './sources/http.js'
 import { derivativeJobs } from './sources/derivatives.js'
 import { fetchTickers, loadNextSymbol } from './sources/cex.js'
+import { PendingDexQuotes } from './coverage/seed-identity.js'
 import { DexCoverage } from './coverage/dex.js'
 import { EvmSource } from './sources/evm.js'
 import { SolanaCoverage } from './coverage/solana.js'
@@ -131,6 +132,7 @@ export class Engine extends EventEmitter {
     })
     this.queries = new Queries(this)
     this.dexCoverage = new DexCoverage(this)
+    this.pendingDexQuotes = new PendingDexQuotes(this)
     this.evm = new Map()
     this.hints = new PoolHints({ book: this.book, clock, evm: this.evm, registry: this.registry,
       rpc: this.rpc.publicOnly, http: this.http, catalog: this.catalog, onConfirmed: pool => this.discovery(pool, true) })
@@ -359,14 +361,16 @@ export class Engine extends EventEmitter {
     )
       this.emit('listingHint', { exchange: msg.exchange, symbol: msg.symbol })
   }
-  verifyHint() {
-    return this.hints.verifyNext()
+  async verifyHint() {
+    await this.hints.verifyNext()
+    this.pendingDexQuotes.flush()
   }
   discovery(data, fromHint = false, historyReporter) {
     const { pool, chain, dex, kind, token0, token1, block, tx, exchange, symbol, firstSeen } = data
     const msg = pool
       ? { t: 'pool', v: 1, chain, pool, dex, kind, token0, token1, block: block ?? null, tx: tx ?? null }
       : { t: 'listing', v: 1, exchange, symbol, firstSeen }
+    if (pool) this.pendingDexQuotes.flush('dex:' + chain + ':' + pool)
     this.emit('discovery', msg, data.firstSeen, fromHint, historyReporter)
     if (historyReporter) return
     if (pool || this.registry.venues.get(exchange)?.publishMarketData) this.transport.send('gator/new', msg)
@@ -401,6 +405,7 @@ export class Engine extends EventEmitter {
       clock: this.clock,
       muted: (k) => this.book.muted(k),
       accepts: (r) => !!this.registry.known(r[0]),
+      onUnknown: (key, rows, digest) => this.pendingDexQuotes.remember(key, rows, digest),
       canPublish: ([id]) => {
         const [kind, venue] = id.split(':', 2)
         return kind !== 'cex' || this.registry.venues.get(venue)?.publishMarketData

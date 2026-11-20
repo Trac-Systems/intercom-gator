@@ -1,3 +1,4 @@
+import { seedPair } from './seed-identity.js'
 import { ReporterSlice, nextPoolPage, trackedPools } from './split.js'
 import { STATE_KINDS } from '../sources/evm-abi.js'
 import { PROVEN } from '../aggregate/book.js'
@@ -26,6 +27,8 @@ export class DexCoverage {
       WHERE d.market>? AND d.market<'dex;' AND d.fromHint=1 ORDER BY d.market LIMIT 1`)
     this.scan = db.prepare('SELECT block AS scanned,polled FROM engine_pool_scans WHERE chain=? AND pool=?')
     this.plans = new Map()
+    this.announced = new Map()
+    this.announcementAt = -Infinity
     this.checkAt = -Infinity
   }
 
@@ -33,10 +36,31 @@ export class DexCoverage {
     const now = this.engine.clock()
     if (now >= this.checkAt) {
       const members = this.reporters.all(PROVEN, now - 30 * MINUTE, now).map(r => r.reporter)
-      this.slice = new ReporterSlice(this.engine.transport.publicKey, members)
+      const next = new ReporterSlice(this.engine.transport.publicKey, members)
+      if (!this.slice || this.slice.version !== next.version || !next.split) this.slice = next
       this.checkAt = now + MINUTE
     }
     return this.slice
+  }
+
+  /** Give cold receivers the signed-pair preimage of an independently seeded pool. The hourly cooldown,
+   * one send per 15 seconds and the bounded map apply across all chains and both state and seed batches. */
+  announceSeeds(source, rows) {
+    const { transport, clock } = this.engine, now = clock()
+    if (now < this.announcementAt || !this.members().split) return
+    for (const [id] of rows) {
+      if ((this.announced.get(id) ?? -Infinity) > now - HOUR) continue
+      const p = source.poolInfo.get(source.chain.id, id.split(':')[2])
+      if (!p || p.fromHint || p.tx || !seedPair(source, p)) continue
+      const { chain, pool, dex, kind, token0, token1 } = p
+      this.announcementAt = now + 15_000
+      if (transport.send('gator/new', { t: 'pool', v: 1, chain, pool, dex, kind, token0, token1, block: null, tx: null })) {
+        this.announced.delete(id)
+        if (this.announced.size >= 256) this.announced.delete(this.announced.keys().next().value)
+        this.announced.set(id, now)
+      }
+      break
+    }
   }
 
   /** Small networks keep all existing priorities. Use a spare scheduler slot for verified remote discoveries. */
@@ -69,8 +93,11 @@ export class DexCoverage {
     let cached = this.plans.get(key)
     if (!cached || cached.version !== roster.version || cached.until <= now) {
       const pools = this.pools.all(chain).filter(accepts)
-      const pinned = row => row.pinned || this.engine.scheduler.focus?.market(row.id, now)
-      const plan = roster.partition(pools, row => row.id, 4, pinned)
+      // Watching a chain's main quote can pin almost every pool. Keep the deepest local interests
+      // ahead of the slice while leaving capacity for other owners' markets and the shared core.
+      const pinLimit = { small: 4, normal: 8, large: 16 }[this.engine.profile]
+      const pins = new Set(pools.filter(p => p.pinned || this.engine.scheduler.focus?.market(p.id, now)).slice(0, pinLimit))
+      const plan = roster.partition(pools, row => row.id, 4, row => pins.has(row))
       this.plans.set(key, cached = { plan, until: now + 2 * MINUTE, version: roster.version })
     }
     return cached.plan

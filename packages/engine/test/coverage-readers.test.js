@@ -235,3 +235,53 @@ test('shared core proves a signer, one wire tail report reaches rankings and cov
   assert.equal(b.book.coverage(id, 3_600_000), 0)
   assert.equal(b.asset(market.base).visibility, 'stale')
 })
+
+test('a cold node verifies a funded seed via a public factory, then admits a reordered proven quote', async t => {
+  const sender = node(t, 2, 7).engine, receiver = node(t, 1, 7).engine
+  await sender.start()
+  await receiver.start()
+  const source = sender.evm.get('bsc'), verify = receiver.evm.get('bsc')
+  const [token0, token1] = [...source.quotes.values()].filter(t => ['USDC','USDT'].includes(t.symbol)).map(t => t.address).sort()
+  const pool = address(500), factory = source.chain.deployments.find(d => d.kind === 'v2')
+  const record = { chain: 'bsc', pool, token0, token1, kind: 'v2', dex: factory.name, firstSeen: start }
+  const market = sender.registry.pool(record)
+  const frames = []
+  sender.transport.send = (channel, message) => { frames.push({ channel, from: sender.transport.publicKey, message }); return true }
+  const receive = frame => receiver.transport.emit('message', frame.channel, frame)
+  const reserves = '0x' + word(20_000n * 10n ** 18n).repeat(2) + word(0)
+  source.chain.multicall = verify.chain.multicall = null
+  await source.readPoolState([record], { batch: async () => [reserves] })
+  const hint = frames.find(f => f.channel === 'gator/new'), quote = frames.find(f => f.channel === channelFor(market.id))
+  assert.equal(hint.message.tx, null)
+  receive(quote)
+  assert.equal(receiver.registry.markets.has(market.id), false)
+  assert.equal(receiver.book.coverage(market.id, 3_600_000), 0)
+  // Unknown senders and token identities outside the signed seed universe cannot request a receipt-less lookup.
+  receive({ ...hint, from: key(42) })
+  receive({ ...hint, message: { ...hint.message, token0: address(5) } })
+  assert.equal(receiver.hints.size, 0)
+  receive(hint)
+  assert.equal(receiver.hints.size, 1)
+  const calls = []
+  verify.rpc.publicOnly.call = async (_, method) => { assert.equal(method, 'eth_blockNumber'); return '0x10' }
+  verify.rpc.publicOnly.batch = async (_, batch) => batch.map(({ params: [c, block] }) => {
+    calls.push(c.to)
+    assert.equal(block, '0x10')
+    if (c.to === factory.address) {
+      assert.equal(c.data, '0xe6a43905' + word(token0) + word(token1))
+      return '0x' + word(pool)
+    }
+    assert.equal(c.to, pool)
+    return reserves
+  })
+  await receiver.verifyHint()
+  assert.deepEqual(calls, [factory.address, pool])
+  assert.equal(receiver.registry.markets.get(market.id).fromHint, 1)
+  assert.equal(receiver.book.coverage(market.id, 3_600_000), 1)
+  assert.equal(receiver.store.reader.prepare('SELECT count(*) n FROM engine_pool_history').get().n, 0)
+  const wrong = address(501)
+  receive({ ...hint, message: { ...hint.message, pool: wrong } })
+  await receiver.verifyHint()
+  assert.equal(receiver.registry.markets.has('dex:bsc:' + wrong), false)
+  assert.ok(receiver.hints.rank(sender.transport.publicKey) < 0)
+})
