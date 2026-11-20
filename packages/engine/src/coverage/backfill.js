@@ -1,5 +1,6 @@
 import { RateLimited } from '../scheduler/index.js'
 import { address, multiRead, word, ZERO } from '../sources/evm-abi.js'
+import { FUNDED_ADDED_POOL } from '../intel/add-token.js'
 import { logWindow } from '../sources/bundle-adapter.js'
 import { HISTORY_FLOOR, MAX_SPAN, historyFactories, historyRanges, indexPage, logPage, hex, quantity } from './factory-history.js'
 
@@ -7,7 +8,7 @@ const MINUTE = 60_000, HOUR = 60 * MINUTE, DAY = 24 * HOUR
 const SEARCH = Object.freeze({ length: 1, window: 0, wholeHistory: -1, needHead: -2 })
 export const BACKFILL_JOB = 'discovery:factory-history'
 export const HISTORY_SHARE = 0.05
-export const HISTORY_CAP = { small: 4000, normal: 16_000, large: 48_000 }
+export const HISTORY_CAP = { small: 40_000, normal: 160_000, large: 480_000 }
 export const FORWARD_CAP = { small: 8, normal: 32, large: 64 }
 
 /** Charged inside the endpoint bucket, immediately before each real public dispatch. A denied
@@ -81,6 +82,8 @@ export class FactoryBackfill {
     this.sendRow = db.prepare(`SELECT p.chain,p.pool,p.firstSeen,p.token0,p.token1,p.kind,p.dex,
       h.factory,h.idx,h.block,h.tx,h.lo,h.hi,h.bisect,h.span FROM engine_history_pools h
       CROSS JOIN pools p USING(chain,pool) WHERE h.nextShare<=? ORDER BY h.nextShare,h.chain,h.pool LIMIT 1`)
+    this.addedRotation = db.prepare(`SELECT 1 FROM pools p JOIN markets m ON m.id='dex:'||p.chain||':'||p.pool
+      WHERE p.chain=? AND p.pool=? AND p.block=? AND p.tx=? AND ${FUNDED_ADDED_POOL}`)
     this.outboxes = ['engine_history_pools','engine_history_forward'].map(table=>({
       evidence: db.prepare('UPDATE '+table+' SET block=?,tx=? WHERE chain=? AND pool=?'),
       search: db.prepare('UPDATE '+table+' SET lo=?,hi=?,bisect=?,span=?,nextShare=? WHERE chain=? AND pool=?'),
@@ -419,6 +422,14 @@ export class FactoryBackfill {
         if (from > row.lo) return save(row.lo, from - 1, walking, result.span)
         // Keep the retry delay when even the whole range failed to yield a canonical creation.
         return search.run(0,0,SEARCH.needHead,MAX_SPAN,now+(walking===SEARCH.wholeHistory ? DAY : 0),row.chain,row.pool)
+      }
+      // Explicitly added tokens keep the release's hourly proof and catch-up refresh.
+      // Yield only after the ordinary registry has the creation this worker would send.
+      const jobs = engine.scheduler.backgroundJobs
+      if (!row.forwardOnly && engine.scheduler.jobs.has('discovery:reannounce') && (!jobs || jobs.has('discovery:reannounce')) &&
+          this.addedRotation.get(row.chain, row.pool, row.block, row.tx)) {
+        snooze.run(now + HOUR, row.chain, row.pool)
+        return
       }
       const fields = [row.dex, row.kind, row.token0, row.token1, row.block, row.tx]
       const seen = this.recent.get(row.chain + ':' + row.pool)

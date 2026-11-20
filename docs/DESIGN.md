@@ -600,15 +600,18 @@ criteria still control ranked visibility. When a nonempty pool contains native c
 signed quote whose USD conversion is temporarily missing, a bounded queue can retain its
 factory coordinates for seven days (32 / 128 / 256 pools by profile). The range can advance.
 When either currency acquires a supported USD price, the reader independently repeats the factory
-lookup and depth measurement before registering the pool. A node holds at most 4,000 / 16,000 /
-48,000 independently discovered historical pools on the small / normal / large profiles. Old verified incoming records have a
-separate ceiling of half those counts. A connected reader at its local row ceiling can queue
-8 / 32 / 64 additional funded identities for verified forwarding. Each queued identity commits
-with its cursor, survives restart and leaves the queue after a successful transport send or an
+lookup and depth measurement before registering the pool. A node holds at most 40,000 / 160,000 /
+480,000 independently discovered historical pools on the small / normal / large profiles. Old creations
+verified from announcements and catch-up pages share a separate limit of 20,000 / 80,000 / 240,000 pools.
+With an 8 KiB allowance per pool for its identities, proof or receipt record, names, one observation
+and current prices, both sets together occupy about 469 / 1,875 / 5,625 MiB at their limits.
+A connected reader at its local row ceiling can queue 8 / 32 / 64 additional funded identities for
+verified forwarding. Each queued identity commits with its cursor, survives restart and leaves
+the queue after a successful transport send or an
 exact announcement from a proven peer. Delivery has no acknowledgement. These forwarded pools
 can be registered and priced by receivers with capacity. A disconnected reader at its ceiling,
 a full forwarding queue or 90% of the store profile's SQLite ceiling pauses further admissions
-with the cursor saved. The original profile ceilings are 150 MiB / 400 MiB / 1 GiB. The daemon
+with the cursor saved. The profile ceilings are 1,500 / 4,000 / 10,240 MiB. The daemon
 also prunes against the user's configured storage cap, which can be lower than the profile ceiling.
 
 History uses spare scheduler turns after foreground and recent catch-up work. Its public reads,
@@ -625,7 +628,9 @@ checks the successful creation receipt against the signed deployment, block,
 pool and both currencies before broadcasting. A disconnected reader keeps its proof work pending
 until a peer connects. It sends at most one historical pool per minute
 per node across restart, retries sent identities after a day and suppresses an exact recent
-announcement from a proven peer for an hour. A current receiver independently verifies the
+announcement from a proven peer for an hour. Once the ordinary registry holds the same creation for
+a funded pool of an explicitly added token that qualifies for hourly re-announcement, that job handles
+the receipt and announcement. A current receiver independently verifies the
 receipt and measures the pool through public endpoints. Up to 64 funded peer-origin pools per
 chain receive regular announced-pool pricing, with depth and pool ID breaking ties. One proven
 reporter can supply a yellow tail observation under the existing rules. A v0.1.0 receiver can

@@ -10,6 +10,8 @@ import { loadBundle } from '@gator/bundle'
 import { createMemoryHub, MemoryTransport } from '@gator/net'
 import { openStore } from '@gator/store'
 import { Engine, migrations } from '../src/index.js'
+import { migrations as intelMigrations } from '../src/intel/index.js'
+import { poolAnnouncementJob } from '../src/intel/discoveries.js'
 import { RateLimited } from '../src/scheduler/index.js'
 import { address, word } from '../src/sources/evm-abi.js'
 import { historyRanges } from '../src/coverage/factory-history.js'
@@ -293,6 +295,65 @@ test('row pressure keeps the first unregistered creation as the restart point; a
   assert.equal(receiver.sent.filter(f=>f.channel==='gator/new').length,0)
 })
 
+test('an added token keeps its hourly verified catch-up entry when history found its pool first', async t => {
+  const sender = await discover(t, { schema: [...migrations, ...intelMigrations] })
+  const { engine, store } = sender, history = engine.backfill
+  const job = poolAnnouncementJob(engine)
+  engine.registerJob(job)
+  engine.scheduler.backgroundJobs.add(job.id)
+  const pool = fixture.ethereum[0].logs[0].topics[1], chain = 'ethereum', asset = chain + ':' + token
+  const now = engine.clock(), db = store.writer
+  db.prepare('INSERT INTO engine_added_tokens(asset,chain,address,addedAt,addedBy) VALUES (?,?,?,?,?)')
+    .run(asset, chain, token, now, 'owner')
+  db.prepare("INSERT INTO engine_added_pools(chain,pool,asset,state,updatedAt) VALUES (?,?,?,'found',?)")
+    .run(chain, pool, asset, now)
+  // Only this one of the two historical DMT-NAT pools meets the release re-announcement floor.
+  db.prepare('UPDATE pools SET liquidity=12000 WHERE chain=? AND pool=?').run(chain, pool)
+  history.outboxes[0].snooze.run(now, chain, pool)
+  const row = history.sendRow.get(now)
+  assert.equal(row.pool, pool)
+  const reads = history.rpc.calls.length
+  const messages = () => sender.sent.filter(frame => frame.channel === 'gator/new').length
+  const before = messages()
+  await history.shareStep(row)
+  assert.equal(history.rpc.calls.length, reads)
+  assert.equal(messages(), before)
+  engine.hints.rpc = replay()
+  await job.run()
+  assert.equal(messages(), before + 1)
+  assert.equal(sender.sent.at(-1).message.pool, pool)
+  const indexed = db.prepare('SELECT at,verified FROM engine_pool_history WHERE chain=? AND pool=?').get(chain, pool)
+  assert.deepEqual({ ...indexed }, { at: now, verified: 1 })
+})
+
+test('catch-up and live announcements share the incoming limit for old verified creations', async t => {
+  const sender = await discover(t)
+  const { engine } = await node(t, { own: '2'.repeat(64) })
+  const [first, second] = sender.sent.filter(frame => frame.channel === 'gator/new')
+  const peer = sender.engine.transport.publicKey
+  const { backfill, catchup, hints } = engine
+  backfill.capacity = 2 // One incoming identity.
+  const rpc = replay()
+  catchup.reads = () => rpc
+  catchup.state.peers = [{ key: peer }]
+  const rows = [first, second].map(({ message: { t, v, ...creation } }) => ({ ...creation, at: engine.clock() }))
+  catchup.state.page = { key: peer, offset: 0, more: false, rows }
+  await catchup.run()
+  assert.equal(backfill.countRemote.get().n, 1)
+  assert.equal(engine.registry.markets.get('dex:ethereum:' + first.message.pool)?.fromHint, 1)
+
+  // The second old receipt is valid on both routes. Capacity leaves it inconclusive.
+  hints.rpc = rpc
+  engine.transport.emit('message', second.channel, second)
+  await engine.verifyHint()
+  // The catch-up job may spend its first turn resolving names from the first row.
+  for (let turn = 0; turn < 2 && catchup.state.page; turn++) await catchup.run()
+  assert.equal(catchup.state.page, null)
+  assert.equal(backfill.countRemote.get().n, 1)
+  assert.equal(engine.registry.markets.has('dex:ethereum:' + second.message.pool), false)
+  assert.equal(hints.penalties.size, 0)
+})
+
 test('an announced-pool tie keeps 64 deterministic slots and a locally promoted pool leaves the queue', async t => {
   const {engine,store} = await node(t), source = engine.evm.get('ethereum')
   const group = fixture.ethereumV2, chain = 'ethereum', now = engine.clock()
@@ -307,6 +368,11 @@ test('an announced-pool tie keeps 64 deterministic slots and a locally promoted 
   }
   for (let i=0;i<5;i++) await engine.announcedPools.measure(chain)
   const select = store.reader.prepare('SELECT pool FROM engine_announced_pools WHERE belowSince IS NULL ORDER BY pool')
+  assert.deepEqual(select.all().map(r=>r.pool),pools.slice(0,64).map(p=>p.pool))
+  // The 64th pool's previous depth cannot occupy a slot ahead of its own new depth.
+  const lastKept = pools[63].pool
+  store.writer.prepare('UPDATE engine_announced_pools SET depth=111,checkAt=? WHERE pool=?').run(now, lastKept)
+  await engine.announcedPools.measure(chain)
   assert.deepEqual(select.all().map(r=>r.pool),pools.slice(0,64).map(p=>p.pool))
   engine.registry.pool(pools[0])
   store.writer.prepare('UPDATE engine_announced_pools SET checkAt=? WHERE pool=?').run(now,pools[0].pool)

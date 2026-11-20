@@ -702,9 +702,10 @@ export class EvmSource {
     if (history && !creation) return false
     const decimals = await this.readDecimals([pool], block, read)
     // A live receipt or independent scan can finish during these public reads.
-    if (history && (!history.wanted() || this.registry.markets.has('dex:' + chain + ':' + hint.pool))) return null
-    const archival = !history && at < this.clock() - 7 * DAY &&
-      !this.registry.markets.has('dex:' + chain + ':' + hint.pool) && this.historyRetention
+    const known = this.registry.markets.has('dex:' + chain + ':' + hint.pool)
+    if (history && (!history.wanted() || known)) return null
+    // Catch-up can also deliver an old creation after a recent independent verification.
+    const archival = !known && at < this.clock() - 7 * DAY && this.historyRetention
     // The node has finished its independent checks. Capacity is inconclusive for the sender.
     if (archival && !archival.canRetainRemote()) return null
     const registered = this.store.transaction(() => {
