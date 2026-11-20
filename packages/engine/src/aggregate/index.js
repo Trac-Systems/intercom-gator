@@ -165,6 +165,9 @@ function outliers(used, weights, price, pinned = () => false) {
   return out.size && agree.size >= 2 && agree.size >= 2 * outSources.size && agreeing * 3 >= total * 2 ? out : null
 }
 
+// CEX tickers are polled every 15 seconds. Compare venues within one poll interval for the 1% threshold.
+const ALIGN_MS = 15_000
+
 function summarize(asset, entries, now, { reference, pinned, collisions, dayRatio } = {}) {
   const current = entries.filter((e) => now - e.market.at <= 3 * e.market.window && !e.fxStale)
   const timely = current.length ? current : entries
@@ -201,6 +204,7 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
   const record = split && describeSplit(split, new Set(current), price)
   if (record) collisions?.set(asset.id, record)
   const core = coreEntries(used, capped)
+  const coreQuotes = []
   const agents = new Set(),
     provenAgents = new Set(),
     provenSources = new Set(),
@@ -208,7 +212,7 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     exchanges = new Set(),
     pools = new Set(),
     sources = new Set()
-  let spread = 0,
+  let alignedSpread = 0,
     low = Infinity,
     high = 0,
     provenLow = Infinity,
@@ -229,17 +233,23 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     // Trust is judged on the core markets; thin outlying tails are counted above but do not decide it.
     if (!core.has(entry)) continue
     const entryFresh = !(now - market.at > market.window || fxStale || fxFresh === false)
-    // Only fresh evidence confirms a price; an older core market still counts toward disagreement below.
+    // Only fresh evidence confirms a price. All core markets contribute to the red threshold.
     if (proven && entryFresh) {
       provenSources.add(source)
       for (const key of market.provenAgents) provenAgents.add(key)
       if (market.ownFresh) ownSources.add(source)
     }
-    spread = Math.max(spread, market.spread, fxSpread)
+    alignedSpread = Math.max(alignedSpread, market.spread, fxSpread)
     low = Math.min(low, usd)
     high = Math.max(high, usd)
     if (proven) [provenLow, provenHigh] = [Math.min(provenLow, usd), Math.max(provenHigh, usd)]
     const timestamp = Math.min(market.at, fxAt)
+    for (const quote of coreQuotes) {
+      if (Math.abs(timestamp - quote.at) <= ALIGN_MS) {
+        alignedSpread = Math.max(alignedSpread, Math.abs(usd - quote.price) / price)
+      }
+    }
+    coreQuotes.push({ at: timestamp, price: usd })
     oldest = Math.min(oldest, timestamp)
     at = Math.max(at, timestamp)
     coreWeight += capped[i].weight
@@ -261,7 +271,7 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     collisions?.set(asset.id, { ...record, guard: { low: guardLow, high: guardHigh, price, ratio: factor } })
     return null
   }
-  spread = Math.max(spread, (high - low) / price)
+  const allCoreSpread = Math.max(alignedSpread, (high - low) / price)
   const depegs = [...new Set([...core].flatMap((e) => e.depegs))].sort()
   // The venues' own 24 h move (last / open) over the core markets, weighted like the price; checks change24h.
   const days = dayRatio ? used.flatMap((e, i) => {
@@ -275,9 +285,9 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
   // trust.
   const confirmed = (provenAgents.size >= 5 && provenSources.size >= 2) || ownSources.size >= 2
   const trust =
-    stale || spread > 0.03 + 1e-12
+    stale || allCoreSpread > 0.03 + 1e-12
       ? 'red'
-      : confirmed && spread <= 0.01 + 1e-12 && !depegs.length
+      : confirmed && alignedSpread <= 0.01 + 1e-12 && !depegs.length
         ? 'green'
         : 'yellow'
   // A cap is shown only for a price the node can stand behind: green, or yellow with two independent sources, the
@@ -297,7 +307,8 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     exchanges: exchanges.size,
     pools: pools.size,
     independentSources: sources.size,
-    spreadPct: spread * 100,
+    // Red uses the all-core spread. Green and yellow use the time-aligned spread.
+    spreadPct: (trust === 'red' ? allCoreSpread : alignedSpread) * 100,
     ageMs: Math.max(0, now - oldest),
     fresh,
     stale,

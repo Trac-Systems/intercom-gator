@@ -65,6 +65,52 @@ test("the node's own fresh reads of two agreeing venues are green without peers;
   assert.equal(aggregateAssets(assets, [market('A', 'coin', 'fiat:USD', 3, ['1', '2']), market('B', 'coin', 'fiat:USD', 3, ['3'])], now).get('coin').trust, 'yellow')
 })
 
+test('a 1.5% rise across ten staggered venue reads stays green (previously yellow)', () => {
+  const markets = Array.from({ length: 10 }, (_, i) => {
+    const elapsed = Math.round(60_000 * i / 9)
+    return market(String(i), 'coin', 'fiat:USD', 100 + 1.5 * elapsed / 60_000, [String(i)], 500, 60_000 - elapsed)
+  })
+  const result = aggregateAssets(assets, markets, now).get('coin')
+  assert.equal(result.trust, 'green')
+  // A 15-second window covers at most two price steps, about 0.33%.
+  assert.ok(result.why.spreadPct > 0.3 && result.why.spreadPct < 0.4)
+})
+
+test('two venues read in the same second 1.2% apart are yellow', () => {
+  const result = aggregateAssets(assets, [
+    market('A', 'coin', 'fiat:USD', 100, ['1', '2', '3'], 500, 800),
+    market('B', 'coin', 'fiat:USD', 101.2, ['4', '5'], 500, 200),
+  ], now).get('coin')
+  assert.equal(result.trust, 'yellow')
+  assert.ok(Math.abs(result.why.spreadPct - 1.2 / result.price * 100) < 1e-10)
+})
+
+test('a core venue 3.5% off two minutes earlier still turns the asset red', () => {
+  const result = aggregateAssets(assets, [
+    market('A', 'coin', 'fiat:USD', 100, ['1', '2', '3']),
+    market('B', 'coin', 'fiat:USD', 100, ['4', '5']),
+    market('C', 'coin', 'fiat:USD', 103.5, ['6'], 500, 120_000),
+  ], now).get('coin')
+  assert.equal(result.trust, 'red')
+  assert.ok(Math.abs(result.why.spreadPct - 3.5) < 1e-10)
+})
+
+test('the FX timestamp determines whether a converted quote is within 15 seconds', () => {
+  const direct = market('A', 'coin', 'fiat:USD', 100, ['1', '2', '3'])
+  const cross = market('B', 'coin', 'usdc', 101.2, ['4', '5'])
+  const withFx = (age, prices) => aggregateAssets(assets, [
+    direct, cross, market('C', 'usdc', 'fiat:USD', prices, ['1', '2'], 500, age),
+  ], now).get('coin')
+  assert.equal(withFx(15_000, 1).trust, 'yellow')
+  const apart = withFx(15_001, 1)
+  assert.equal(apart.trust, 'green')
+  assert.equal(apart.why.spreadPct, 0)
+  // The FX market's own reporter spread still counts, even without an aligned venue pair.
+  const noisyFx = withFx(15_001, [0.994, 1.006])
+  assert.equal(noisyFx.trust, 'yellow')
+  assert.ok(Math.abs(noisyFx.why.spreadPct - 1.2) < 1e-10)
+})
+
 test('a thin outlying market or a noisy quote path does not turn a widely traded asset red', () => {
   const assets = new Map([['coin', { id: 'coin' }], ['usdx', { id: 'usdx', stable: true }]])
   const major = [
