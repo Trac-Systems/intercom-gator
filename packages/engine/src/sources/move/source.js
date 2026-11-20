@@ -129,7 +129,7 @@ export class MoveSource {
       for (const [i, p] of pools.entries()) {
         const row = snapshot.rows[i], known = this.known(p.pool)
         const later = (delay, funded = 0) => this.update.run(now + delay, funded, chain, p.pool)
-        if (!row || row.pool !== p.pool || row.dex !== p.dex ||
+        if (!row || row.pool !== p.pool || row.dex !== p.dex || row.kind !== p.kind ||
             (p.token0 && p.token0 !== row.token0) || (p.token1 && p.token1 !== row.token1)) {
           verified = row ? false : null
           if (!peer) later(DAY)

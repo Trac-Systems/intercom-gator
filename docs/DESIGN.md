@@ -446,7 +446,9 @@ Deployment identifiers live in reader code under §5.4.
   event, pool and currencies supplies its creation provenance. Pruned history leaves the pool eligible for state
   pricing. The PancakeSwap shared handle and Liquidswap per-pool handles can also supply a creation version.
 - Two-sided depth is twice the cheaper reserve in USD. Only the canonical USDC address can bootstrap this estimate.
-  The price book supplies other conversions, including native and bridged assets. The ordinary $10,000 floor,
+  The price book supplies other conversions, including native and bridged assets. Named bridged USDC/USDT
+  contracts can quote other tokens once they have a price through a native or stable market. All peers use the
+  same contract-based base/quote ordering. The ordinary $10,000 floor,
   dust, outlier and reporter rules apply. New symbols cannot claim a CEX identity. Prices use `gator/px`.
   A funded creation hint on `gator/new` carries a Sui checkpoint and base58 transaction digest, or an Aptos block
   height and hex hash. A receiving node checks the public creation receipt and independently reads the funded pool.

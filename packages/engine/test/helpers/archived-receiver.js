@@ -31,4 +31,3 @@ export class LocalTransport extends EventEmitter {
   async leave() { return true }
   send() { return true }
 }
-

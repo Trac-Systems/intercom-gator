@@ -91,6 +91,16 @@ test('scheduled Sui swaps and funded objects publish the right base turnover and
     await n.run(()=>source.reader.origins())
     await n.run(()=>source.state())
     assert.deepEqual(n.transport.sent.find(e=>e.channel==='gator/new')?.message,p)
+    const reannounce=n.engine.scheduler.jobs.get('discovery:reannounce')
+    n.now+=60000
+    await reannounce.run()
+    assert.deepEqual(n.transport.sent.at(-1),{channel:'gator/new',message:p})
+    source.depth.run(0,'sui',p.pool)
+    n.now+=61*60000
+    const sends=n.transport.sent.length, calls=n.calls.length
+    await reannounce.run()
+    assert.equal(n.transport.sent.length,sends)
+    assert.equal(n.calls.length,calls)
     n.now+=day+1
     await n.run(()=>source.state())
     assert.equal(n.transport.sent.flatMap(e=>e.message.o??[]).at(-1)[2],'0')
@@ -216,7 +226,7 @@ test('Aptos validates the requested hash, block interval and typed creation, and
     throw new Error('unexpected route')
   })
   try{
-    for(const [h,result] of [[hint,true],[{...hint,block:hint.block+1},false],[{...hint,token1:'0xa'},false]]){
+    for(const [h,result] of [[hint,true],[{...hint,block:hint.block+1},false],[{...hint,token1:'0xa'},false],[{...hint,kind:'stable'},false]]){
       const cache=new Map()
       const r=await n.run(()=>n.source.reader.receipt(h,cache))
       assert.equal(!!r,result)
@@ -290,6 +300,7 @@ test('legacy Coin resources price both Aptos venues and exact pool-handle swaps 
     store.writer.prepare('INSERT OR REPLACE INTO engine_references VALUES (?,?,?,?)').run('aptos:native','fixture',0.408,n.now)
     n.engine.book.dirty=true;n.engine.book.refresh()
     const s=n.source
+    assert.equal(s.usd(legacy.pools[0].b),null)
     assert.ok(s.reader.legacySeeds())
     const pools=store.reader.prepare("SELECT * FROM engine_move_candidates WHERE chain='aptos'").all()
     assert.equal(pools.length,5)

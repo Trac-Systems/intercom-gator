@@ -4,7 +4,7 @@ import test from 'node:test'
 import { EndpointBucket, RateLimited, RequestBudget } from '../src/scheduler/index.js'
 import { HttpSources } from '../src/sources/http.js'
 import { MoveClient } from '../src/sources/move/client.js'
-import { CETUS, SUI, assetAddress, digest, fa, metadata, moveType, rawRatio, validPool } from '../src/sources/move/identity.js'
+import { APTOS_BRIDGED_USD, CETUS, SUI, assetAddress, digest, fa, metadata, moveQuoteRank, moveType, rawRatio, validPool } from '../src/sources/move/identity.js'
 import { suiState } from '../src/sources/move/sui.js'
 import { aptosCreations, thalaRatio } from '../src/sources/move/aptos.js'
 
@@ -23,6 +23,13 @@ test('Move identities preserve type case and unify framework native spellings', 
   assert.deepEqual(metadata({ name: ' A\u200bB ', symbol: ' Q\n', decimals: 0 }, 'id'), { name: 'AB',symbol:'Q',decimals:0 })
   assert.equal(metadata({ name:'<img>', symbol:'', decimals:6 }), null)
   assert.equal(metadata({ name:'Coin', symbol:'C', decimals:78 }), null)
+})
+
+test('bridge contracts quote secondary pairs by identity with the native coin ahead of them', () => {
+  const bridged = { address: APTOS_BRIDGED_USD + 'USDC', symbol: 'USDC' }
+  assert.equal(moveQuoteRank('aptos', bridged), 1)
+  assert.ok(moveQuoteRank('aptos', {address:'native'}) > moveQuoteRank('aptos', bridged))
+  assert.equal(moveQuoteRank('aptos', { ...bridged, address: aptCreation.state[0].assets_metadata[0].inner }), 0)
 })
 
 test('mainnet Cetus and Turbos objects require the deployed Move type and yield SUI/USDC', () => {

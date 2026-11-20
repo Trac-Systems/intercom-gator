@@ -17,6 +17,20 @@ export const STABLES = {
   aptos: ['0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b',
     '0x357b0b74bc833e95a115ad22604854d6b0fca151cecd94111770e5d6ffc9dc2b'],
 }
+export const APTOS_BRIDGED_USD = '0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::'
+const secondaryQuotes = {
+  aptos: new Set([APTOS_BRIDGED_USD + 'USDC', APTOS_BRIDGED_USD + 'USDT']),
+  sui: new Set([STABLES.sui[1],
+    '0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN',
+    '0x375f70cf2ae4c00bf37117d0c85a2c71545e6ee05c4a5c7d282cd66a4504b068::usdt::USDT']),
+}
+
+// Every peer must publish a given pool in the same direction. This ordering grants no USD value.
+export function moveQuoteRank(chain, asset) {
+  if (asset.stable) return 3
+  if (asset.address === 'native') return 2
+  return Number(secondaryQuotes[chain].has(asset.address))
+}
 const TYPES = { sui: { cetus: 'clmm', turbos: 'clmm' }, aptos: { hyperion: 'clmm', thalaswap: 'v2',
   'pancakeswap-aptos': 'v2', liquidswap: 'uncorrelated' } }
 export const moveChain = chain => chain === 'sui' || chain === 'aptos'

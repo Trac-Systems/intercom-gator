@@ -1,4 +1,5 @@
 import { moveChain, validPool as validMovePool, validToken as validMoveToken } from '../sources/move/identity.js';
+import { MARKET_POLICY } from '../../../store/src/markets.js';
 import { hintFactory } from '../sources/tron/events.js';
 import { tronHex } from '../sources/tron/address.js';
 import { EvmSource } from '../sources/evm.js';
@@ -275,6 +276,7 @@ export function poolAnnouncementJob(engine) {
     JOIN markets m ON m.id='dex:'||p.chain||':'||p.pool
     LEFT JOIN engine_pool_announcements r ON r.chain=p.chain AND r.pool=p.pool AND r.tx=p.tx
     WHERE p.block IS NOT NULL AND (length(p.tx)=66 OR p.chain='sui' AND length(p.tx) BETWEEN 32 AND 44) AND p.chain IN (SELECT value FROM json_each(?))
+      AND (p.chain NOT IN ('sui','aptos') OR p.liquidity>=${MARKET_POLICY.minPoolLiquidityUsd})
       AND (r.retryAt IS NULL OR r.retryAt<=?)
       AND (m.base IN (SELECT asset FROM intel_graduated) OR m.quote IN (SELECT asset FROM intel_graduated)
         OR m.base IN (SELECT value FROM json_each(?))
@@ -313,6 +315,7 @@ export function poolAnnouncementJob(engine) {
         throw error;
       }
       pending = null;
+      if (moveChain(chain) && !(engine.move.get(chain).known(pool)?.liquidity >= MARKET_POLICY.minPoolLiquidityUsd)) return;
       transport.send('gator/new', message);
     },
   };

@@ -1,10 +1,9 @@
 import { RateLimited } from '../../scheduler/index.js'
-import { APT, CAKE, HYPERION, LIQUID, LIQUID_ACCOUNT, THALA, THALA_LENS, fa, moveType, natural, objectId, resourcePool, units } from './identity.js'
+import { APT, APTOS_BRIDGED_USD, CAKE, HYPERION, LIQUID, LIQUID_ACCOUNT, THALA, THALA_LENS, fa, moveType, natural, objectId, resourcePool, units } from './identity.js'
 import { once } from './client.js'
 
 const MIN = 60_000
 const PAGE = 20
-const ZUSD = '0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::'
 const CAKE_COIN = '0x159df6b7689437016108a019fd5bef736bac692b6d4a1f10c941f6fbb9a74ca6::oft::CakeOFT'
 const cakeModule = CAKE + '::swap::', liquidModule = LIQUID + '::liquidity_pool::'
 const thalaModule = THALA + '::pool::', hyperModule = HYPERION + '::pool_v3::'
@@ -131,7 +130,7 @@ export class AptosReader {
   legacySeeds() {
     const s = this.source, key = 'legacy/seeds', now = s.engine.clock()
     if (s.cursor(key).next > now || !s.usd(APT)) return false
-    const usdc = ZUSD + 'USDC', usdt = ZUSD + 'USDT'
+    const usdc = APTOS_BRIDGED_USD + 'USDC', usdt = APTOS_BRIDGED_USD + 'USDT'
     const pools = [
       legacy('pancakeswap-aptos', APT, usdc), legacy('pancakeswap-aptos', CAKE_COIN, APT),
       legacy('liquidswap', usdc, APT), legacy('liquidswap', usdt, APT), legacy('liquidswap', usdc, usdt, 'stable'),
@@ -262,7 +261,8 @@ export class AptosReader {
       s.originDone(p.pool, error.status === 410)
       return true
     }
-    const creation = aptosCreations(data).find(q => q.pool === p.pool && q.token0 === p.token0 && q.token1 === p.token1 && q.dex === p.dex)
+    const creation = aptosCreations(data).find(q => q.pool === p.pool && q.token0 === p.token0 && q.token1 === p.token1 &&
+      q.dex === p.dex && q.kind === p.kind)
     if (creation && Number(data.version) === p.version) {
       creation.block = await this.block(p.version, false)
       if (p.originBlock == null || creation.block === p.originBlock)
@@ -384,7 +384,8 @@ export class AptosReader {
     try { result = await once(cache, 'receipt', () => this.client.aptos('/transactions/by_hash/' + hint.tx, null, true)) }
     catch (e) { if ([404,410].includes(e.status)) return null; throw e }
     if (result.data?.hash !== hint.tx) return false
-    const p = aptosCreations(result.data).find(q => q.pool === hint.pool && q.dex === hint.dex && q.token0 === hint.token0 && q.token1 === hint.token1)
+    const p = aptosCreations(result.data).find(q => q.pool === hint.pool && q.dex === hint.dex && q.kind === hint.kind &&
+      q.token0 === hint.token0 && q.token1 === hint.token1)
     if (!p) return false
     const block = await this.block(Number(result.data.version), true)
     return block === hint.block ? { ...p, block } : false

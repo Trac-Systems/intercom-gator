@@ -1,4 +1,4 @@
-import { assetAddress, moveChain, objectId, validToken as validMoveToken } from '../sources/move/identity.js'
+import { assetAddress, moveChain, moveQuoteRank, objectId, validToken as validMoveToken } from '../sources/move/identity.js'
 import { tronHex } from '../sources/tron/address.js'
 import { QUOTES, WTRX } from '../sources/tron/deployments.js'
 import { categoryLabels } from '@gator/bundle'
@@ -383,8 +383,8 @@ export class Registry {
     if (first.id === second.id) return null
     // A secondary TRON quote can acquire its own USD route through USDT or native TRX.
     const score = t => {
+      if (isMove) return moveQuoteRank(chain, t)
       if (t.stable) return 3
-      if (isMove) return t.address === 'native' ? 2 : 0
       if (isTron) return t.address === 'native' ? 2 : Number(QUOTES.includes(t.address))
       return definition.quotes.includes(t.address) ? 2 : 0
     }
