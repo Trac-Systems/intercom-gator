@@ -7,6 +7,7 @@ import { openStore } from '@gator/store'
 import { Engine, migrations } from '../src/index.js'
 import { createIntel, migrations as intelMigrations } from '../src/intel/index.js'
 import { RateLimited } from '../src/scheduler/index.js'
+import { sourcesReport } from '../src/health/sources.js'
 import {
   addressSlice, assetSlice, friendly, keyAddress, parseTon, poolKey, sliceBoc, stackAddress, stackAsset, tonAddress,
 } from '../src/sources/ton/address.js'
@@ -147,6 +148,8 @@ test('TON/USDT on DeDust and STON.fi v2 is verified on-chain, priced and shared 
     assert.ok(Math.abs(Number(stonRow[1]) / expected - 1) < 0.01, 'venues agree within 1%')
     assert.equal(n.transport.sent.some(m => m.ch === 'gator/new'), false)
     assert.equal(n.intel.newTokens.list().length, 0) // seeded old pools are not "new"
+    const scanner = sourcesReport(n.engine).groups.find(g => g.id === 'scanners').items.find(i => i.id === 'ton:dex')
+    assert.equal(scanner.host, 'toncenter.com')
   } finally { await n.stop(); store.close() }
 })
 
@@ -185,6 +188,36 @@ test('DeDust factory transactions queue fresh creations, resume from the stored 
     assert.equal(store.reader.prepare("SELECT count(*) n FROM engine_family_candidates WHERE chain='ton' AND due>?").get(again.now).n, 1)
     await again.stop()
   } finally { store.close() }
+})
+
+test('fresh DeDust launches are measured on their TON side before any jetton metadata read', async t => {
+  const store = database(), n = await node(t, store)
+  try {
+    // TON's USD price, as the engine derives it from the TON/USDT pools.
+    await n.step(() => n.source.pairs())
+    await n.step(() => n.source.verify())
+    await n.step(() => n.source.state())
+    assert.ok(n.source.usd('native') > 0)
+    await n.step(() => n.source.factory())
+    const launches = ['EQBZJAg9qUICohBRPEq2Y3spdT7pXIT2YOGvthnhsH44pAYa', 'EQB4fYtRJrQrjawVqsIM6mov-RtAi0lZuwB5d5JsXz6VVVX4']
+    for (const ref of launches) {
+      // Verify exactly this launch (other fresh destinations wait): get_assets, then the factory recomputes it.
+      store.writer.prepare("UPDATE engine_family_candidates SET due=CASE WHEN ref=? THEN 0 ELSE ? END WHERE chain='ton' AND stage=0")
+        .run(ref, n.now + 60 * minute)
+      await n.step(() => n.source.verify())
+      await n.step(() => n.source.verify())
+      assert.equal(n.source.candidate(poolKey(ref)).stage, 1)
+      await n.step(() => n.source.state())
+      const row = n.source.candidate(poolKey(ref))
+      assert.equal(row.funded, 0)
+      assert.equal(row.extra.wantMeta, undefined)
+      assert.ok(row.due > n.now)
+    }
+    // Recorded reserves: 1.93 TON and 1e-9 TON. Neither launch reached a metadata read or a market.
+    assert.equal(n.calls.filter(c => c.pathname === '/api/v2/getTokenData').length, 0)
+    assert.equal(await n.step(() => n.source.meta()), false)
+    assert.equal([...n.engine.registry.markets.keys()].filter(id => id.startsWith('dex:ton:')).length, 1)
+  } finally { await n.stop(); store.close() }
 })
 
 test('toncenter reads keep the reader share and back off on refusals', async t => {

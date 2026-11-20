@@ -62,11 +62,10 @@ export class TonSource extends FamilyDex {
     this.turn = 0
     this.tasks = [() => this.state(), () => this.verify(), () => this.pairs(), () => this.state(),
       () => this.factory(), () => this.verify(), () => this.meta()]
-    this.setExtra = engine.store.writer.prepare('UPDATE engine_family_candidates SET extra=? WHERE chain=? AND pool=?')
     this.tokenRows = engine.store.writer.prepare(`SELECT token0 AS t FROM engine_family_candidates WHERE chain='ton' AND stage=1 AND funded=1
       UNION SELECT token1 FROM engine_family_candidates WHERE chain='ton' AND stage=1 AND funded=1`)
     this.needMeta = engine.store.writer.prepare(`SELECT token0, token1 FROM engine_family_candidates WHERE chain='ton' AND stage=1 AND due<=?
-      ORDER BY funded DESC, due LIMIT 32`)
+      AND (funded=1 OR json_extract(extra,'$.wantMeta')=1) ORDER BY funded DESC, due LIMIT 32`)
   }
   setting(key) { return this.engine.store.getSetting(SETTING + key) }
   save(key, value) { this.engine.store.setSetting(SETTING + key, value) }
@@ -231,16 +230,29 @@ export class TonSource extends FamilyDex {
     const info = { token0: this.info(p.token0), token1: this.info(p.token1) }
     return { p, at, info, state: reserveState(r0, r1, info.token0?.decimals, info.token1?.decimals) }
   }
+  /** A side whose decimals and USD price are known can measure depth before any jetton metadata read. */
+  priced(address) { return this.decimals(address) != null && this.usd(address) != null }
   async state(pool) {
     const now = this.engine.clock()
     const rows = pool ? [this.candidate(pool)].filter(r => r?.stage === 1) :
       this.verifiedDue.all('ton', now, 8).map(r => ({ ...r, extra: JSON.parse(r.extra) }))
-    // Unknown decimals wait for the metadata task instead of spending a state read.
-    const p = rows.find(r => this.decimals(r.token0) != null && this.decimals(r.token1) != null)
+    const known = r => this.decimals(r.token0) != null && this.decimals(r.token1) != null
+    const p = rows.find(r => known(r) || (!r.extra.wantMeta && (this.priced(r.token0) || this.priced(r.token1))))
     if (!p) return false
-    const reading = await this.read(p)
-    if (!reading.state) { this.reject(p, 60); return true }
-    this.measure([reading])
+    if (known(p)) {
+      const reading = await this.read(p)
+      if (!reading.state) { this.reject(p, 60); return true }
+      this.measure([reading])
+      return true
+    }
+    // One side is an unnamed jetton: its decimals matter only once the priced side shows the depth floor.
+    const stack = await this.client.run(p.ref, p.dex === 'dedust' ? 'get_reserves' : 'get_pool_data')
+    const raw = stack && (p.dex === 'stonfi-v2' ? stack.slice(3, 5) : stack.slice(0, 2)).map(num)
+    if (!raw || raw.some(r => r == null || r < 0n)) { this.reject(p, 60); return true }
+    const side = this.priced(p.token0) ? 0 : 1, token = side ? p.token1 : p.token0
+    const depth = 2 * Number(raw[side]) / 10 ** this.decimals(token) * this.usd(token)
+    if (depth >= 10_000) this.setExtra.run(JSON.stringify({ ...p.extra, wantMeta: 1 }), 'ton', p.pool)
+    else this.reject(p, now - p.firstSeen > DAY ? 360 : 30)
     return true
   }
   refresh() {

@@ -104,3 +104,23 @@ test('this release drops peer TON/NEAR pool records and unknown markets without 
   await receive({ Engine, migrations, loadBundle, openStore,
     intelModule: { createIntel, migrations: intelMigrations } })
 })
+
+test('this release accepts a peer price for a TON market it verified itself', async () => {
+  const store = openStore({ file: ':memory:', migrations: [...migrations, ...intelMigrations] })
+  const now = 1795134200000, transport = new LocalTransport(), peer = 'c'.repeat(64)
+  const engine = new Engine({ bundle: loadBundle(), store, transport, clock: () => now, backgroundJobs: [],
+    patches: { patchFeed: false, snapshot: false }, rpcConfig: { fetch: () => assert.fail('unexpected receiver RPC') } })
+  try {
+    await engine.start()
+    const [record] = records
+    // The local reader's admission path for the DeDust TON/USDT pool.
+    const market = engine.registry.pool({ ...record, firstSeen: now, liquidity: 450_000 })
+    assert.equal(market.id, markets[0])
+    transport.emit('message', channelFor(market.id), { channel: channelFor(market.id), from: peer, ts: now,
+      message: { t: 'obs', v: 1, b: engine.obs.digest, at: now, o: [[market.id, '1.6012', '0', null, null, null, now]] } })
+    assert.ok(store.reader.prepare('SELECT 1 FROM engine_latest WHERE market=? AND reporter=?').get(market.id, peer))
+  } finally {
+    await engine.stop()
+    store.close()
+  }
+})

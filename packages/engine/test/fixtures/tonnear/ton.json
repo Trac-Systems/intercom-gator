@@ -719,6 +719,234 @@
      "exit_code": 0
     }
    }
+  },
+  {
+   "body": {
+    "address": "EQBZJAg9qUICohBRPEq2Y3spdT7pXIT2YOGvthnhsH44pAYa",
+    "method": "get_assets",
+    "stack": []
+   },
+   "json": {
+    "ok": true,
+    "result": {
+     "@type": "smc.runResult",
+     "gas_used": 3954,
+     "stack": [
+      [
+       "cell",
+       {
+        "bytes": "te6cckEBAQEAAwAAAQiFl+L/",
+        "object": {
+         "data": {
+          "b64": "CA==",
+          "len": 4
+         },
+         "refs": [],
+         "special": false
+        }
+       }
+      ],
+      [
+       "cell",
+       {
+        "bytes": "te6cckEBAQEAJAAAQxAEp4AWnVGCJR4i9ySskaxPo55PnoAM7b06hoLXR82A4cgTWML0",
+        "object": {
+         "data": {
+          "b64": "EASngBadUYIlHiL3JKyRrE+jnk+egAztvTqGgtdHzYDhyA==",
+          "len": 268
+         },
+         "refs": [],
+         "special": false
+        }
+       }
+      ]
+     ],
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "body": {
+    "address": "EQBZJAg9qUICohBRPEq2Y3spdT7pXIT2YOGvthnhsH44pAYa",
+    "method": "get_reserves",
+    "stack": []
+   },
+   "json": {
+    "ok": true,
+    "result": {
+     "@type": "smc.runResult",
+     "gas_used": 4027,
+     "stack": [
+      [
+       "num",
+       "0x730d4c08"
+      ],
+      [
+       "num",
+       "0x12924b0ce9c5d7232"
+      ]
+     ],
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "body": {
+    "address": "EQB4fYtRJrQrjawVqsIM6mov-RtAi0lZuwB5d5JsXz6VVVX4",
+    "method": "get_assets",
+    "stack": []
+   },
+   "json": {
+    "ok": true,
+    "result": {
+     "@type": "smc.runResult",
+     "gas_used": 3954,
+     "stack": [
+      [
+       "cell",
+       {
+        "bytes": "te6cckEBAQEAAwAAAQiFl+L/",
+        "object": {
+         "data": {
+          "b64": "CA==",
+          "len": 4
+         },
+         "refs": [],
+         "special": false
+        }
+       }
+      ],
+      [
+       "cell",
+       {
+        "bytes": "te6cckEBAQEAJAAAQxAD/9YKEy7hKrIlOwosGR9aYnzYuKNuARfBuM8cv8RG0MiwHYhZ",
+        "object": {
+         "data": {
+          "b64": "EAP/1goTLuEqsiU7CiwZH1pifNi4o24BF8G4zxy/xEbQyA==",
+          "len": 268
+         },
+         "refs": [],
+         "special": false
+        }
+       }
+      ]
+     ],
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "body": {
+    "address": "EQB4fYtRJrQrjawVqsIM6mov-RtAi0lZuwB5d5JsXz6VVVX4",
+    "method": "get_reserves",
+    "stack": []
+   },
+   "json": {
+    "ok": true,
+    "result": {
+     "@type": "smc.runResult",
+     "gas_used": 4027,
+     "stack": [
+      [
+       "num",
+       "0x1"
+      ],
+      [
+       "num",
+       "0x342"
+      ]
+     ],
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "body": {
+    "address": "EQBfBWT7X2BHg9tXAxzhz2aKiNTU1tpt5NsiK0uSDW_YAJ67",
+    "method": "get_pool_address",
+    "stack": [
+     [
+      "num",
+      "0"
+     ],
+     [
+      "tvm.Slice",
+      "te6ccgEBAQEAAwAAAQg="
+     ],
+     [
+      "tvm.Slice",
+      "te6ccgEBAQEAJAAAQxAEp4AWnVGCJR4i9ySskaxPo55PnoAM7b06hoLXR82A4cg="
+     ]
+    ]
+   },
+   "json": {
+    "ok": true,
+    "result": {
+     "@type": "smc.runResult",
+     "gas_used": 5091,
+     "stack": [
+      [
+       "cell",
+       {
+        "bytes": "te6cckEBAQEAJAAAQ4ALJIEHtShAVEIKJ4lWzG9lLqfdK5CezBw19sM8Ng/HFJCsveop",
+        "object": {
+         "data": {
+          "b64": "gAskgQe1KEBUQgoniVbMb2Uup90rkJ7MHDX2wzw2D8cUkA==",
+          "len": 267
+         },
+         "refs": [],
+         "special": false
+        }
+       }
+      ]
+     ],
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "body": {
+    "address": "EQBfBWT7X2BHg9tXAxzhz2aKiNTU1tpt5NsiK0uSDW_YAJ67",
+    "method": "get_pool_address",
+    "stack": [
+     [
+      "num",
+      "0"
+     ],
+     [
+      "tvm.Slice",
+      "te6ccgEBAQEAAwAAAQg="
+     ],
+     [
+      "tvm.Slice",
+      "te6ccgEBAQEAJAAAQxAD/9YKEy7hKrIlOwosGR9aYnzYuKNuARfBuM8cv8RG0Mg="
+     ]
+    ]
+   },
+   "json": {
+    "ok": true,
+    "result": {
+     "@type": "smc.runResult",
+     "gas_used": 5091,
+     "stack": [
+      [
+       "cell",
+       {
+        "bytes": "te6cckEBAQEAJAAAQ4APD7FqJNaFcbWCtVhBnU1F/yNoEWkrN2APLvJNi+fSqrAWkhfd",
+        "object": {
+         "data": {
+          "b64": "gA8PsWok1oVxtYK1WEGdTUX/I2gRaSs3YA8u8k2L59KqsA==",
+          "len": 267
+         },
+         "refs": [],
+         "special": false
+        }
+       }
+      ]
+     ],
+     "exit_code": 0
+    }
+   }
   }
  ],
  "stonfi": {

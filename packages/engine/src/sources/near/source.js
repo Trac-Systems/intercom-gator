@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { decimal } from '../../obs/index.js'
 import { RateLimited } from '../../scheduler/index.js'
 import { labels, validDecimals } from '../names/text.js'
 import { FamilyClient, FamilyDex, reserveState } from '../family-dex.js'
@@ -57,7 +58,9 @@ export class NearSource extends FamilyDex {
     super(engine, 'near', { anchors: { [USDT]: 1, [USDC]: 1 } })
     this.client = client
     this.turn = 0
-    this.tasks = [() => this.state(), () => this.pages(), () => this.meta(), () => this.pages()]
+    this.tasks = [() => this.state(), () => this.pages(), () => this.meta(), () => this.pages(), () => this.volumes()]
+    this.volumeDue = engine.store.writer.prepare(`SELECT * FROM engine_family_candidates WHERE chain='near' AND funded=1
+      ORDER BY coalesce(json_extract(extra,'$.volAt'),0), pool LIMIT 1`)
     this.needMeta = engine.store.writer.prepare(`SELECT token0, token1 FROM engine_family_candidates WHERE chain='near' AND stage=1 AND due<=?
       ORDER BY due LIMIT 64`)
   }
@@ -137,6 +140,35 @@ export class NearSource extends FamilyDex {
       return { p, at, info, state: refState(value[i], [info.token0.decimals, info.token1.decimals]) }
     }))
     return true
+  }
+  /**
+   * Ref keeps cumulative swap amounts per pool token (`get_pool_volumes`: input and output since creation). Samples
+   * at least 15 minutes apart are kept for 24 hours; the base token's growth across the window is its turnover. A
+   * window younger than a day (fresh node or pool) is a lower bound, as with partial EVM swap windows.
+   */
+  async volumes() {
+    const now = this.engine.clock()
+    const row = this.volumeDue.get()
+    const p = row && { ...row, extra: JSON.parse(row.extra) }
+    if (!p || (p.extra.volAt ?? 0) > now - 15 * MINUTE) return false
+    const { value } = await this.client.view(REF, 'get_pool_volumes', { pool_id: Number(p.ref) })
+    const cum = Array.isArray(value) && value.length === 2 && value.every(v => /^\d{1,60}$/.test(v?.input ?? '') &&
+      /^\d{1,60}$/.test(v?.output ?? '')) ? value.map(v => String(BigInt(v.input) + BigInt(v.output))) : null
+    const fresh = this.candidate(p.pool)
+    if (!fresh) return true
+    const samples = (fresh.extra.vol ?? []).filter(s => s[0] >= now - 24 * HOUR)
+    // A counter that moved backwards is not this pool's history (contract change): restart the window.
+    if (cum && samples.length && cum.some((c, i) => BigInt(c) < BigInt(samples.at(-1)[i + 1]))) samples.length = 0
+    if (cum) samples.push([now, ...cum])
+    this.setExtra.run(JSON.stringify({ ...fresh.extra, vol: samples.slice(-160), volAt: now }), 'near', p.pool)
+    return true
+  }
+  turnover(p, market) {
+    const samples = this.candidate(p.pool)?.extra.vol ?? []
+    if (samples.length < 2) return '0'
+    const side = market.inverse ? 1 : 0, token = side ? p.token1 : p.token0, places = this.decimals(token)
+    const diff = BigInt(samples.at(-1)[side + 1]) - BigInt(samples[0][side + 1])
+    return places == null || diff <= 0n ? '0' : decimal(Number(diff) / 10 ** places)
   }
   refresh() { return 2 * MINUTE }
   async run() {

@@ -95,6 +95,7 @@ export class FamilyDex {
     this.count = db.prepare('SELECT count(*) AS n FROM engine_family_candidates WHERE chain=? AND stage=0 AND due<=?')
     this.setStage = db.prepare('UPDATE engine_family_candidates SET stage=?,token0=?,token1=?,extra=?,due=? WHERE chain=? AND pool=?')
     this.setDue = db.prepare('UPDATE engine_family_candidates SET due=?,funded=? WHERE chain=? AND pool=?')
+    this.setExtra = db.prepare('UPDATE engine_family_candidates SET extra=? WHERE chain=? AND pool=?')
     this.price = db.prepare('SELECT priceReal,trust FROM prices WHERE asset=? AND at>=? AND priceReal>0')
     this.known = db.prepare('SELECT * FROM pools WHERE chain=? AND pool=?')
     this.depth = db.prepare('UPDATE pools SET liquidity=? WHERE chain=? AND pool=?')
@@ -160,7 +161,7 @@ export class FamilyDex {
         this.setDue.run(now + this.refresh(p), 1, this.chain, p.pool)
         if (!known && p.isNew) discoveries.push(discovery)
         else if (known) this.depth.run(liquidity, this.chain, p.pool)
-        rows.push([market.id, decimal(market.inverse ? 1 / state.price : state.price), '0', null, null, null, at])
+        rows.push([market.id, decimal(market.inverse ? 1 / state.price : state.price), this.turnover(p, market), null, null, null, at])
       }
       this.trim.run(this.chain)
     })
@@ -170,6 +171,8 @@ export class FamilyDex {
     return rows
   }
   refresh() { return 2 * MINUTE }
+  /** Base-token turnover in the rolling window; '0' where the venue exposes no cheap swap counter. */
+  turnover() { return '0' }
 }
 
 /** Constant-product state from integer reserves. */
