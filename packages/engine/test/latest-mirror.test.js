@@ -1,0 +1,120 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { EventEmitter } from 'node:events'
+import { loadBundle } from '@gator/bundle'
+import { openStore } from '@gator/store'
+import { migrations as socialMigrations } from '@gator/social'
+import { Engine, migrations } from '../src/index.js'
+
+const start = Date.UTC(2026, 10, 20, 12)
+const DAY = 86400_000
+const peer = 'b'.repeat(64)
+
+class Transport extends EventEmitter {
+  publicKey = 'a'.repeat(64)
+  topics = new Map()
+  channels() { return [...this.topics.keys()] }
+  async join(channel, policy) { this.topics.set(channel, policy); return true }
+  async leave(channel) { return this.topics.delete(channel) }
+  send() { return true }
+}
+
+async function fixture(t) {
+  const bundle = structuredClone(loadBundle())
+  bundle.exchanges = bundle.exchanges.filter(s => s.id === 'bitstamp')
+  bundle.tokens.tokens = bundle.tokens.tokens.filter(token => token.coin === 'tether-usdt')
+  const store = openStore({ file: ':memory:', profile: 'small', migrations: [...migrations, ...socialMigrations] })
+  let now = start
+  const engine = new Engine({ bundle, transport: new Transport(), store, clock: () => now, backgroundJobs: [], random: () => 0.5,
+    rpcConfig: { bundleDigest: '0'.repeat(64), fetch: () => assert.fail('Unexpected HTTP read'), timeout: 500, retries: 0,
+      requestsPerMinute: 60 } })
+  await engine.start()
+  clearTimeout(engine.timer)
+  t.after(async () => { await engine.stop(); store.close() })
+  const book = engine.book
+  const market = (base, quote) => engine.registry.cex('bitstamp', base, quote)
+  const row = (m, price, at = now) => [m.id, String(price), 1, String(price), null, null, at]
+  /** The mirror's rows against a fresh read of engine_latest + obs (order is not part of the contract). */
+  const table = () => {
+    const saved = book.latest
+    book.latest = null
+    book.checkLatest(now)
+    const fresh = book.latest
+    book.latest = saved
+    return fresh
+  }
+  const flat = latest => [...latest].flatMap(([m, rows]) => [...rows].map(([r, l]) => JSON.stringify([m, r, l]))).sort()
+  const same = message => assert.deepEqual(flat(book.latest), flat(table()), message)
+  return { engine, store, book, market, row, same, now: () => now, advance: ms => { now += ms } }
+}
+
+test('the in-memory latest rows always equal engine_latest joined to obs', async t => {
+  const { engine, store, book, market, row, same, now, advance } = await fixture(t)
+  const btc = market('BTC', 'USD'), eth = market('ETH', 'USD')
+  engine.publish([row(btc, 100_000), row(eth, 3_000)])
+  book.refresh()
+  assert.ok(book.latest.size >= 2, 'loaded on the first rebuild')
+  same('after the first load')
+
+  advance(30_000)
+  engine.publish([row(btc, 100_500)])
+  book.ingest(peer, [row(btc, 100_400), row(eth, 3_010)], false)
+  same('own and peer receipts')
+  assert.equal(book.latest.get(btc.id).get(engine.transport.publicKey).price, '100500')
+
+  // An older receipt never replaces the latest one.
+  book.ingest(peer, [row(btc, 99_000, now() - 20_000)], false)
+  same('older receipt')
+  assert.equal(book.latest.get(btc.id).get(peer).price, '100400')
+
+  // The 24 h prune deletes rows older than a day; the mirror drops the same rows.
+  advance(DAY + 60_000)
+  engine.publish([row(eth, 3_100)])
+  store.prune({ now: now() })
+  same('after the prune')
+  assert.equal(book.latest.has(btc.id), false)
+
+  // A market re-mapped to another pair loses its rows.
+  engine.registry.register({ ...engine.registry.markets.get(eth.id), base: btc.base })
+  same('after a re-mapped market')
+  assert.equal(book.latest.has(eth.id), false)
+})
+
+test('drift between the mirror and engine_latest reloads it within a minute', async t => {
+  const { engine, store, book, market, row, same, advance } = await fixture(t)
+  const btc = market('BTC', 'USD')
+  engine.publish([row(btc, 100_000)])
+  book.refresh()
+  advance(10_000)
+  // An outer transaction that rolls back undoes the write after ingest mirrored it.
+  assert.throws(() => store.transaction(() => {
+    engine.publish([row(btc, 101_000)])
+    throw new Error('rolled back')
+  }), /rolled back/)
+  assert.equal(book.latest.get(btc.id).get(engine.transport.publicKey).price, '101000')
+  advance(60_000)
+  book.dirty = true
+  book.refresh()
+  assert.equal(book.latestReloads, 1)
+  same('reloaded')
+  assert.equal(book.latest.get(btc.id).get(engine.transport.publicKey).price, '100000')
+})
+
+test('a rebuild longer than the clean window is reused, not repeated, by the next read', async t => {
+  const { engine, book, market, row, advance } = await fixture(t)
+  engine.publish([row(market('BTC', 'USD'), 100_000)])
+  book.maxStaleMs = 4000
+  let rebuilds = 0
+  const rank = engine.registry.rankMarkets.bind(engine.registry)
+  // Each rebuild takes 1.5 s on the book's clock (11-20: 1.1-1.7 s on the owner's node).
+  engine.registry.rankMarkets = (...args) => { rebuilds++; advance(1500); return rank(...args) }
+  book.dirty = true
+  book.refreshed = -Infinity
+  book.refresh()
+  assert.equal(rebuilds, 1)
+  for (let i = 0; i < 5; i++) book.refresh()
+  assert.equal(rebuilds, 1, 'five lookups in the same request reuse the rebuild')
+  advance(1000)
+  book.refresh()
+  assert.equal(rebuilds, 2, 'a clean book still rebuilds after its 1 s window')
+})

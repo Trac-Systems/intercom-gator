@@ -24,6 +24,13 @@ const HISTORY_BREAK_MS = 600_000
 const HISTORY_RESET_GAP_MS = DAY
 export const PROVEN = 3
 const COVERAGE_TTL_MS = 15_000
+// The in-memory latest rows are compared with engine_latest this often (a count and two modular sums, ~0.1 s on 179k
+// rows); any drift (a rolled-back write, a writer the mirror does not know) reloads them from the table.
+const LATEST_CHECK_MS = 60_000
+const SUM_MOD = 1_000_003
+// With reuse enabled (maxStaleMs > 0) a rebuild is reused for at least this many times its own duration, so rebuilds
+// take at most ~1/(1+REBUILD_SPACING) of the main thread however large the book grows.
+const REBUILD_SPACING = 4
 const retaining = new WeakSet()
 
 function retainComparisons(store) {
@@ -99,6 +106,7 @@ export class MarketBook {
     this.dirty = true
     this.refreshed = -Infinity
     this.maxStaleMs = 0
+    this.rebuildMs = 0
     this.unprovenIngest = new UnprovenIngest()
     store.trackMarketActivity(clock, store.onPrune)
     retainComparisons(store)
@@ -111,10 +119,18 @@ export class MarketBook {
       VALUES (?,?,?,?)
       ON CONFLICT(market,reporter) DO UPDATE SET srcTs=excluded.srcTs,obsId=excluded.obsId
       WHERE excluded.srcTs > engine_latest.srcTs`)
-    this.latestRows = db.prepare(`SELECT l.market,l.reporter,l.srcTs,o.price,o.bid,o.ask,o.baseVol24h,o.quoteVol24hUsd,coalesce(r.weight,1) AS weight, coalesce(r.strikes,0) AS strikes,
-      coalesce(s.agreements,0) AS agreements, coalesce(r.mutedUntil,0) AS mutedUntil
-      FROM engine_latest l JOIN obs o ON o.id=l.obsId LEFT JOIN reporters r ON r.key=l.reporter
-      LEFT JOIN engine_standing s ON s.reporter=l.reporter`)
+    // engine_latest joined to its observations, kept in memory as market → reporter → row. Re-reading all of it on every
+    // rebuild was ~60% of a 1.1-1.7 s rebuild at 179k rows (owner node 11-20) and blocked every request meanwhile.
+    // Every writer mirrors into it: ingest (after its transaction commits), the 24 h prune, a re-mapped market.
+    this.latest = null
+    this.latestChecked = -Infinity
+    this.latestReloads = 0
+    this.latestAll = db.prepare(`SELECT l.market,l.reporter,l.srcTs,l.obsId,o.price,o.bid,o.ask,o.baseVol24h,o.quoteVol24hUsd
+      FROM engine_latest l JOIN obs o ON o.id=l.obsId ORDER BY l.obsId`)
+    this.latestSums = db.prepare(`SELECT count(*) AS n,coalesce(sum(srcTs % ${SUM_MOD}),0) AS ts,
+      coalesce(sum(obsId % ${SUM_MOD}),0) AS ids FROM engine_latest`)
+    store.onPrune((_db, { now }) => this.forgetLatest(now - DAY))
+    registry.latestCleared?.add((market) => this.latest?.delete(market))
     this.count =
       db.prepare(`SELECT market,count(*) AS n,max(l.reporter=?) AS own FROM engine_latest l LEFT JOIN reporters r ON r.key=l.reporter
       LEFT JOIN engine_standing s ON s.reporter=l.reporter
@@ -256,11 +272,12 @@ export class MarketBook {
         priceUsd: rate === 1 ? price : rate ? multiplyPrice(price, fx.priceText ?? rate) : null,
       }
     })
+    const latest = []
     this.store.transaction(() => {
       const activity = new Map()
       const accepted = this.store.insertObservations(rows, row => {
         const { market, srcTs } = row
-        this.updateLatest.run(market, reporter, srcTs, row.id)
+        if (this.updateLatest.run(market, reporter, srcTs, row.id).changes) latest.push(row)
         const { base, quote } = this.registry.markets.get(market)
         for (const id of [base, quote]) {
           if (this.registry.assets.has(id)) activity.set(id, Math.max(srcTs, activity.get(id) ?? 0))
@@ -287,6 +304,42 @@ export class MarketBook {
       this.dirty = true
       this.covered.clear()
     })
+    for (const row of latest) this.setLatest(reporter, row)
+  }
+  setLatest(reporter, row) {
+    if (!this.latest) return
+    let rows = this.latest.get(row.market)
+    if (!rows) this.latest.set(row.market, rows = new Map())
+    rows.set(reporter, { srcTs: row.srcTs, obsId: row.id, price: row.price, bid: row.bid, ask: row.ask,
+      baseVol24h: row.baseVol24h, quoteVol24hUsd: row.quoteVol24hUsd })
+  }
+  /** Mirror of the prune hook's `DELETE FROM engine_latest WHERE srcTs<?`. */
+  forgetLatest(cutoff) {
+    if (!this.latest) return
+    for (const [market, rows] of this.latest) {
+      for (const [reporter, row] of rows) if (row.srcTs < cutoff) rows.delete(reporter)
+      if (!rows.size) this.latest.delete(market)
+    }
+  }
+  /** Load the latest rows once; afterwards compare checksums every LATEST_CHECK_MS and reload on any drift. */
+  checkLatest(now) {
+    this.latestChecked = now
+    if (this.latest) {
+      const table = this.latestSums.get()
+      let n = 0, ts = 0, ids = 0
+      for (const rows of this.latest.values()) {
+        for (const row of rows.values()) { n++; ts += row.srcTs % SUM_MOD; ids += row.obsId % SUM_MOD }
+      }
+      if (Number(table.n) === n && Number(table.ts) === ts && Number(table.ids) === ids) return
+      this.latestReloads++
+    }
+    const latest = new Map()
+    for (const { market, reporter, ...row } of this.latestAll.iterate()) {
+      let rows = latest.get(market)
+      if (!rows) latest.set(market, rows = new Map())
+      rows.set(reporter, row)
+    }
+    this.latest = latest
   }
   classify(snapshots, now, priorStale) {
     const depths = new Map(), dexAssets = new Set(), tradedOnDex = new Set(), supportedCex = new Set()
@@ -358,32 +411,48 @@ export class MarketBook {
     for (const venue of this.registry.venues.values()) venue.contracts?.expire(now)
     // New observations mark the book dirty many times a second on a busy node. A read may use a rebuild up to
     // maxStaleMs old instead of rebuilding (~0.4 s) inside every request; 0 rebuilds at once.
+    // Freshness counts from the END of the last rebuild: counted from its start, a rebuild longer than the 1 s clean
+    // window was stale on arrival and every lookup in one request rebuilt again (11-20: USDT page 68 s, ~50 rebuilds).
+    const spacing = this.maxStaleMs > 0 ? REBUILD_SPACING * this.rebuildMs : 0
     if (this.haltRevision === this.registry.haltRevision &&
-        now - this.refreshed < (this.dirty ? this.maxStaleMs : 1000)) return this.snapshots
+        now - this.refreshed < Math.max(this.dirty ? this.maxStaleMs : 1000, spacing)) return this.snapshots
+    const started = performance.now()
     this.haltRevision = this.registry.haltRevision
     const referencePrices = this.registry.referencePrices(now)
     const review = this.registry.reviewSplits(now, referencePrices)
     const grouped = new Map()
     const followed = new Map()
     const observed = new Set(), haltedBases = new Set()
-    for (const r of this.latestRows.iterate()) {
-      const market = this.registry.markets.get(r.market)
+    if (!this.latest || now - this.latestChecked >= LATEST_CHECK_MS) this.checkLatest(now)
+    const standing = new Map()
+    for (const [id, rows] of this.latest) {
+      const market = this.registry.markets.get(id)
       if (!market) continue
-      if (this.halted.has(r.market) || (market.kind === 'cex' &&
-          zeroTickerBook(this.registry.venues.get(market.exchange), r.bid, r.ask))) {
-        if (r.mutedUntil <= now && r.weight > 0 &&
-            (r.reporter === this.ownKey || (r.agreements >= PROVEN && !this.localOnly(r.market))))
-          haltedBases.add(market.base)
-        continue
+      for (const [reporter, l] of rows) {
+        let s = standing.get(reporter)
+        if (!s) {
+          const r = this.reputation.get(reporter)
+          standing.set(reporter, s = { weight: r?.weight ?? 1, strikes: r?.strikes ?? 0,
+            agreements: this.standing.get(reporter)?.agreements ?? 0, mutedUntil: r?.mutedUntil ?? 0 })
+        }
+        if (this.halted.has(id) || (market.kind === 'cex' &&
+            zeroTickerBook(this.registry.venues.get(market.exchange), l.bid, l.ask))) {
+          if (s.mutedUntil <= now && s.weight > 0 &&
+              (reporter === this.ownKey || (s.agreements >= PROVEN && !this.localOnly(id))))
+            haltedBases.add(market.base)
+          continue
+        }
+        observed.add(market.base)
+        if (s.mutedUntil > now || s.weight <= 0) continue
+        if (!grouped.has(id)) grouped.set(id, [])
+        if (!followed.has(reporter)) followed.set(reporter, this.followed(reporter))
+        const own = reporter === this.ownKey
+        grouped.get(id).push({ market: id, reporter, srcTs: l.srcTs, price: l.price, bid: l.bid, ask: l.ask,
+          baseVol24h: l.baseVol24h, quoteVol24hUsd: l.quoteVol24hUsd,
+          weight: s.weight * ((followed.get(reporter) ? 1.25 : 1) / (1 + s.strikes)), strikes: s.strikes,
+          agreements: s.agreements, mutedUntil: s.mutedUntil, own,
+          proven: own || (s.agreements >= PROVEN && !this.localOnly(id)) })
       }
-      observed.add(market.base)
-      if (r.mutedUntil > now || r.weight <= 0) continue
-      if (!grouped.has(r.market)) grouped.set(r.market, [])
-      if (!followed.has(r.reporter)) followed.set(r.reporter, this.followed(r.reporter))
-      r.weight *= (followed.get(r.reporter) ? 1.25 : 1) / (1 + r.strikes)
-      r.own = r.reporter === this.ownKey
-      r.proven = r.own || (r.agreements >= PROVEN && !this.localOnly(r.market))
-      grouped.get(r.market).push(r)
     }
     this.marketPrices.clear()
     for (const [id, rows] of grouped) {
@@ -554,7 +623,8 @@ export class MarketBook {
       for (const id of retired) this.store.writer.prepare('DELETE FROM prices WHERE asset=?').run(id)
     })
     this.snapshots = next
-    this.refreshed = now
+    this.refreshed = this.clock()
+    this.rebuildMs = performance.now() - started
     this.dirty = false
     for (const result of changed) this.onPrice(result)
     return next

@@ -48,6 +48,8 @@ export class Registry {
     this.catalog = catalog
     this.assets = new Map()
     this.markets = new Map()
+    /** Called with a market id whose engine_latest rows were deleted (the book keeps those rows in memory). */
+    this.latestCleared = new Set()
     this.symbols = new Map()
     this.seedIds = new Set(catalog.assets.map((a) => a.id))
     this.fixedRanks = new Map(catalog.assets.filter((a) => a.rank > 0).map((a) => [a.id, a.rank]))
@@ -226,6 +228,7 @@ export class Registry {
     if (old && (old.base !== market.base || old.quote !== market.quote)) {
       this.db.prepare('DELETE FROM asset_markets WHERE asset=? AND market=?').run(old.base, market.id)
       this.db.prepare('DELETE FROM engine_latest WHERE market=?').run(market.id)
+      for (const cleared of this.latestCleared) cleared(market.id)
     }
     this.store.upsertMarket(market)
     if (this.assets.has(market.base)) this.store.linkAssetMarket(market.base, market.id)

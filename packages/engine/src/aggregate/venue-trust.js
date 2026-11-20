@@ -65,14 +65,26 @@ function betterQuote(priority, row, best) {
 
 // engine_latest already deduplicates by (market, reporter). The book's market spread
 // measures disagreement between reporters, so use their actual bid and ask here.
-function recentEvidence({ store, registry, book }, now) {
+// Reads the book's in-memory latest rows (loaded by book.refresh()); a scan of engine_latest + obs here cost as much as
+// a whole book rebuild on a 179k-row node (11-20).
+function* latestSince({ book }, since) {
+  const standing = new Map()
+  for (const [market, rows] of book.latest ?? []) {
+    for (const [reporter, l] of rows) {
+      if (l.srcTs < since) continue
+      let s = standing.get(reporter)
+      if (!s) {
+        const r = book.reputation.get(reporter)
+        standing.set(reporter, s = { agreements: book.standing.get(reporter)?.agreements ?? null,
+          mutedUntil: r?.mutedUntil ?? 0, weight: r?.weight ?? 1 })
+      }
+      yield { market, reporter, srcTs: l.srcTs, bid: l.bid, ask: l.ask, ...s }
+    }
+  }
+}
+function recentEvidence({ registry, book }, now) {
   const reporters = new Map(), quotes = new Map()
-  const latest = store.reader.prepare(`SELECT l.market,l.reporter,l.srcTs,o.bid,o.ask,
-    s.agreements,coalesce(r.mutedUntil,0) AS mutedUntil,coalesce(r.weight,1) AS weight
-    FROM engine_latest l JOIN obs o ON o.id=l.obsId
-    LEFT JOIN engine_standing s ON s.reporter=l.reporter LEFT JOIN reporters r ON r.key=l.reporter
-    WHERE l.srcTs>=?`)
-  for (const r of latest.iterate(now - HOUR)) {
+  for (const r of latestSince({ book }, now - HOUR)) {
     const market = registry.markets.get(r.market)
     if (market?.exchange == null) continue
     let seen = reporters.get(market.exchange)
