@@ -1,5 +1,6 @@
 import { hintFactory } from '../sources/tron/events.js';
 import { tronHex } from '../sources/tron/address.js';
+import { familyToken } from '../sources/family-tokens.js';
 import { EvmSource } from '../sources/evm.js';
 import { formatUrl } from '../sources/http.js';
 import { decimal } from '../obs/index.js';
@@ -9,6 +10,14 @@ import { DAY, isAddress, isAsset, isKey, isTime, validMessage } from './values.j
 
 export const NEW_THRESHOLDS = Object.freeze({ liquidityUsd: 100_000, ageMs: DAY, trades: 100, reporters: 3 });
 const boundedId = v => typeof v === 'string' && /^[a-zA-Z0-9_.-]{1,64}$/.test(v);
+// TON jetton masters and NEAR accounts reach the New list only from this node's own readers (intel/index.js drops
+// peer records for these chains); the wire asset pattern is unchanged.
+function localAsset(asset) {
+  const i = typeof asset === 'string' ? asset.indexOf(':') : -1;
+  const family = i > 0 && familyToken(asset.slice(0, i));
+  return !!family && asset.slice(i + 1) !== 'native' && family.valid(asset.slice(i + 1));
+}
+
 function identity(message) {
   if (message.t === 'listing') {
     if (!boundedId(message.exchange) || typeof message.symbol !== 'string' ||
@@ -18,6 +27,13 @@ function identity(message) {
   const { pool, token0, token1, block, tx } = message;
   if (!boundedId(message.chain) || !(typeof message.dex === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_. -]{0,95}$/.test(message.dex)) || !boundedId(message.kind)) return null;
   const evm = isAddress(pool) || (typeof pool === 'string' && /^0x[\da-f]{64}$/i.test(pool));
+  const family = familyToken(message.chain);
+  if (family) {
+    // Local reader discoveries only (intel drops these chains from peers): 0x market key, no creation receipt.
+    if (!/^0x[\da-f]{64}$/.test(pool) || tx !== null || block !== null || !family.valid(token0) || !family.valid(token1) ||
+        token0 === token1) return null;
+    return 'dex:' + message.chain + ':' + pool;
+  }
   if (message.chain === 'tron') {
     const seed = tx === null && block === null && tronHex(pool) && tronHex(token0) &&
       (tronHex(token1) || (message.kind === 'v1' && token1 === 'native')) && token0 !== token1;
@@ -47,7 +63,7 @@ export function createNewTokens({ thresholds = {}, resolveAssets, isKnownAsset =
     const fallback = m.t === 'pool' ? [m.token0, m.token1].map(a => m.chain + ':' + (isAddress(a) ? a.toLowerCase() : a)) : [];
     const identities = resolveAssets?.(m) ?? fallback;
     for (const asset of new Set(identities ?? [])) {
-      if (!isAsset(asset) || isKnownAsset(asset)) continue;
+      if (!(isAsset(asset) || localAsset(asset)) || isKnownAsset(asset)) continue;
       if (!assets.has(asset)) {
         if (assets.size >= 8192) assets.delete(assets.keys().next().value);
         assets.set(asset, { asset, firstSeen: discovery.firstSeen, reporters: new Set(), markets: new Set(), graduated: state?.graduated(asset) ?? false });

@@ -182,6 +182,14 @@ export function sourcesReport(engine) {
     scanners.push(item({ id: 'tron:sunswap', kind: 'tron-scanner', name: 'SunSwap', chain: 'tron', host: host(tron.url) },
       sum, { ...info, state: sourceState(sum, { failures: info.failures, now }) }))
   }
+  for (const [id, name, reader] of [['ton:dex', 'STON.fi + DeDust', engine.ton], ['near:ref', 'Ref Finance', engine.near]]) {
+    const endpoint = reader?.client.endpoint
+    if (!endpoint || !allowed(id)) continue
+    const sum = httpSum(endpoint.url), info = jobInfo(jobs.get(id), now)
+    used.add(origin(endpoint.url))
+    scanners.push(item({ id, kind: reader.chain + '-scanner', name, chain: reader.chain, host: host(endpoint.url) },
+      sum, { ...info, state: sourceState(sum, { failures: info.failures, now }) }))
+  }
   for (const [id, job] of jobs) {
     if (!id.startsWith('sol:')) continue
     const api = engine.catalog.apis.find((a) => a.id === id.slice(4))

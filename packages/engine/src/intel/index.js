@@ -1,3 +1,4 @@
+import { LOCAL_POOL_CHAINS } from '../sources/family-tokens.js';
 import { createRiskService } from './risk.js';
 import { createClaimService } from './claims.js';
 import { createNewTokens, placementSeedJob, placementTrackingJob, poolAnnouncementJob } from './discoveries.js';
@@ -103,6 +104,8 @@ export function createIntel(options) {
         return placements.receive(envelope.message, envelope.from);
       case 'pool': {
         const m = envelope.message;
+        // TON and NEAR discoveries are local only; a peer's record cannot be verified here.
+        if (LOCAL_POOL_CHAINS.has(m?.chain)) return false;
         if (m.chain === 'tron') {
           const local = typeof m.pool === 'string' && m.pool.length === 34 && options.engine?.tron?.pool.get(m.pool);
           if (!local?.tx || ['tx','block','token0','token1','dex','kind'].some(k => local[k] !== m[k])) return false;

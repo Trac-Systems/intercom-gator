@@ -1,5 +1,6 @@
 import { tronHex } from '../sources/tron/address.js'
 import { QUOTES, WTRX } from '../sources/tron/deployments.js'
+import { familyToken } from '../sources/family-tokens.js'
 import { categoryLabels } from '@gator/bundle'
 import { nativeCategoryId } from './native-category.js'
 import { symbolPattern } from '../obs/index.js'
@@ -364,14 +365,16 @@ export class Registry {
     if (!definition || token0 === token1) return null
     const isSol = definition.family === 'solana'
     const isTron = definition.family === 'tron'
+    const family = familyToken(definition.family)
     const validToken = address => {
+      if (family) return family.valid(address)
       if (isTron) return address === 'native' ? discovery.kind === 'v1' : !!tronHex(address)
       return isSol ? SOL.test(address) : EVM.test(address) || address === 'native'
     }
     if (
       !validToken(token0) ||
       !validToken(token1) ||
-      !(isTron ? tronHex(pool) : isSol ? SOL.test(pool) : EVM.test(pool) || POOL_ID.test(pool))
+      !(family ? POOL_ID.test(pool) : isTron ? tronHex(pool) : isSol ? SOL.test(pool) : EVM.test(pool) || POOL_ID.test(pool))
     )
       return null
     const id = 'dex:' + chain + ':' + pool
@@ -380,7 +383,8 @@ export class Registry {
     if (first.id === second.id) return null
     // A secondary TRON quote can acquire its own USD route through USDT or native TRX.
     const score = t => {
-      if (t.stable) return 3
+      if (t.stable || family?.stable.has(t.address)) return 3
+      if (family) return t.address === 'native' ? 2 : 0
       if (isTron) return t.address === 'native' ? 2 : Number(QUOTES.includes(t.address))
       return definition.quotes.includes(t.address) ? 2 : 0
     }
