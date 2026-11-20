@@ -24,7 +24,7 @@ test('a peer that cannot connect directly gets social, directory and data channe
     finally { await net.destroy(); rmSync(dir, { recursive: true, force: true }); }
   });
   const isolated = DHT.keyPair(), root = wallet(), rootKey = root.publicKey.toString('hex');
-  const markers = ['relay-marker-official', 'relay-marker-own', 'relay-marker-dir', 'relay-marker-px'];
+  const markers = ['relay-marker-official', 'relay-marker-own', 'relay-marker-dir', 'relay-marker-all', 'relay-marker-px'];
   async function node(w, keyPair, blindRelay, capture = false) {
     const dht = net.createNode({ quickFirewall: false });
     await dht.fullyBootstrapped();
@@ -44,16 +44,23 @@ test('a peer that cannot connect directly gets social, directory and data channe
   const b = await node(wallet(), isolated, { defaults: [relayKey], ...limits });
   // The relay only relays here (it joins an unrelated channel to start), so nothing can reach B through its rebroadcast.
   assert.ok(await relay.transport.join('gator/px/15'));
-  const channels = ['soc/official', 'soc/u/' + rootKey, 'soc/dir', 'gator/px/3'];
+  const channels = ['soc/official', 'soc/u/' + rootKey, 'soc/dir', 'soc/all', 'gator/px/3'];
+  // Publish before B joins. B will receive this signed original inside the public wrapper.
+  assert.ok(await a.transport.join('soc/u/' + rootKey));
+  let original;
+  a.transport.once('message', (_channel, e) => { original = e; });
+  assert.ok(a.transport.send('soc/u/' + rootKey, { t: 'post', v: 1, text: 'relay-marker-all' }));
   const got = new Map();
   b.transport.on('message', (channel, envelope) => {
-    if (envelope.from === rootKey) got.set(channel, envelope.message.text);
+    if (envelope.from === rootKey) got.set(channel, channel === 'soc/all'
+      ? envelope.message.original?.message.text : envelope.message.text);
   });
   for (const n of [a, b]) for (const channel of channels) assert.ok(await n.transport.join(channel), channel);
   const deadline = Date.now() + 90_000;
   while (got.size < channels.length && Date.now() < deadline) {
     for (const [i, channel] of channels.entries()) {
-      if (!got.has(channel)) a.transport.send(channel, { t: 'post', v: 1, text: markers[i] });
+      if (!got.has(channel)) a.transport.send(channel, channel === 'soc/all'
+        ? { t: 'share', v: 1, original } : { t: 'post', v: 1, text: markers[i] });
     }
     await delay(500);
   }
