@@ -238,3 +238,15 @@ test('contract helpers: explorer pages, roles, chain labels, representative and 
   assert.deepEqual(rows.slice().sort(rowOrder('rank', 'desc')).map(r => r.id), ['a', 'c', 'b'])
   assert.deepEqual(rows.slice().sort(rowOrder('name', 'asc')).map(r => r.id), ['c', 'a', 'b'])
 })
+
+test('the volume guard compares turnover with the coin cap, never one deployment\'s share', async t => {
+  const { engine } = await tether(t)
+  engine.book.refresh()
+  // A coin member answers with the coin's counted-once cap (171B), not TRON's or Ethereum's own share.
+  assert.equal(engine.book.guardCap(tronUsdt), 171e9)
+  assert.equal(engine.book.guardCap(ethUsdt), 171e9)
+  // A native coin uses its own cap; a standalone single-chain token none (its supply there may be a bridged share).
+  assert.equal(engine.book.guardCap(btc), engine.book.snapshots.get(btc).marketCap)
+  assert.ok(engine.book.guardCap(btc) > 1e12)
+  assert.equal(engine.book.guardCap('ethereum:0xc669928185dbce49d2230cc9b0979be6dc797957'), null)
+})

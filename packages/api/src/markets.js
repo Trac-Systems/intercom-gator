@@ -1,6 +1,7 @@
 import { MARKET_POLICY } from '../../store/src/markets.js';
 import { pageByAge } from '../../engine/src/aggregate/queries.js';
 import { check } from './local.js';
+import { volumeOrder } from '../../engine/src/aggregate/volume-guard.js';
 
 const widths = { '1m': 60_000, '5m': 300_000, '1h': 3_600_000, '1d': 86_400_000 };
 // DESIGN "Trust dot per number": a venue's number is confirmed (green) when it is fresh, its own reporters agree, the
@@ -49,6 +50,8 @@ export function marketViews(app, people) {
         kind: m.kind.toUpperCase(), chain: m.chain, pair: base + '/' + quote, base: m.base, quote: m.quote,
         asset: member, chainName: engine.queries.chainName(chainId),
         price: m.price, volume24h: m.volume24h, liquidity: m.liquidity ?? null,
+        ...(m.volumeSuspect && { volumeSuspect: m.volumeSuspect.reason, volumeNote: m.volumeSuspect.note,
+          volumeChecks: m.volumeSuspect.checks }),
         trust: source ? marketTrust(m, member, source, stale, age, excluded) : null,
         updated: age == null ? null : Math.floor(age / 1000), windowMs: source?.window ?? null };
     });
@@ -94,12 +97,25 @@ export function marketViews(app, people) {
       ...entries.filter(([,v]) => v === 'unknown').map(([k]) => k + ' unknown'),
       ...(entries.length ? [] : ['risk unchecked'])];
   }
-  /** Markets by 24 h volume, paged: a stablecoin page otherwise carries every X/USDT pair (20,000+, ~9 MB). */
-  function marketPage(id, { limit = 100, offset = 0 } = {}, rows = markets(id)) {
+  /**
+   * Markets by 24 h volume, paged: a stablecoin page otherwise carries every X/USDT pair (20,000+, ~9 MB).
+   * Rows whose volume the guard does not count (`volumeSuspect`) follow the counted ones and stay out of `volumeTotal`
+   * (the base of each row's share). `side=base|quote` keeps the markets where the asset is the base or the quote;
+   * `counts` gives both before that filter, so a stablecoin page can offer "USDT as base / as quote".
+   */
+  function marketPage(id, { limit = 100, offset = 0, side } = {}, rows = markets(id)) {
     const vol = m => (Number.isFinite(+m.volume24h) && m.volume24h != null ? +m.volume24h : -1);
-    const sorted = [...rows].sort((a, b) => vol(b) - vol(a));
-    const volumeTotal = rows.reduce((sum, m) => sum + Math.max(0, vol(m)), 0);
-    return { items: sorted.slice(offset, offset + limit), total: rows.length, volumeTotal };
+    const quoteSide = m => m.quote === m.asset && m.base !== m.asset;
+    const counts = { base: 0, quote: 0 };
+    for (const m of rows) counts[quoteSide(m) ? 'quote' : 'base']++;
+    const matching = side === 'base' || side === 'quote' ? rows.filter(m => quoteSide(m) === (side === 'quote')) : rows;
+    const sorted = [...matching].sort(volumeOrder);
+    let volumeTotal = 0, suspectTotal = 0, suspects = 0;
+    for (const m of matching) {
+      if (m.volumeSuspect) { suspects++; suspectTotal += Math.max(0, vol(m)); } else volumeTotal += Math.max(0, vol(m));
+    }
+    return { items: sorted.slice(offset, offset + limit), total: matching.length, offset, volumeTotal,
+      suspect: { count: suspects, volume24h: suspectTotal }, counts };
   }
   function detail(id) {
     const t = engine.asset(id) ?? discoveryToken(intel.newTokens.list().find(row => row.asset === id));

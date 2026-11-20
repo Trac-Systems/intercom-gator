@@ -275,6 +275,20 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   leaves the price, volume and trust when at least two independent sources agree within 3% of it, carry two thirds of
   the weight and outnumber the outlying sources two to one; `why.outliers` lists them and "Why trusted" shows them
   as "not used". DEX pools and symbolMap markets never qualify.
+- Volume plausibility (`aggregate/volume-guard.js`, local only, no wire change): a CEX market's reported 24 h USD
+  volume is not counted (`volumeSuspect`) when it is out of line — more than 10× the same venue's largest BTC/ETH pair,
+  more than 1,000,000× the larger top-of-book side (price × size, where the all-tickers row gives sizes: Bitget/OKX
+  `bidSz`, Binance `bidQty`, Bybit `bid1Size`, KuCoin `bestBidSize`, Kraken `b[2]`) or more than 20× the base asset's
+  cap in a day — and no independent source confirms it: another exchange trading the same resolved asset with ≥ 25% of
+  that volume, two with ≥ 5% each, or the asset's DEX pools together. Unresolved bases have no confirmation. A pair the
+  venue marks as a tokenized stock (Bitget catalog `areaSymbol: "yes"` with a base coin spelled `rANT`, `rSPY`; live
+  11-20: 3,098 pairs, median $51M/day, RANT $102.6B, RSPY $50.9B ≈ SPY) carries the underlying equity's volume and is
+  flagged `underlying-stock` whatever its size. A flagged market stays listed with its reported number and a plain
+  reason; it is left out of the asset's 24 h volume (so caps from total supply, gainers/losers and trending), market
+  list totals and shares, venue volume and rank (`suspectVolume24h` apart) and the main-market choice, sorts after
+  counted volumes, and weighs no more than the largest counted market in the price median (its price still counts). A
+  false flag changes ordering only. Thresholds are code constants (`VOLUME_GUARD`); the root `engine` setting does not
+  carry them yet.
 - change24h comes from the node's hourly history and is checked against the venues' own 24 h move (last / open from
   the bundle's `open24h` or `change24h` field) on this node's fresh reads (≤ 2 h) of USD- or stablecoin-quoted core
   markets, weighted like the price. More than 25% apart, or no history: the venues' move is used and change7d is
@@ -299,6 +313,10 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   their existing ID. Asset rows expose `visibility` as `live`, `stale`,
   `unconfirmed` or `dust`, in order of exclusion by staleness, confirmation and dust. An asset awaiting its first
   price is unconfirmed. `staleSince` is a local epoch-ms timestamp for stale prices and null otherwise.
+- `GET /assets/:id/markets?limit=&offset=&side=base|quote` pages every market of the asset: counted volume first
+  (volume desc), flagged volumes after them, then by ID. `total` counts the rows matching `side`; `volumeTotal` (the
+  base of each row's share) counts only unflagged volume; `suspect: {count, volume24h}` and `counts: {base, quote}`
+  (before the side filter) let the token page say what is left out and offer "USDT/… · …/USDT" for quote assets.
 - Market list responses count matching hidden rows by reason before pagination. `include=hidden` includes those
   rows or their contributions to category and chain totals. `/markets.total` counts matching rows under the selected
   inclusion rule. Search, direct asset views, watchlists, holdings and alerts expose hidden assets. Exchange lists

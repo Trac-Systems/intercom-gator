@@ -117,9 +117,10 @@ export function withBadges(cell, badges) {
 
 /** "+ $722B unverified" under an exchange's volume. @param {{unresolvedVolume24h?: number|null}} e */
 export function unverifiedVolume(e) {
-  const v = Number(e?.unresolvedVolume24h);
-  if (!(v > 0)) return '';
-  const tip = 'Turnover this venue reports for markets your node cannot match to a known asset ' +
-    '(for example Bitget’s tokenized stocks). Not counted in its volume or rank.';
-  return `<span class="unv n" data-tip="${esc(tip)}">+ ${money(v)} unverified</span>`;
+  const v = Number(e?.unresolvedVolume24h), x = Number(e?.suspectVolume24h);
+  const tip = 'Turnover this venue reports for markets your node cannot match to a known asset. Not counted in its volume or rank.';
+  const tipX = 'Volume this venue reports that your node does not count: tokenized stocks carrying the underlying stock ' +
+    'market’s volume, or numbers out of line that no other venue confirms. Not in its volume or rank.';
+  return (v > 0 ? `<span class="unv n" data-tip="${esc(tip)}">+ ${money(v)} unverified</span>` : '') +
+    (x > 0 ? `<span class="unv n" data-tip="${esc(tipX)}">+ ${money(x)} not counted</span>` : '');
 }

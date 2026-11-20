@@ -373,7 +373,10 @@ export async function loadCatalog(venue, http, now, raw) {
       (venue.id === 'bybit' && r.status != null && r.status !== 'Trading') ||
       (venue.id === 'bitget' && r.status === 'offline') ||
       (venue.id === 'kraken' && ['cancel_only', 'maintenance', 'delisted'].includes(r.status))
-    next.set(symbol.toUpperCase(), { pair, derivative: /(perp|future|swap|option)/.test(kind), halted })
+    // Bitget lists tokenized stocks in its "area" zone with the base coin spelled `rANT`, `rSPY`: their tickers carry the
+    // underlying equity's exchange volume (volume-guard.js). `areaSymbol` alone also marks USDTUSD, PIUSDT and others.
+    const stock = venue.id === 'bitget' && r.areaSymbol === 'yes' && /^r[A-Z0-9]/.test(String(r.baseCoin ?? ''))
+    next.set(symbol.toUpperCase(), { pair, derivative: /(perp|future|swap|option)/.test(kind), halted, ...(stock && { stock }) })
   }
   venue.catalogCache = next
   venue.catalogAt = now
@@ -443,6 +446,7 @@ export function* tickerRecords(venue, json) {
       pair,
       catalogDerivative: entry?.derivative,
       catalogHalted: entry?.halted,
+      catalogStock: entry?.stock === true,
       funding: field(funding?.field),
       openInterest: field(interest?.field),
       // Some feeds omit the trade price on quiet markets; the bundle names an indicative fallback.

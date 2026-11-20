@@ -34,6 +34,22 @@ export function updateHalts(registry, changes) {
   registry.haltRevision++
 }
 
+// Top-of-book sizes where the venue's all-tickers row carries them (Bitget/OKX bidSz, Binance bidQty, Bybit bid1Size,
+// KuCoin bestBidSize, Kraken b[2]): local evidence for the volume guard only, never on the wire.
+const SIZE_FIELDS = [['bidSz', 'askSz'], ['bidQty', 'askQty'], ['bid1Size', 'ask1Size'], ['bestBidSize', 'bestAskSize'],
+  ['bidSize', 'askSize']]
+export function bookSizes(venue, row) {
+  if (venue === 'kraken') return [decimal(row.b?.[2]), decimal(row.a?.[2])]
+  for (const [bid, ask] of SIZE_FIELDS) if (row[bid] != null || row[ask] != null) return [decimal(row[bid]), decimal(row[ask])]
+  return null
+}
+/** The larger top-of-book side in quote units, or null when the venue gives no sizes. */
+export function bookQuote(bid, ask, sizes) {
+  if (!sizes) return null
+  const value = Math.max(+bid * +sizes[0] || 0, +ask * +sizes[1] || 0)
+  return value > 0 ? value : null
+}
+
 function tradeCount(venue, row) {
   if (counted.has(venue)) return decimal(row.count)
   if (venue === 'poloniex') return decimal(row.tradeCount)
@@ -107,6 +123,8 @@ export async function fetchTickers({ venue, http, registry, clock, publish, disc
   const halted = marketHalts(registry), changes = new Map()
   const seen = venue.contracts ? new Set() : null
   venue.lastTickers ??= new Map()
+  // Per market: the venue's tokenized-stock marker and top-of-book value (volume-guard.js; local only).
+  venue.volumeEvidence ??= new Map()
   const remember = registry.store.writer.prepare('INSERT OR IGNORE INTO engine_cex_symbols VALUES (?,?,?)')
   registry.store.transaction(() => {
     for (const record of tickerRecords(venue, json)) {
@@ -131,6 +149,9 @@ export async function fetchTickers({ venue, http, registry, clock, publish, disc
       }
       if (!market) continue
       seen?.add(market.id)
+      const book = bookQuote(record.bid, record.ask, bookSizes(venue.id, row))
+      if (record.catalogStock || book != null) venue.volumeEvidence.set(market.id, { stock: record.catalogStock, book, at: now })
+      else venue.volumeEvidence.delete(market.id)
       const base = decimal(record.baseVolume),
         quote = decimal(record.quoteVolume)
       const usd = decimal(record.usdVolume)

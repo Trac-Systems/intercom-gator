@@ -42,7 +42,11 @@ test('names: unnamed labels and imitation chips', () => {
 test('exchanges show unverified turnover apart; splits panel lists detached venues', () => {
   assert.equal(unverifiedVolume({ unresolvedVolume24h: 0 }), '');
   assert.match(unverifiedVolume({ unresolvedVolume24h: 722e9 }), /\+ \$722(\.0)?B unverified/);
-  assert.match(unverifiedVolume({ unresolvedVolume24h: 722e9 }), /tokenized stocks/);
+  assert.match(unverifiedVolume({ unresolvedVolume24h: 722e9 }), /cannot match to a known asset/);
+  // Volume the guard does not count (tokenized stocks' underlying volume) is named apart.
+  const both = unverifiedVolume({ unresolvedVolume24h: 1e6, suspectVolume24h: 944e9 });
+  assert.match(both, /\+ \$944(\.0)?B not counted/);
+  assert.match(both, /tokenized stocks carrying the underlying stock market/);
   assert.equal(ratioText(12.44), '×12.4');
   assert.equal(ratioText(0.0312), '×0.031');
   assert.equal(ratioText(null), '—');

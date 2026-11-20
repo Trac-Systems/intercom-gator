@@ -147,7 +147,10 @@ export function createRouter(app) {
       if (sub === 'coverage') return engine.focus.coverage(focusId(key));
       const id = market.resolve(key);
       if (!sub) { const t = market.detail(id); return withCaveat(t, t.trust, t.price); }
-      if (sub === 'markets') return market.marketPage(id, { limit: integer(q.limit, 100, 500, 1), offset: integer(q.offset, 0, 1_000_000) });
+      if (sub === 'markets') {
+        check(q.side === undefined || q.side === '' || q.side === 'base' || q.side === 'quote', 'unknown side');
+        return market.marketPage(id, { limit: integer(q.limit, 100, 500, 1), offset: integer(q.offset, 0, 1_000_000), side: q.side || undefined });
+      }
       if (sub === 'candles') return market.candles(id, q);
       if (sub === 'posts') return people.feed({ asset: id }, integer(q.limit,100,100,1));
       if (sub === 'price') {

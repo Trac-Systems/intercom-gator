@@ -4,6 +4,8 @@ import { aggregateAssets, capSupply, marketMedian, totalCapCheck, weightedMedian
 import { decimal } from '../obs/index.js'
 import { coverageTarget } from '../scheduler/index.js'
 import { zeroTickerBook, marketHalts } from '../sources/cex.js'
+import { marketUsdVolume, quoteRate } from './collisions.js'
+import { volumeSuspects } from './volume-guard.js'
 
 const DAY = 86400_000
 // change24h from the node's hourly history must agree with the venues' own 24 h move within this factor. History
@@ -87,6 +89,8 @@ export class MarketBook {
     // siblings (`priceSiblings`): a quote deployment without a price of its own borrows a signed sibling's as its USD rate.
     Object.assign(this, { store, registry, ownKey, clock, siblings, onPrice, onDisagreement })
     this.snapshots = new Map()
+    /** @type {Map<string, import('./volume-guard.js').Suspect>} market → why its reported volume is not counted */
+    this.volumeSuspects = new Map()
     this.marketPrices = new Map()
     this.halted = marketHalts(registry)
     this.dirty = true
@@ -316,7 +320,7 @@ export class MarketBook {
       p.staleSince = null
       const range = zeroTurnover.get(p.asset)
       const confirmed = p.why.provenSources > 0 || p.why.referenceProviders?.length > 0 ||
-        (supported.has(p.asset) && p.why.provenVolume24h > 0) ||
+        (supported.has(p.asset) && (p.why.provenVolume24h > 0 || p.why.suspectVolume24h > 0)) ||
         (!p.why.fresh && range && p.price >= range[0] * (1 - 1e-12) && p.price <= range[1] * (1 + 1e-12))
       if (p.why.stale || now - p.at > MARKET_POLICY.maxPriceAge) {
         p.visibility = 'stale'
@@ -332,6 +336,19 @@ export class MarketBook {
         p.visibility = 'live'
       }
     }
+  }
+  /** Volume plausibility (volume-guard.js) on the current market medians, valued at the previous rebuild's rates. */
+  guardVolumes() {
+    const snapshots = this.snapshots
+    const rows = []
+    for (const p of this.marketPrices.values()) {
+      const evidence = p.kind === 'cex' ? this.registry.venues.get(p.exchange)?.volumeEvidence?.get(p.id) : null
+      const rate = evidence?.book ? quoteRate(snapshots, p.quote) : null
+      rows.push({ id: p.id, kind: p.kind, exchange: p.exchange ?? null, base: p.base, quote: p.quote,
+        volume: marketUsdVolume(p, snapshots), stock: evidence?.stock === true,
+        stable: !!this.registry.assets.get(p.base)?.stable, bookUsd: rate ? evidence.book * rate : null })
+    }
+    return volumeSuspects(rows, { capUsd: this.guardCap ?? (id => snapshots.get(id)?.marketCap ?? null) })
   }
   refresh() {
     const now = this.clock()
@@ -411,9 +428,10 @@ export class MarketBook {
       })
     }
     const collisions = new Map()
+    this.volumeSuspects = this.guardVolumes()
     const next = aggregateAssets(this.registry.assets, this.marketPrices.values(), now, anchors,
       { pinned: m => this.registry.mapped(m), collisions, referencePrices, dayRatio: m => this.dayRatio(m, now),
-        lenders: this.siblings })
+        lenders: this.siblings, suspects: this.volumeSuspects })
     this.registry.applySplits(collisions, this.marketPrices, now, review)
     this.collisions = collisions
     // Retain a last-known value after raw-history pruning. If raw evidence still exists
@@ -452,7 +470,7 @@ export class MarketBook {
       })
     }
     this.classify(next, now, new Map(persisted.filter(p => p.staleSince != null).map(p => [p.asset, p.staleSince])))
-    this.registry.rankMarkets(next, this.marketPrices, now)
+    this.registry.rankMarkets(next, this.marketPrices, now, this.volumeSuspects)
     const changed = []
     this.store.transaction(() => {
       const samples = []

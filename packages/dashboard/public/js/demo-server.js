@@ -161,7 +161,18 @@ export function createDemoServer(opts = {}) {
         const tf = ['1m', '5m', '1h', '1d'].includes(q.tf) ? q.tf : '1h';
         return { asset: t.id, tf, candles: sampleCandles(t, tf, Math.min(5000, Number(q.limit) || 0), now()) };
       }
-      if (GET && c === 'markets') return { items: sampleMarkets(t) };
+      if (GET && c === 'markets') {
+        // Paged like the real API: counted volume first, the counted total, both pair sides counted before ?side=.
+        const all = sampleMarkets(t);
+        const quoteSide = (m) => m.quote != null && m.quote === t.id && m.base !== t.id;
+        const counts = { base: all.filter((m) => !quoteSide(m)).length, quote: all.filter(quoteSide).length };
+        if (q.side != null && !['base', 'quote'].includes(q.side)) throw new HttpError(400, 'unknown side');
+        const list = q.side ? all.filter((m) => quoteSide(m) === (q.side === 'quote')) : all;
+        const sus = list.filter((m) => m.volumeSuspect);
+        return { items: page(list, q), total: list.length, offset: Number(q.offset ?? 0),
+          volumeTotal: list.reduce((s, m) => s + (m.volumeSuspect ? 0 : +m.volume24h || 0), 0),
+          suspect: { count: sus.length, volume24h: sus.reduce((s, m) => s + (+m.volume24h || 0), 0) }, counts };
+      }
       if (GET && c === 'posts') return { items: assetPosts(t).sort(newest).map(decorate) };
     }
 
