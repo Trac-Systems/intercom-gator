@@ -394,7 +394,11 @@ export class Engine extends EventEmitter {
     const archivedHint = pool && fromHint && firstSeen < this.clock() - 7 * 86400_000
     if (!archivedHint && (pool || this.registry.venues.get(exchange)?.publishMarketData))
       this.transport.send('gator/new', msg)
-    if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + address, fromHint)
+    if (pool) for (const address of [token0, token1]) {
+      const id = chain + ':' + address
+      if (archivedHint) this.names.enqueueFactory(id, true)
+      else this.scheduleMeta(id, fromHint)
+    }
   }
   /** What this node reads: an effective signed bundle plus the release extension (venue labels, coin groups).
    * The digest, `obs.b` and every patch check use the signed bundle alone. A failing extension is left out. */

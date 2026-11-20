@@ -7,6 +7,7 @@ const MINUTE = 60_000, HOUR = 60 * MINUTE, DAY = 24 * HOUR
 export const BACKFILL_JOB = 'discovery:factory-history'
 export const HISTORY_SHARE = 0.05
 export const HISTORY_CAP = { small: 4000, normal: 16_000, large: 48_000 }
+export const FORWARD_CAP = { small: 8, normal: 32, large: 64 }
 
 /** Charged inside the endpoint bucket, immediately before each real public dispatch. A denied
  * request consumes neither bucket. Other source jobs share the parent budget and always take priority. */
@@ -55,15 +56,24 @@ export class FactoryBackfill {
       FROM pragma_page_count, pragma_freelist_count, pragma_page_size`)
     this.byteLimit = store.limits.storeBudgetMB * 1024 ** 2
     this.capacity = HISTORY_CAP[profile] ?? HISTORY_CAP.normal
+    this.forwardCapacity = FORWARD_CAP[profile] ?? FORWARD_CAP.normal
+    this.forwardCount = db.prepare('SELECT count(*) AS n FROM engine_history_forward')
+    this.forward = db.prepare(`INSERT OR IGNORE INTO engine_history_forward
+      (chain,pool,factory,idx,block,tx,token0,token1,kind,dex,firstSeen,lo,hi,bisect,span,nextShare)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,0,?,1,?,?)`)
+    this.forwardRow = db.prepare('SELECT *,1 AS forwardOnly FROM engine_history_forward WHERE nextShare<=? ORDER BY nextShare,chain,pool LIMIT 1')
+    this.forwarded = db.prepare('DELETE FROM engine_history_forward WHERE chain=? AND pool=?')
     this.countRemote = db.prepare('SELECT count(*) AS n FROM engine_history_received')
     this.retainRemote = db.prepare('INSERT OR IGNORE INTO engine_history_received VALUES (?,?)')
     for (const source of engine.evm.values()) source.historyRetention = this
     this.sendRow = db.prepare(`SELECT p.chain,p.pool,p.firstSeen,p.token0,p.token1,p.kind,p.dex,
       h.factory,h.idx,h.block,h.tx,h.lo,h.hi,h.bisect,h.span FROM engine_history_pools h
       CROSS JOIN pools p USING(chain,pool) WHERE h.nextShare<=? ORDER BY h.nextShare,h.chain,h.pool LIMIT 1`)
-    this.evidence = db.prepare('UPDATE engine_history_pools SET block=?,tx=? WHERE chain=? AND pool=?')
-    this.search = db.prepare('UPDATE engine_history_pools SET lo=?,hi=?,bisect=?,span=?,nextShare=? WHERE chain=? AND pool=?')
-    this.snooze = db.prepare('UPDATE engine_history_pools SET nextShare=? WHERE chain=? AND pool=?')
+    this.outboxes = ['engine_history_pools','engine_history_forward'].map(table=>({
+      evidence: db.prepare('UPDATE '+table+' SET block=?,tx=? WHERE chain=? AND pool=?'),
+      search: db.prepare('UPDATE '+table+' SET lo=?,hi=?,bisect=?,span=?,nextShare=? WHERE chain=? AND pool=?'),
+      snooze: db.prepare('UPDATE '+table+' SET nextShare=? WHERE chain=? AND pool=?'),
+    }))
     this.nextSend = store.getSetting('engine-history/next-send') ?? 0
     const depths = new Map(db.prepare('SELECT chain,max(liquidity) AS depth FROM pools GROUP BY chain').all().map(r => [r.chain,r.depth]))
     this.tasks = [...engine.evm.values()].sort((a,b) => (depths.get(b.chain.id) ?? 0) - (depths.get(a.chain.id) ?? 0) ||
@@ -81,11 +91,19 @@ export class FactoryBackfill {
     return this.countRemote.get().n < Math.floor(this.capacity / 2) && this.liveBytes.get().bytes < this.byteLimit * 0.9
   }
 
+  connected() { return (this.engine.transport.peerCount?.() ?? 0) > 0 }
+
+  nextRow(now) {
+    // Give queued forwards two of every three outbox turns, while keeping ordinary proofs moving.
+    if (this.turn % 3 !== 0) return this.forwardRow.get(now) ?? this.sendRow.get(now)
+    return this.sendRow.get(now) ?? this.forwardRow.get(now)
+  }
+
   ready() {
     if (this.busy || !this.tasks.length || this.budget.retryAt()) return false
     const now = this.clock()
     return (now >= this.capWake && this.tasks.some(t => t.wake <= now)) ||
-      (now >= this.shareWake && !!this.sendRow.get(now)) || this.engine.names.factoryDue()
+      (now >= this.shareWake && !!this.nextRow(now)) || this.engine.names.factoryDue()
   }
 
   unusedTurn() {
@@ -117,7 +135,7 @@ export class FactoryBackfill {
       if (this.turn % 8 === 2 && this.engine.names.factoryDue())
         return await this.engine.names.readFactory(this.rpc)
       if ((!task || this.turn % 4 === 0) && now >= (this.shareWake ?? 0)) {
-        const row = this.sendRow.get(now)
+        const row = this.nextRow(now)
         if (row) return await this.shareStep(row)
         this.shareWake = now + 10_000
       }
@@ -171,6 +189,11 @@ export class FactoryBackfill {
       const n = quantity(length), id = address(first)
       if (n === 0 || n !== null && id && id !== ZERO) { mode = 'index'; end = n }
     }
+    // Finish the snapshot already assigned to this node. On a fast chain, continually moving
+    // the newest log range to the front can otherwise prevent a solo reader from reaching older blocks.
+    const previous = task.bounds
+    if (mode === 'logs' && previous?.mode === mode && previous.end < end &&
+        this.plan(task).ranges.some(r => !r.revisit && r.next < r.end)) end = previous.end
     task.bounds = { mode, end, at: this.clock() }
     this.engine.store.setSetting(task.key, task.bounds)
     task.plan = task.work = null
@@ -189,7 +212,8 @@ export class FactoryBackfill {
     for (const r of ranges) {
       const c = cursors.get(r.start)
       if (!c || c.next < r.end) pending.push(Object.assign(r, { next: c?.next ?? r.start, after: c?.afterIdx ?? -1, span: c?.span ?? MAX_SPAN }))
-      else if (c.checkedAt <= this.clock() - 30 * DAY) revisit.push(Object.assign(r, { next: r.start, after: -1, span: c.span }))
+      else if (c.checkedAt <= this.clock() - 30 * DAY)
+        revisit.push(Object.assign(r, { next: r.start, after: -1, span: c.span, revisit: true }))
     }
     return task.plan = { layout: roster.version, ranges: pending.concat(revisit) }
   }
@@ -203,7 +227,11 @@ export class FactoryBackfill {
       task.wake = Math.min(task.bounds.at + 6 * HOUR, this.clock() + MINUTE)
       return
     }
-    if (this.count.get().n >= this.capacity || this.liveBytes.get().bytes >= this.byteLimit * 0.9) { this.capWake = this.clock() + MINUTE; return }
+    if (this.liveBytes.get().bytes >= this.byteLimit * 0.9 ||
+        (this.count.get().n >= this.capacity && (!this.connected() || this.forwardCount.get().n >= this.forwardCapacity))) {
+      this.capWake = this.clock() + MINUTE
+      return
+    }
     await this.page(task, range)
     if (range.next >= range.end) plan.ranges.shift()
   }
@@ -233,8 +261,13 @@ export class FactoryBackfill {
     const pools = page.pools
     const decimals = await source.readDecimals(pools, work.head?.tip, read)
     const states = await source.snapshots(pools, read, decimals)
+    if (this.liveBytes.get().bytes >= this.byteLimit * 0.9) {
+      this.capWake = this.clock() + MINUTE
+      return
+    }
     const rows = []
     let capacity = this.capacity - this.count.get().n
+    let forwards = this.connected() ? this.forwardCapacity - this.forwardCount.get().n : 0
     let { next, after } = page
     store.transaction(() => {
       for (const [i, p] of pools.entries()) {
@@ -243,6 +276,13 @@ export class FactoryBackfill {
         const id = 'dex:' + chain + ':' + p.pool, known = source.registry.markets.get(id)
         const old = known && source.poolInfo.get(chain,p.pool)
         if (!known && capacity <= 0) {
+          if (forwards > 0) {
+            // A full node can still introduce this pool to other readers. The queued identity and
+            // cursor commit together. The receiver runs its ordinary independent verification.
+            forwards -= Number(this.forward.run(chain,p.pool,factory.address,p.index??null,p.block??null,p.tx??null,
+              p.token0,p.token1,p.kind,p.dex,now,work.head.tip,MAX_SPAN,now).changes)
+            continue
+          }
           next = p.index ?? p.block
           after = p.index == null ? p.idx - 1 : -1
           this.capWake = now + MINUTE
@@ -258,7 +298,7 @@ export class FactoryBackfill {
         if (capacity > 0 && (!known || !old?.tx || (!known.fromHint && p.tx && old.tx !== p.tx))) {
           capacity -= Number(this.keep.run(chain, p.pool, factory.address, p.index ?? null,
             p.block ?? null, p.tx ?? null, work.head.tip, MAX_SPAN, now).changes)
-          if (p.tx) this.evidence.run(p.block,p.tx,chain,p.pool)
+          if (p.tx) this.outboxes[0].evidence.run(p.block,p.tx,chain,p.pool)
         }
         if (known) continue
         this.engine.names.enqueueFactory(market.base)
@@ -277,10 +317,12 @@ export class FactoryBackfill {
    * use the add-token search's currency-filtered log window. Non-archive RPCs can walk the range. */
   async shareStep(row) {
     const now = this.clock(), { engine } = this
+    const { evidence,search,snooze } = this.outboxes[row.forwardOnly ? 1 : 0]
+    if (row.forwardOnly && !this.connected()) { snooze.run(now + MINUTE,row.chain,row.pool); return }
     const task = this.tasks.find(t => t.source.chain.id === row.chain && t.factory.address === row.factory)
-    if (!task) { this.snooze.run(now + DAY, row.chain, row.pool); return }
+    if (!task) { snooze.run(now + DAY, row.chain, row.pool); return }
     const { factory, source } = task
-    const save = (lo, hi, bisect, span) => this.search.run(lo, hi, bisect, span, now, row.chain, row.pool)
+    const save = (lo, hi, bisect, span) => search.run(lo, hi, bisect, span, now, row.chain, row.pool)
     try {
       if (!row.tx) {
         if (row.bisect && row.hi - row.lo > MAX_SPAN) {
@@ -301,35 +343,38 @@ export class FactoryBackfill {
           matchPool: row.pool, topics: [factory.topics, '0x' + word(row.token0), '0x' + word(row.token1)] })
         if (result.retrySpan) return save(row.lo, row.hi, 0, result.retrySpan)
         const event = result.pools.find(p => p.pool === row.pool && p.token0 === row.token0 && p.token1 === row.token1)
-        if (event) { this.evidence.run(event.block,event.tx,row.chain,row.pool); return }
+        if (event) { evidence.run(event.block,event.tx,row.chain,row.pool); return }
         if (result.next <= row.hi) return save(row.lo, row.hi, 0, Math.max(1, Math.floor((row.hi - from + 1) / 2)))
         if (from > row.lo) return save(row.lo, from - 1, 0, result.span)
-        this.snooze.run(now + DAY, row.chain, row.pool)
+        snooze.run(now + DAY, row.chain, row.pool)
         return
       }
       const fields = [row.dex, row.kind, row.token0, row.token1, row.block, row.tx]
       const seen = this.recent.get(row.chain + ':' + row.pool)
       if (seen && seen.at > now - HOUR && fields.every((v,i) => v === seen.fields[i])) {
-        this.snooze.run(seen.at + HOUR, row.chain, row.pool)
+        if (row.forwardOnly) this.forwarded.run(row.chain,row.pool)
+        else snooze.run(seen.at + HOUR, row.chain, row.pool)
         return
       }
-      if (now < this.nextSend) { this.snooze.run(this.nextSend, row.chain, row.pool); return }
+      if (now < this.nextSend) { snooze.run(this.nextSend, row.chain, row.pool); return }
       if (!(await engine.hints.hasCreationReceipt(row, this.rpc))) {
-        this.snooze.run(now + DAY, row.chain, row.pool)
+        snooze.run(now + DAY, row.chain, row.pool)
         return
       }
+      if (row.forwardOnly && !this.connected()) { snooze.run(this.clock() + MINUTE,row.chain,row.pool); return }
       this.nextSend = this.clock() + MINUTE
       engine.store.transaction(() => {
         engine.store.setSetting('engine-history/next-send', this.nextSend)
-        engine.store.upsertPool(row)
+        if (!row.forwardOnly) engine.store.upsertPool(row)
       })
       const { chain, pool, token0, token1, kind, dex, block, tx } = row
       const message = { t: 'pool', v: 1, chain, pool, token0, token1, kind, dex, block, tx }
       const sent = engine.transport.send('gator/new', message)
-      this.snooze.run(this.clock() + (sent ? DAY : MINUTE), chain, pool)
-      if (sent) engine.emit('discovery', message, row.firstSeen, false)
+      if (sent && row.forwardOnly) this.forwarded.run(chain,pool)
+      else snooze.run(this.clock() + (sent ? DAY : MINUTE), chain, pool)
+      if (sent && !row.forwardOnly) engine.emit('discovery', message, row.firstSeen, false)
     } catch (error) {
-      this.snooze.run(error instanceof RateLimited ? error.retryAt : now + MINUTE, row.chain, row.pool)
+      snooze.run(error instanceof RateLimited ? error.retryAt : now + MINUTE, row.chain, row.pool)
       if (!(error instanceof RateLimited)) throw error
     }
   }

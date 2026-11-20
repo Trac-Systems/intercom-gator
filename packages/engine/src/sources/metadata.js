@@ -264,10 +264,9 @@ export function registerNamesJob(engine) {
     save(attempt.assets, results)
     changed = true
   }
-  // Historical labels share the durable batch/validation path. Only the idle catch-up job
-  // runs these public reads, and locally resolved historical names stay out of the live outbox.
+  // Both historical jobs reuse the durable name reader through their own idle public budget.
   return { enqueue, display,
-    enqueueFactory: id => enqueue(id, false, true, true),
+    enqueueFactory: (id, fromHint = false) => enqueue(id, fromHint, true, true),
     factoryDue: () => !!nextRoute(factory),
     async readFactory(client) {
       const route = nextRoute(factory)

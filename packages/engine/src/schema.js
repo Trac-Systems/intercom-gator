@@ -387,4 +387,16 @@ export const migrations = [
         ) WHERE h.idx IS NULL;`)
     },
   },
+  {
+    id: 'engine-factory-history-forward',
+    up(db) {
+      db.exec(`CREATE TABLE engine_history_forward (
+        chain TEXT NOT NULL, pool TEXT NOT NULL, factory TEXT NOT NULL, idx INTEGER, block INTEGER, tx TEXT,
+        token0 TEXT NOT NULL, token1 TEXT NOT NULL, kind TEXT NOT NULL, dex TEXT NOT NULL, firstSeen INTEGER NOT NULL,
+        lo INTEGER NOT NULL, hi INTEGER NOT NULL, bisect INTEGER NOT NULL, span INTEGER NOT NULL, nextShare INTEGER NOT NULL,
+        PRIMARY KEY(chain,pool)
+      ) STRICT, WITHOUT ROWID;
+      CREATE INDEX engine_history_forward_due ON engine_history_forward(nextShare,chain,pool);`)
+    },
+  },
 ]

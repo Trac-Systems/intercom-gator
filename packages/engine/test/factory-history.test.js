@@ -115,3 +115,16 @@ test('the archived bounds and unit cursor survive changes to reporter membership
   engine.dexCoverage.members = () => new ReporterSlice(key(1),[])
   assert.equal(backfill.plan(task).ranges[0].next, PAGE_SIZE+3)
 })
+
+test('a rising chain head cannot postpone the unfinished older log snapshot', async t => {
+  const {backfill} = node(t)
+  const task = backfill.tasks.find(t=>t.source.chain.id==='ethereum' && t.factory.kind==='v4')
+  task.bounds = {mode:'logs',end:4096,at:0}
+  backfill.head = async ()=>({tip:40_000,ts:1000,at:Date.now()})
+  await backfill.bounds(task)
+  assert.equal(task.bounds.end,4096)
+  backfill.mark.run('ethereum',task.factory.address,'logs',0,4096,-1,4096,Date.now())
+  await backfill.bounds(task)
+  assert.equal(task.bounds.end,40_000-64+1)
+  assert.equal(backfill.plan(task).ranges.some(r=>r.start===0),false)
+})

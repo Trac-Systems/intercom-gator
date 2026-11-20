@@ -439,9 +439,11 @@ and a range or size refusal shortens the next attempt at the same block.
 The assignment key contains the chain, signed factory address, scan mode and aligned range start.
 The same proven-reporter rendezvous split used for state reads assigns three copies for networks
 of 4–31 reporters and four from 32. Smaller networks overlap. Each range has a durable cursor,
-including the last event index within a busy block. State, registration and cursor advancement
+including the last event index within a busy block. Measured liquidity, registration and cursor advancement
 commit together. After a restart or a membership change, a reader resumes its assigned ranges.
-Bounds refresh every six hours. Completed ranges become eligible for fresh depth checks after
+Bounds refresh every six hours. A growing chain's log snapshot keeps its upper bound until its
+assigned unfinished ranges have been read, so new blocks cannot continually displace older ones.
+Completed ranges become eligible for fresh depth checks after
 30 days, behind unfinished ranges. A release contains the reader and the signed infrastructure.
 Pool identities acquired by the reader remain runtime data as described in §5.4.
 
@@ -451,9 +453,13 @@ the ordinary pool state decoder and current supported USD prices. New assets use
 registry, on-chain name reader, observations and trust rules. The usual liquidity and turnover
 criteria still control ranked visibility. A node holds at most 4,000 / 16,000 / 48,000 independent
 historical pools on the small / normal / large profiles. Old verified incoming records have a
-separate ceiling of half those counts. At 90% of the configured live SQLite budget, or at its
-historical row ceiling, the reader pauses with its cursor saved. These limits apply with the
-original 150 MiB / 400 MiB / 1 GiB profiles.
+separate ceiling of half those counts. A connected reader at its local row ceiling can queue
+8 / 32 / 64 additional funded identities for verified forwarding. Each queued identity commits
+with its cursor, survives restart and leaves the queue after a successful transport send or an
+exact announcement from a proven peer. Delivery has no acknowledgement. These forwarded pools
+can be registered and priced by receivers with capacity. A disconnected reader at its ceiling,
+a full forwarding queue or 90% of the configured live SQLite budget pauses further admissions
+with the cursor saved. The limits apply with the original 150 MiB / 400 MiB / 1 GiB profiles.
 
 History uses spare scheduler turns after foreground and recent catch-up work. Its public reads,
 including metadata and outbound receipt verification, share at most 5% of the configured RPC

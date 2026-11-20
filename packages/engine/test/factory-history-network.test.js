@@ -2,14 +2,17 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { EventEmitter } from 'node:events'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
 import { loadBundle } from '@gator/bundle'
+import { createMemoryHub, MemoryTransport } from '@gator/net'
 import { openStore } from '@gator/store'
 import { Engine, migrations } from '../src/index.js'
 import { RateLimited } from '../src/scheduler/index.js'
 import { address, word } from '../src/sources/evm-abi.js'
+import { historyRanges } from '../src/coverage/factory-history.js'
 
 const fixture = JSON.parse(readFileSync(new URL('fixtures/factory-history.json',import.meta.url)))
 const token = address(fixture.ethereum[0].logs[0].topics[3])
@@ -70,25 +73,38 @@ function replay(failAt = -1) {
   return rpc
 }
 
-async function node(t, { Legacy = Engine, schema = migrations, bundle = loadBundle(), own = reporter } = {}) {
+async function node(t, { Legacy = Engine, schema = migrations, bundle = loadBundle(), own = reporter,
+  wire, storage = openStore, file = ':memory:' } = {}) {
   let now = at
   const sent = [], channels = new Set()
-  const transport = Object.assign(new EventEmitter(), { publicKey:own, channels:()=>[...channels], peerCount:()=>0,
+  const transport = wire ?? Object.assign(new EventEmitter(), { publicKey:own, channels:()=>[...channels], peerCount:()=>0,
     join:async ch=>{channels.add(ch);return true}, leave:async ch=>channels.delete(ch),
-    send:(channel,message)=>{sent.push({channel,from:own,ts:now,message});return true} })
-  const store = openStore({ file:':memory:', profile:'normal', migrations:schema })
+    send:()=>true })
+  const send = transport.send.bind(transport)
+  transport.send = (channel,message) => {
+    sent.push({channel,from:transport.publicKey,ts:now,message})
+    return send(channel,message)
+  }
+  const store = storage({ file, profile:'normal', migrations:schema })
   const engine = new Legacy({ store,transport,bundle,backgroundJobs:[],clock:()=>now,
     patches:{patchFeed:false},rpcConfig:{fetch:()=>assert.fail('external fetch')} })
-  t.after(async()=>{await engine.stop();store.close()})
+  let closed = false
+  async function stop() {
+    if (closed) return
+    closed = true
+    await engine.stop()
+    store.close()
+  }
+  t.after(stop)
   await engine.start()
   clearTimeout(engine.timer)
   store.writer.prepare("INSERT OR REPLACE INTO prices(asset,price,at,trust) VALUES ('ethereum:native',?,?,?)")
     .run('1749.488105598267',now,'yellow')
-  return {engine,store,sent,advance:ms=>{now+=ms}}
+  return {engine,store,sent,advance:ms=>{now+=ms},stop}
 }
 
-async function discover(t) {
-  const sender = await node(t), {engine,store} = sender, history = engine.backfill
+async function discover(t, options) {
+  const sender = await node(t,options), {engine,store} = sender, history = engine.backfill
   const task = history.tasks.find(t=>t.factory.kind==='v4' && t.source.chain.id==='ethereum')
   task.bounds = {mode:'logs'}
   history.rpc = replay(3)
@@ -162,6 +178,10 @@ async function receive(receiver, sender) {
 test('backfill alone resolves both DMT-NAT markets; a cold receiver verifies and keeps pricing their funded state', async t => {
   const a = await discover(t), b = await node(t,{own:'2'.repeat(64)})
   const rpc = await receive(b,a)
+  assert.equal(b.engine.names.factoryDue(),true)
+  await b.engine.names.readFactory(rpc)
+  const name = b.store.reader.prepare('SELECT publicOnly,publishAt,symbol FROM engine_names WHERE asset=?').get('ethereum:'+token)
+  assert.deepEqual({...name},{publicOnly:1,publishAt:null,symbol:'dmt-nat'})
   b.advance(60_001)
   assert.equal(await b.engine.announcedPools.measure('ethereum',rpc),2)
   for (const g of fixture.ethereum) {
@@ -207,23 +227,39 @@ test('archived ae1c336 verifies every emitted pool record with unchanged standin
     catch { return t.skip('archived v0.1.0 object absent') }
     dir=mkdtempSync(join(import.meta.dirname,'factory-v010-'))
     t.after(()=>rmSync(dir,{recursive:true,force:true}))
-    const archive=execFileSync('git',['archive','ae1c336','packages/engine/src','packages/bundle','packages/store/src','packages/net/src','packages/net/vendor','packages/social/src'],
+    const packages = ['engine','bundle','store','net','social']
+    const archive=execFileSync('git',['archive','ae1c336','packages/bundle','packages/net/vendor',
+      ...packages.flatMap(p=>['packages/'+p+'/package.json','packages/'+p+'/src'])],
       {cwd:join(import.meta.dirname,'../../..'),maxBuffer:32<<20})
     execFileSync('tar',['-xf','-','-C',dir],{input:archive})
+    const scope = join(dir,'node_modules','@gator')
+    mkdirSync(scope,{recursive:true})
+    for (const p of packages) symlinkSync(join(dir,'packages',p),join(scope,p),'dir')
   }
   const load=path=>import(pathToFileURL(join(dir,'packages',path)))
   const old=await load('engine/src/index.js'), bundle=(await load('bundle/src/index.js')).loadBundle()
-  const a=await discover(t), b=await node(t,{Legacy:old.Engine,schema:old.migrations,bundle,own:'2'.repeat(64)})
+  const legacyNet=await load('net/src/memory.js'), legacyStore=await load('store/src/index.js')
+  const hub=createMemoryHub(), senderWire=new MemoryTransport({hub}), oldWire=new legacyNet.MemoryTransport({hub})
+  t.after(()=>Promise.all([senderWire.close(),oldWire.close()]))
+  const b=await node(t,{Legacy:old.Engine,schema:old.migrations,bundle,wire:oldWire,storage:legacyStore.openStore})
+  const signer=senderWire.publicKey, rank=b.engine.hints.rank(signer), arrived=[]
+  oldWire.on('message',(ch,env)=>{if(ch==='gator/new' && env.from===signer) arrived.push(env)})
+  const a=await discover(t,{wire:senderWire})
   await enumeratePair(a)
-  const rank=b.engine.hints.rank(reporter)
-  await receive(b,a)
-  for (const g of fixture.ethereum) assert.ok(b.engine.registry.markets.has('dex:ethereum:'+g.logs[0].topics[1]))
-  const pair=a.sent.filter(f=>f.channel==='gator/new').at(-1).message.pool
-  assert.ok(b.engine.registry.markets.has('dex:ethereum:'+pair))
-  assert.equal(b.engine.hints.rank(reporter),rank)
+  const limit=Date.now()+5000
+  while (arrived.length<3 && Date.now()<limit) await delay(20)
+  assert.deepEqual(arrived.map(e=>e.message),a.sent.filter(f=>f.channel==='gator/new').map(f=>f.message))
+  assert.ok(arrived.every(e=>e.pow.difficulty===16))
+  assert.equal(b.engine.hints.size,3)
+  b.engine.hints.rpc=replay()
+  while (b.engine.hints.size) await b.engine.verifyHint()
+  for (const {message} of arrived) assert.ok(b.engine.registry.markets.has('dex:ethereum:'+message.pool))
+  assert.equal(b.engine.hints.rank(signer),rank)
   assert.equal(b.engine.hints.penalties.size,0)
-  assert.equal(b.engine.book.muted(reporter),false)
-  assert.equal(b.store.getReporter(reporter)?.strikes ?? 0,0)
+  assert.equal(b.engine.book.muted(signer),false)
+  assert.equal(b.store.getReporter(signer)?.strikes ?? 0,0)
+  await a.stop()
+  await b.stop()
 })
 
 test('row pressure keeps the first unregistered creation as the restart point; an old hint at capacity is inconclusive', async t => {
@@ -273,4 +309,47 @@ test('an announced-pool tie keeps 64 deterministic slots and a locally promoted 
   store.writer.prepare('UPDATE engine_announced_pools SET checkAt=? WHERE pool=?').run(now,pools[0].pool)
   await engine.announcedPools.measure(chain)
   assert.equal(select.all().some(r=>r.pool===pools[0].pool),false)
+})
+
+test('a full connected reader resumes its bounded forwarding queue on disk and another node registers the pool', async t => {
+  const dir = mkdtempSync(join(import.meta.dirname,'history-restart-'))
+  t.after(()=>rmSync(dir,{recursive:true,force:true}))
+  const file = join(dir,'history.db'), a = await node(t,{file}), h = a.engine.backfill
+  const select = reader=>reader.tasks.find(t=>t.source.chain.id==='ethereum' && t.factory.kind==='v4')
+  const task = select(h), [first,second] = fixture.ethereum
+  task.bounds = {mode:'logs',end:second.block+1,at}
+  a.store.setSetting(task.key,task.bounds)
+  a.engine.transport.peerCount = ()=>1
+  h.capacity=0
+  h.forwardCapacity=1
+  h.rpc=replay()
+  const unit = block=>historyRanges('ethereum',task.factory.address,'logs',task.bounds.end)
+    .find(r=>r.start<=block && block<r.end)
+  for (const group of [first,second]) {
+    h.rpc.setGroup(group)
+    const range = {...unit(group.block),next:group.block,end:group.block+1,after:-1,span:1}
+    await h.page(task,range)
+    assert.equal(range.next,group.block+Number(group===first))
+  }
+  assert.equal(h.forwardCount.get().n,1)
+  assert.equal(h.count.get().n,0)
+  await a.stop()
+  const resumed=await node(t,{file}), saved=resumed.engine.backfill
+  assert.deepEqual(select(saved).bounds,task.bounds)
+  const progress=saved.progress.all('ethereum',task.factory.address,'logs')
+  assert.ok(progress.some(r=>r.start===unit(second.block).start && r.next===second.block))
+  assert.equal(saved.forwardCount.get().n,1)
+  saved.rpc=replay()
+  await saved.shareStep(saved.forwardRow.get(at))
+  assert.equal(saved.forwardCount.get().n,1)
+  assert.equal(resumed.sent.filter(m=>m.channel==='gator/new').length,0)
+  resumed.advance(60_001)
+  resumed.engine.transport.peerCount=()=>1
+  await saved.shareStep(saved.forwardRow.get(resumed.engine.clock()))
+  assert.equal(saved.forwardCount.get().n,0)
+  assert.equal(resumed.engine.registry.assets.has('ethereum:'+token),false)
+  assert.ok(resumed.store.getSetting('engine-history/next-send')>resumed.engine.clock())
+  const receiver=await node(t,{own:'2'.repeat(64)})
+  await receive(receiver,resumed)
+  assert.ok(receiver.engine.registry.markets.has('dex:ethereum:'+first.logs[0].topics[1]))
 })
