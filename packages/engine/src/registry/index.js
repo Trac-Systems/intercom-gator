@@ -1,3 +1,4 @@
+import { assetAddress, moveChain, objectId, validToken as validMoveToken } from '../sources/move/identity.js'
 import { tronHex } from '../sources/tron/address.js'
 import { QUOTES, WTRX } from '../sources/tron/deployments.js'
 import { categoryLabels } from '@gator/bundle'
@@ -148,7 +149,7 @@ export class Registry {
     this.symbols.get(sym).add(asset.id)
   }
   token(chain, address, info = {}) {
-    if ((address === WRAPPED_SOL && this.chains.get(chain)?.family === 'solana') ||
+    if ((moveChain(chain) && assetAddress(chain, address) === 'native') || (address === WRAPPED_SOL && this.chains.get(chain)?.family === 'solana') ||
         (address === WTRX && this.chains.get(chain)?.family === 'tron')) {
       const native = this.assets.get(assetId(chain, 'native'))
       if (native) return native
@@ -364,14 +365,16 @@ export class Registry {
     if (!definition || token0 === token1) return null
     const isSol = definition.family === 'solana'
     const isTron = definition.family === 'tron'
+    const isMove = moveChain(chain) && definition.family === chain
     const validToken = address => {
+      if (isMove) return validMoveToken(chain, address)
       if (isTron) return address === 'native' ? discovery.kind === 'v1' : !!tronHex(address)
       return isSol ? SOL.test(address) : EVM.test(address) || address === 'native'
     }
     if (
       !validToken(token0) ||
       !validToken(token1) ||
-      !(isTron ? tronHex(pool) : isSol ? SOL.test(pool) : EVM.test(pool) || POOL_ID.test(pool))
+      !(isMove ? objectId(pool) : isTron ? tronHex(pool) : isSol ? SOL.test(pool) : EVM.test(pool) || POOL_ID.test(pool))
     )
       return null
     const id = 'dex:' + chain + ':' + pool
@@ -381,6 +384,7 @@ export class Registry {
     // A secondary TRON quote can acquire its own USD route through USDT or native TRX.
     const score = t => {
       if (t.stable) return 3
+      if (isMove) return t.address === 'native' ? 2 : 0
       if (isTron) return t.address === 'native' ? 2 : Number(QUOTES.includes(t.address))
       return definition.quotes.includes(t.address) ? 2 : 0
     }

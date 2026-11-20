@@ -1,0 +1,98 @@
+[
+  {
+    "sequenceNumber": 14,
+    "timestamp": "2026-11-20T01:18:11.278Z",
+    "contents": {
+      "type": {
+        "repr": "0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb::pool::SwapEvent"
+      },
+      "json": {
+        "atob": false,
+        "pool": "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab",
+        "partner": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount_in": "194951527554",
+        "amount_out": "139014069",
+        "ref_amount": "0",
+        "fee_amount": "97475764",
+        "vault_a_amount": "210800210051",
+        "vault_b_amount": "655743140698276",
+        "before_sqrt_price": "690603507540727922510",
+        "after_sqrt_price": "690655302026771732050",
+        "steps": "1"
+      }
+    },
+    "transaction": {
+      "digest": "SeZ8gfzFbzMsGSLYk2L4kAfZMSXyNaBcKSfgWiKbFH8",
+      "effects": {
+        "status": "SUCCESS",
+        "checkpoint": {
+          "sequenceNumber": 347113476
+        }
+      }
+    }
+  },
+  {
+    "sequenceNumber": 13,
+    "timestamp": "2026-11-20T01:18:25.995Z",
+    "contents": {
+      "type": {
+        "repr": "0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb::pool::SwapEvent"
+      },
+      "json": {
+        "atob": true,
+        "pool": "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab",
+        "partner": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount_in": "8113040",
+        "amount_out": "11367069490",
+        "ref_amount": "0",
+        "fee_amount": "4057",
+        "vault_a_amount": "210744349718",
+        "vault_b_amount": "657589954502514",
+        "before_sqrt_price": "690655302026771732050",
+        "after_sqrt_price": "690653504525616915335",
+        "steps": "1"
+      }
+    },
+    "transaction": {
+      "digest": "85ApQC1K11MpN2L2FQkKJQQzpvXMvUQD76n5pCECT76f",
+      "effects": {
+        "status": "SUCCESS",
+        "checkpoint": {
+          "sequenceNumber": 347113537
+        }
+      }
+    }
+  },
+  {
+    "sequenceNumber": 18,
+    "timestamp": "2026-11-20T01:18:31.391Z",
+    "contents": {
+      "type": {
+        "repr": "0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb::pool::SwapEvent"
+      },
+      "json": {
+        "atob": true,
+        "pool": "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab",
+        "partner": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount_in": "46360167",
+        "amount_out": "64952805254",
+        "ref_amount": "0",
+        "fee_amount": "23181",
+        "vault_a_amount": "210666022792",
+        "vault_b_amount": "655931329915598",
+        "before_sqrt_price": "690653504525616915335",
+        "after_sqrt_price": "690636239310270397885",
+        "steps": "1"
+      }
+    },
+    "transaction": {
+      "digest": "2ztpo9viop84RHgWpzifMsFRmENmJ2muxH4z9rtXaqgH",
+      "effects": {
+        "status": "SUCCESS",
+        "checkpoint": {
+          "sequenceNumber": 347113559
+        }
+      }
+    }
+  }
+]

@@ -1,3 +1,4 @@
+import { assetAddress, moveChain } from '../sources/move/identity.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { routerFor } from './routes.js';
 import { deploymentId } from '../sources/bundle-adapter.js';
@@ -125,6 +126,10 @@ export function engineData(engine) {
     ORDER BY p.liquidity DESC NULLS LAST, p.firstSeen DESC LIMIT 1`);
   const trades = store.reader.prepare(`SELECT count(*) AS n FROM engine_trades
     WHERE market IN (${assetMarkets}) AND at>=:from AND at<:to`);
+  const moveTrades = store.reader.prepare(`SELECT count(*) AS n FROM (${assetMarkets}) x
+    JOIN markets m ON m.id=x.market AND m.chain=:chain
+    JOIN engine_move_swaps s ON s.chain=m.chain AND s.pool=substr(m.id,length(m.chain)+6)
+    WHERE s.at>=:from AND s.at<:to`);
   const dailyGlobals = store.reader.prepare('SELECT * FROM intel_market_days WHERE at>=? AND at<?');
   const globalWrite = store.writer.prepare(`INSERT INTO intel_market_days(at,observedAt,volumeUsd,btcDominance) VALUES (?,?,?,?)
     ON CONFLICT(at) DO UPDATE SET observedAt=excluded.observedAt,
@@ -140,12 +145,12 @@ export function engineData(engine) {
     isMuted: key => engine.book.muted(key),
     isProven: key => engine.book.isProven(key),
     isFollowed: key => engine.book.followed(key),
-    isKnownAsset: id => quoted.has(id) || id.endsWith(':native') || (id.startsWith('tron:') && registry.seedIds.has(id)),
+    isKnownAsset: id => quoted.has(id) || id.endsWith(':native') || ((id.startsWith('tron:') || moveChain(id.split(':', 1)[0])) && registry.seedIds.has(id)),
     resolveAssets(m) {
       const market = m.t === 'pool' ? 'dex:' + m.chain + ':' + (isAddress(m.pool) ? m.pool.toLowerCase() : m.pool)
         : 'cex:' + m.exchange + ':' + m.symbol;
       const known = registry.markets.get(market);
-      return known ? [known.base] : m.chain === 'tron' ? [] : undefined;
+      return known ? [known.base] : (m.chain === 'tron' || moveChain(m.chain)) ? [] : undefined;
     },
     resolveSymbol(sym) {
       const ids = registry.symbols.get(sym);
@@ -163,14 +168,16 @@ export function engineData(engine) {
       // Quote tokens rarely carry their own price row: a wrapped native quote takes the chain's native price
       // (stablecoin quotes are valued at $1 inside the risk check).
       const native = bundle.chains?.find(c => c.id === p.chain)?.native?.symbol;
-      const price = t => store.getPrice(p.chain + ':' + t)?.price ?? (dex?.quoteTokens?.some(q =>
+      const price = t => store.getPrice(p.chain + ':' + (moveChain(p.chain) ? assetAddress(p.chain,t) : t))?.price ?? (dex?.quoteTokens?.some(q =>
         q.address?.toLowerCase() === t && q.symbol === 'W' + native) ? store.getPrice(p.chain + ':native')?.price : undefined);
       const prices = Object.fromEntries([p.token0, p.token1].map(t => [t, price(t)]));
       return { pool, prices, lockers: dex?.lockers, liquidityUsd: Number.isFinite(p.liquidity) ? p.liquidity : undefined };
     },
     metricsFor(asset) {
       const time = engine.clock(), row = poolFor(asset);
-      return { liquidityUsd: row?.liquidity, trades: trades.get({ asset, from: time - DAY, to: time + 1 }).n };
+      const window = { asset, from: time - DAY, to: time + 1 };
+      const n = moveChain(row?.chain) ? moveTrades.get({ ...window, chain: row.chain }).n : trades.get(window).n;
+      return { liquidityUsd: row?.liquidity, trades: n };
     },
     sampleGlobal(at) {
       const { volume24h, btcDominance } = engine.global();

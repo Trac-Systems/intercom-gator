@@ -114,7 +114,8 @@ export class AptosReader {
       return true
     }
     // Alternate the forward inventory with its growing tail. A newly appended pool is found while history advances.
-    const offset = c.tail != null && c.poll <= now ? c.tail : c.offset ?? 0
+    const tail = c.tail != null && c.poll <= now
+    const offset = tail ? c.tail : c.offset ?? 0
     const hyper = dex === 'hyperion', fn = hyper ? hyperModule + 'all_pools_with_info' : THALA_LENS + '::lens::get_pools_paginated'
     const { data, at } = await this.client.aptos('/view', view(fn, [String(offset), String(PAGE)]))
     const rows = data?.[0]
@@ -128,9 +129,9 @@ export class AptosReader {
     }).filter(Boolean)
     const end = offset + rows.length, next = { ...c }
     if (c.tail == null && hyper) { next.tail = Math.max(0, total - PAGE); next.poll = 0 }
-    if (offset === c.tail) { next.tail = end; next.poll = now + 5 * MIN }
+    if (tail) { next.tail = Math.max(0, end - 1); next.poll = now + 5 * MIN }
     else if (rows.length < PAGE || (hyper && end >= total)) {
-      next.tail = end; next.poll = now + 5 * MIN; next.offset = 0; next.next = now + 5 * MIN
+      next.tail = Math.max(0, end - 1); next.poll = now + 5 * MIN; next.offset = 0; next.next = now + 5 * MIN
     } else next.offset = end
     s.page(key, next, pools)
     return true
@@ -189,7 +190,8 @@ export class AptosReader {
       const list = result.data['p' + i]
       if (!Array.isArray(list) || list.length > 1) throw new Error('Invalid Aptos account origin')
       const v = list[0]?.transaction_version, block = list[0]?.user_transaction?.block_height
-      s.origin(p.pool, natural(v) && natural(block) ? v : null, natural(block) ? block : null)
+      if (natural(v) && v < this.client.oldestVersion) s.originDone(p.pool, true)
+      else s.origin(p.pool, natural(v) && natural(block) ? v : null, natural(block) ? block : null)
     }))
     return true
   }

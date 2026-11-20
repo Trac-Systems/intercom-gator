@@ -59,6 +59,8 @@ export class MoveClient {
       version = h.get('x-aptos-ledger-version')
       at = fresh(Math.floor(Number(h.get('x-aptos-ledger-timestampusec')) / 1000), this.engine.clock())
       if (!/^\d{1,16}$/.test(version) || !natural(Number(version))) throw new Error('Invalid Aptos version')
+      const oldest = h.get('x-aptos-ledger-oldest-version')
+      if (oldest && /^\d{1,16}$/.test(oldest) && natural(Number(oldest))) this.oldestVersion = Number(oldest)
       cursor = h.get('x-aptos-cursor')
     })
     return { data, version, at, cursor }

@@ -12,6 +12,8 @@ import { CATCHUP_JOB, PoolCatchup, POOL_CHANNEL } from './intel/pool-catchup.js'
 import { HttpSources } from './sources/http.js'
 import { derivativeJobs } from './sources/derivatives.js'
 import { fetchTickers, loadNextSymbol } from './sources/cex.js'
+import { registerMove } from './sources/move/source.js'
+import { assetAddress, moveChain } from './sources/move/identity.js'
 import { registerTron } from './sources/tron/source.js'
 import { EvmSource } from './sources/evm.js'
 import { checkSolanaPrice, fetchSolana } from './sources/solana.js'
@@ -84,7 +86,7 @@ export class Engine extends EventEmitter {
       onDisagreement: id => {
         const market = this.registry.markets.get(id)
         const job = market.kind === 'cex' ? 'cex:' + market.exchange :
-          market.chain === 'tron' ? 'tron:sunswap' :
+          market.chain === 'tron' ? 'tron:sunswap' : moveChain(market.chain) ? market.chain + ':pools' :
           this.evm.has(market.chain) ? 'evm:' + market.chain + ':state' : 'sol:' + market.exchange
         this.scheduler.requestSpotCheck(job, id)
       },
@@ -219,6 +221,7 @@ export class Engine extends EventEmitter {
       })
     }
     this.hints.tron = this.tron = registerTron(this)
+    this.hints.move = this.move = registerMove(this)
     const sol = this.catalog.chains.find((c) => c.family === 'solana')
     for (const source of this.catalog.apis) {
       if (sol && ['raydium', 'meteora', 'orca'].includes(source.id)) {
@@ -368,10 +371,10 @@ export class Engine extends EventEmitter {
       ? { t: 'pool', v: 1, chain, pool, dex, kind, token0, token1, block: block ?? null, tx: tx ?? null }
       : { t: 'listing', v: 1, exchange, symbol, firstSeen }
     this.emit('discovery', msg, data.firstSeen, fromHint, historyReporter)
-    if (historyReporter && chain !== 'tron') return
-    const share = pool ? chain !== 'tron' || !!tx : this.registry.venues.get(exchange)?.publishMarketData
+    if (historyReporter && chain !== 'tron' && !moveChain(chain)) return
+    const share = pool ? (chain !== 'tron' && !moveChain(chain)) || !!tx : this.registry.venues.get(exchange)?.publishMarketData
     if (share && !historyReporter) this.transport.send('gator/new', msg)
-    if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + address, fromHint)
+    if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + (moveChain(chain) ? assetAddress(chain, address) : address), fromHint)
   }
   /** What this node reads: an effective signed bundle plus the release extension (venue labels, coin groups).
    * The digest, `obs.b` and every patch check use the signed bundle alone. A failing extension is left out. */

@@ -355,4 +355,22 @@ export const migrations = [
       CREATE INDEX engine_tron_due ON engine_tron_candidates(due,pool);`)
     },
   },
+  {
+    id: 'engine-move-pools-v1',
+    up(db) {
+      db.exec(`CREATE TABLE engine_move_candidates (
+        chain TEXT NOT NULL, pool TEXT NOT NULL, dex TEXT NOT NULL, kind TEXT NOT NULL,
+        token0 TEXT, token1 TEXT, slot INTEGER, firstSeen INTEGER NOT NULL,
+        block INTEGER, tx TEXT, version INTEGER, originBlock INTEGER, originDue INTEGER NOT NULL DEFAULT 0,
+        priority INTEGER NOT NULL, due INTEGER NOT NULL, funded INTEGER NOT NULL DEFAULT 0,
+        fromHint INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(chain,pool)
+      ) STRICT, WITHOUT ROWID;
+      CREATE INDEX engine_move_due ON engine_move_candidates(chain,funded,due);
+      CREATE TABLE engine_move_swaps (
+        chain TEXT NOT NULL, pool TEXT NOT NULL, event TEXT NOT NULL, at INTEGER NOT NULL, a REAL NOT NULL, b REAL NOT NULL,
+        PRIMARY KEY(chain,pool,event)
+      ) STRICT, WITHOUT ROWID;
+      CREATE INDEX engine_move_swaps_at ON engine_move_swaps(chain,at);`)
+    },
+  },
 ]
