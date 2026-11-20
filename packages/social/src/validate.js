@@ -70,7 +70,7 @@ const perType = {
   card: CARD_FIELDS,
   announce: ['card', 'topics', 'channel'], post: ['text', 'tags', 'tickers', 'quote'],
   reply: ['text', 'parent', 'sourceId'], like: ['target'], repost: ['target', 'original', 'sourceId'],
-  mention: ['original'], follow: ['key'], notice: ['text', 'severity', 'expires'], revoke: ['id'],
+  mention: ['original'], share: ['original'], want: ['since'], follow: ['key'], notice: ['text', 'severity', 'expires'], revoke: ['id'],
   mutes: ['seq', 'add', 'remove'], net: ['seq', 'pow', 'caps', 'rates', 'relayTtl', 'relays']
 };
 
@@ -86,7 +86,9 @@ export function validMessage(msg, author, rootKey) {
     case 'reply': return isText(msg.text) && isRef(msg.parent) && optional(msg.sourceId, isId);
     case 'repost': return isRef(msg.target) && optional(msg.sourceId, isId) && optional(msg.original, plain);
     case 'like': return isRef(msg.target);
-    case 'mention': return plain(msg.original);
+    case 'mention':
+    case 'share': return plain(msg.original);
+    case 'want': return optional(msg.since, seq);
     case 'follow': return isKey(msg.key);
     case 'revoke': return isId(msg.id);
     case 'notice': return optional(msg.expires, seq) && isText(msg.text) && optional(msg.severity, s => ['info', 'warn'].includes(s));
@@ -121,6 +123,7 @@ function allowed(e, kind, rootKey) {
     (m.t !== 'notice' || m.expires === undefined || m.expires > e.ts);
   if (kind === 'product') return from === rootKey && m.t === 'post';
   if (kind === 'directory') return m.t === 'announce' && m.channel === 'soc/u/' + from;
+  if (kind === 'public') return m.t === 'share' || m.t === 'want';
   if (kind === 'owner') return channel === 'soc/u/' + from && !m.sourceId &&
     ['card', 'post', 'reply', 'repost', 'follow'].includes(m.t) && (m.t !== 'repost' || !!m.original);
   if (channel.startsWith('soc/pr/')) return m.t === 'reply' && m.parent.key === rootKey;
@@ -141,6 +144,8 @@ export function validEnvelope(channel, e, rootKey, settings = settingsFor(), emb
         !validMessage(e.message, e.from, rootKey) || !allowed(e, kind, rootKey) || !signed(e)) return false;
     const { t, original, target } = e.message;
     if (!original) return true;
+    if (t === 'share') return !embedded && original.message?.t === 'post' &&
+      original.channel === 'soc/u/' + original.from && validEnvelope(original.channel, original, rootKey, settings, true);
     if (embedded || !['post', 'reply', 'notice'].includes(original.message?.t) ||
         !validEnvelope(original.channel, original, rootKey, settings, true)) return false;
     if (t === 'mention') return e.from === original.from && lane(original.channel) === 'owner' &&

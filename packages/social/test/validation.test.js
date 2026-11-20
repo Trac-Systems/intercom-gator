@@ -101,3 +101,43 @@ test('root network settings may carry up to eight blind relay keys', () => {
   assert.deepEqual(settingsFor({ seq: 1, relays: [key(3)] }).relays, [key(3)]);
   assert.equal(settingsFor({ seq: 1 }).relays, null, 'absent keeps the release list');
 });
+
+test('only the public lane accepts shares and wants, and a share authenticates the author independently', () => {
+  const hub = new Hub(), author = hub.peer(), forwarder = hub.peer();
+  const ownerLane = 'soc/u/' + author.publicKey;
+  const ref = { key: forwarder.publicKey, id: 'original' };
+  const post = author.envelope(ownerLane, { v: 1, t: 'post', text: 'Quoted news', quote: ref });
+  const share = original => ({ v: 1, t: 'share', original });
+  const valid = (message, channel = 'soc/all', signer = forwarder) =>
+    validEnvelope(channel, signer.envelope(channel, message), forwarder.publicKey);
+  for (const message of [share(post), { v: 1, t: 'want' }, { v: 1, t: 'want', since: 123 }]) {
+    assert.ok(valid(message));
+    assert.ok(valid(message, 'soc/all', author));
+    for (const channel of ['soc/official', 'soc/dir', 'soc/p/gator', 'soc/pr/gator',
+      'soc/u/' + forwarder.publicKey, 'soc/r/' + forwarder.publicKey]) assert.equal(valid(message, channel), false);
+  }
+  for (const message of [{ v: 1, t: 'want', since: -1 }, { v: 1, t: 'want', limit: 500 },
+    post.message, { v: 1, t: 'mention', original: post }]) assert.equal(valid(message), false);
+  for (const message of [{ t: 'reply', text: 'hi', parent: ref }, { t: 'repost', target: ref, original: post },
+    { t: 'follow', key: ref.key }, { t: 'card', handle: 'writer', harnesses: [] }]) {
+    assert.equal(valid(share(author.envelope(ownerLane, { v: 1, ...message }))), false);
+  }
+  for (const original of [{ ...post, message: { ...post.message, text: 'edited' } },
+    forwarder.envelope(ownerLane, post.message, { from: author.publicKey }),
+    forwarder.envelope('soc/p/gator', post.message), forwarder.envelope(ownerLane, post.message)]) {
+    assert.equal(valid(share(original)), false);
+  }
+});
+
+test('signed root net accepts legacy settings and clamps opt-in public overrides', () => {
+  const root = new Hub().peer(), channel = 'soc/official';
+  for (const [overrides, bytes, work] of [[{}, 4096, 12],
+    [{ caps: { public: 1 }, pow: { public: 100 } }, 2048, 16],
+    [{ caps: { public: 9999 }, pow: { public: 0 } }, 4096, 8]]) {
+    const message = { t: 'net', v: 1, seq: 7, rates: { posts: 6 }, ...overrides };
+    assert.ok(validEnvelope(channel, root.envelope(channel, message), root.publicKey));
+    assert.deepEqual(policyFor('soc/all', root.publicKey, settingsFor(message)),
+      { verifySignature: true, maxReceiveBytes: bytes, powDifficulty: work });
+  }
+  assert.equal(validMessage({ t: 'net', v: 1, seq: 7, caps: { unknown: 1 } }), false);
+});
