@@ -748,7 +748,7 @@ export class EvmSource {
       return this.usd('native')
     return null
   }
-  async snapshots(pools, read) {
+  async snapshots(pools, read, decimals) {
     const groups = pools.map(poolStateCalls)
     const values = await read(groups.flat())
     let offset = 0
@@ -756,7 +756,7 @@ export class EvmSource {
       const part = values.slice(offset, offset + groups[i].length)
       offset += groups[i].length
       if (p.slot0) part.unshift(p.slot0)
-      const state = poolStateValue(p, part, [p.token0, p.token1].map(a => this.metadata(a)?.decimals))
+      const state = poolStateValue(p, part, [p.token0, p.token1].map(a => decimals?.get(a) ?? this.metadata(a)?.decimals))
       if (!state || state.empty) return state
       const usd0 = this.usd(p.token0), usd1 = this.usd(p.token1)
       let depth = null

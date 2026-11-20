@@ -14,6 +14,8 @@ import { derivativeJobs } from './sources/derivatives.js'
 import { fetchTickers, loadNextSymbol } from './sources/cex.js'
 import { PendingDexQuotes } from './coverage/seed-identity.js'
 import { StoredDiscoveries } from './coverage/discoveries.js'
+import { registerAnnouncedPools } from './intel/announced-pools.js'
+import { FactoryBackfill } from './coverage/backfill.js'
 import { DexCoverage } from './coverage/dex.js'
 import { EvmSource } from './sources/evm.js'
 import { SolanaCoverage } from './coverage/solana.js'
@@ -149,6 +151,7 @@ export class Engine extends EventEmitter {
     this.installJobs()
     this.catchup = new PoolCatchup(this)
     this.dexCoverage.installBacklogJob()
+    this.backfill = new FactoryBackfill(this)
   }
   installJobs() {
     const { registry, store, clock, http } = this
@@ -290,6 +293,7 @@ export class Engine extends EventEmitter {
       }
     }
     this.names = registerNamesJob(this)
+    this.announcedPools = registerAnnouncedPools(this)
     this.supply = registerSupplyJobs(this)
     this.subnets = registerSubnets(this)
     this.historySeed = registerHistorySeed(this)
@@ -362,7 +366,10 @@ export class Engine extends EventEmitter {
       !this.discoveryQuota.take(env.from, 1)
     )
       return
-    if (msg.t === 'pool') this.hints.receive(msg, env.from)
+    if (msg.t === 'pool') {
+      this.hints.receive(msg, env.from)
+      this.backfill?.heard(msg, env.from)
+    }
     if (
       msg.t === 'listing' &&
       this.registry.venues.has(msg.exchange) &&
@@ -478,7 +485,7 @@ export class Engine extends EventEmitter {
               // A full catalog can have a due maintenance job on every tick. Reuse an
               // unspent turn only after it finishes and another slot is free for prices.
               if (this.active && this.inflight.size < slots && dispatches === this.budget.dispatches)
-                return this.catchup.unusedTurn()
+                return this.catchup.unusedTurn() ?? this.backfill.unusedTurn()
             })
             .catch((err) => {
               if (this.active && !(err instanceof RateLimited))

@@ -344,4 +344,33 @@ export const migrations = [
         ORDER BY firstSeen DESC,chain,pool LIMIT 5000;`)
     },
   },
+  {
+    id: 'engine-023-announced-pools',
+    up(db) {
+      // Pools registered from a peer's gator/new record or catch-up row (intel/announced-pools.js): measured once,
+      // kept priced while at least the added-token floor deep (bounded per chain), then forgotten after 24 h below it.
+      db.exec(`CREATE TABLE engine_announced_pools (
+        chain TEXT NOT NULL, pool TEXT NOT NULL, since INTEGER NOT NULL, checkAt INTEGER NOT NULL,
+        checks INTEGER NOT NULL DEFAULT 0, depth REAL, belowSince INTEGER, PRIMARY KEY(chain,pool)
+      ) STRICT, WITHOUT ROWID;
+      CREATE INDEX engine_announced_pools_due ON engine_announced_pools(checkAt,chain);`)
+    },
+  },
+  {
+    id: 'engine-factory-history-v1',
+    up(db) {
+      db.exec(`CREATE TABLE engine_history_ranges (
+        chain TEXT NOT NULL, factory TEXT NOT NULL, mode TEXT NOT NULL, start INTEGER NOT NULL,
+        next INTEGER NOT NULL, afterIdx INTEGER NOT NULL, span INTEGER NOT NULL, checkedAt INTEGER NOT NULL,
+        PRIMARY KEY(chain,factory,mode,start)
+      ) STRICT, WITHOUT ROWID;
+      CREATE TABLE engine_history_pools (
+        chain TEXT NOT NULL, pool TEXT NOT NULL, factory TEXT NOT NULL, idx INTEGER,
+        lo INTEGER NOT NULL, hi INTEGER NOT NULL, bisect INTEGER NOT NULL, span INTEGER NOT NULL,
+        nextShare INTEGER NOT NULL, PRIMARY KEY(chain,pool),
+        FOREIGN KEY(chain,pool) REFERENCES pools(chain,pool) ON DELETE CASCADE
+      ) STRICT, WITHOUT ROWID;
+      CREATE INDEX engine_history_outbox ON engine_history_pools(nextShare,chain,pool);`)
+    },
+  },
 ]
