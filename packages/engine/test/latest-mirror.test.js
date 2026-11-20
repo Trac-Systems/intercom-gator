@@ -199,7 +199,7 @@ test('a paced publish yields between wire batches and ingests every row', async 
   engine.obs.publishBatch = (...args) => { batches++; setImmediate(() => between++); return batch(...args) }
   const pending = engine.publishPaced(rows)
   assert.equal(batches, 1, 'only the first wire batch runs at once')
-  assert.equal(await pending, 250)
+  assert.equal(await pending, 1, 'one market: only its newest due row goes on the wire')
   assert.equal(batches, 2)
   assert.ok(between >= 1, 'other work ran between the batches')
   book.refresh()

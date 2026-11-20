@@ -242,9 +242,11 @@ test('shared core proves a signer, one wire tail report reaches rankings and cov
   register(a)
   const { market, fx } = register(b), id = market.id
   const row = (market, price, volume, at) => [[market, price, volume, null, null, null, at]]
+  // A moving price: the wire budget re-sends an unchanged row only as a heartbeat (half the coverage window).
   for (let round = 0; round < 3; round++) {
-    a.publish(row(core, '2', '100', a.clock()))
-    b.publish(row(core, '2', '100', b.clock()))
+    const price = ['2', '2.02', '2.04'][round]
+    a.publish(row(core, price, '100', a.clock()))
+    b.publish(row(core, price, '100', b.clock()))
     assert.equal(b.book.isProven(a.transport.publicKey), round === 2)
     sender.advance(60_001)
     receiver.advance(60_001)

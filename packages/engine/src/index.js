@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { adaptBundle, digestPrefix, ROOT_KEY } from './sources/bundle-adapter.js'
 import { Registry } from './registry/index.js'
 import { RpcClient } from './rpc/index.js'
-import { Scheduler, RequestBudget, RateLimited, seededRandom } from './scheduler/index.js'
+import { Scheduler, RequestBudget, RateLimited, seededRandom, coverageTarget } from './scheduler/index.js'
 import { ObservationExchange, PeerQuota, NEW_POLICY, keyPattern } from './obs/index.js'
 import { MarketBook } from './aggregate/book.js'
 import { priceSiblings } from './aggregate/coins.js'
@@ -508,6 +508,11 @@ export class Engine extends EventEmitter {
         return kind !== 'cex' || this.registry.venues.get(venue)?.publishMarketData
       },
       ingest: (key, rows, own, localQuoteVolumes) => this.book.ingest(key, rows, own, localQuoteVolumes),
+      wireInfo: (id) => {
+        const market = this.registry.markets.get(id)
+        const rank = market && this.registry.marketRank(market)
+        return { rank, window: coverageTarget(rank).window }
+      },
     })
     try {
       await this.obs.start()
