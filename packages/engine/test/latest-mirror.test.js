@@ -171,3 +171,37 @@ test('coverage counts from memory exactly like the former engine_latest query', 
   assert.equal(book.coverage(btc.id, 600_000), 2, 'own + proven; the unproven and the muted peer do not count')
   assert.equal(book.coverage(btc.id, 60_000), 1, 'only the fresh own row')
 })
+
+test('a halt change makes a read start a background rebuild instead of rebuilding inside it', async t => {
+  const { engine, book, market, row } = await fixture(t)
+  engine.publish([row(market('BTC', 'USD'), 100_000)])
+  book.maxStaleMs = 4000
+  book.refreshed = -Infinity
+  book.refresh()
+  let rebuilds = 0
+  const rank = engine.registry.rankMarkets.bind(engine.registry)
+  engine.registry.rankMarkets = (...args) => { rebuilds++; return rank(...args) }
+  engine.registry.haltRevision++
+  book.refresh()
+  assert.equal(rebuilds, 0, 'the read answers from the last rebuild')
+  await settle(book)
+  assert.equal(rebuilds, 1)
+  assert.equal(book.haltRevision, engine.registry.haltRevision)
+})
+
+test('a paced publish yields between wire batches and ingests every row', async t => {
+  const { engine, book, market, now } = await fixture(t)
+  const btc = market('BTC', 'USD')
+  const rows = Array.from({ length: 250 }, (_, i) => [btc.id, String(100_000 + i), 1, String(100_000 + i), null, null,
+    now() - 250 + i])
+  let batches = 0, between = 0
+  const batch = engine.obs.publishBatch.bind(engine.obs)
+  engine.obs.publishBatch = (...args) => { batches++; setImmediate(() => between++); return batch(...args) }
+  const pending = engine.publishPaced(rows)
+  assert.equal(batches, 1, 'only the first wire batch runs at once')
+  assert.equal(await pending, 250)
+  assert.equal(batches, 2)
+  assert.ok(between >= 1, 'other work ran between the batches')
+  book.refresh()
+  assert.equal(book.latest.get(btc.id).get(engine.transport.publicKey).price, '100249')
+})

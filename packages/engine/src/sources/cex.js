@@ -204,7 +204,7 @@ export async function fetchTickers({ venue, http, registry, clock, publish, disc
   venue.contracts?.tickers(seen, !venue.cursor)
   if (venue.id === 'deribit') venue.currency = venue.currency === 'ETH' ? 'BTC' : 'ETH'
   for (const listing of listings) discover(listing)
-  publish(rows, localQuoteVolumes)
+  await publish(rows, localQuoteVolumes)
   // Per-symbol catalog APIs run as separate paced requests so a large feed never fans out.
   if (unknown.size) venue.nextSymbol = unknown.values().next().value
   return rows.length

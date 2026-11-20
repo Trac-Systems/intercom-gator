@@ -147,14 +147,27 @@ export class ObservationExchange {
   }
   publish(rows, localQuoteVolumes) {
     let sent = 0
+    for (const [channel, msg] of batches(rows, this.digest, this.clock())) sent += this.publishBatch(channel, msg, localQuoteVolumes)
+    return sent
+  }
+  /** publish, yielding to the event loop between wire batches: each batch is an ingest transaction plus a signed,
+   * proof-of-work broadcast, and a venue's whole ticker feed at once blocked the node 0.4-0.85 s (owner node 11-20). */
+  async publishPaced(rows, localQuoteVolumes, active = () => true) {
+    let sent = 0, first = true
     for (const [channel, msg] of batches(rows, this.digest, this.clock())) {
-      const accepted = msg.o.filter(this.accepts)
-      if (!accepted.length) continue
-      this.ingest(this.transport.publicKey, accepted, true, localQuoteVolumes)
-      msg.o = accepted.filter(this.canPublish)
-      if (msg.o.length && this.transport.send(channel, msg)) sent += msg.o.length
+      if (!first) await new Promise(resolve => setImmediate(resolve))
+      first = false
+      if (!active()) break
+      sent += this.publishBatch(channel, msg, localQuoteVolumes)
     }
     return sent
+  }
+  publishBatch(channel, msg, localQuoteVolumes) {
+    const accepted = msg.o.filter(this.accepts)
+    if (!accepted.length) return 0
+    this.ingest(this.transport.publicKey, accepted, true, localQuoteVolumes)
+    msg.o = accepted.filter(this.canPublish)
+    return msg.o.length && this.transport.send(channel, msg) ? msg.o.length : 0
   }
   receive(channel, env) {
     if (

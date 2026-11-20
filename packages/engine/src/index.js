@@ -205,7 +205,8 @@ export class Engine extends EventEmitter {
     }
     for (const venue of this.catalog.exchanges) {
       if (!venue.ticker) continue
-      const tickers = (client, fromHint = false) => fetchTickers({ venue, registry, http: client, clock, publish,
+      const tickers = (client, fromHint = false) => fetchTickers({ venue, registry, http: client, clock,
+        publish: (rows, localQuoteVolumes) => this.publishPaced(rows, localQuoteVolumes),
         discover: data => this.discovery(data, fromHint),
         saveDerivative: this.saveDerivative })
       this.scheduler.add({
@@ -625,6 +626,10 @@ export class Engine extends EventEmitter {
   }
   publish(rows, localQuoteVolumes) {
     return this.active ? this.obs.publish(rows, localQuoteVolumes) : 0
+  }
+  /** publish for large feeds (a venue's tickers): yields between wire batches. */
+  publishPaced(rows, localQuoteVolumes) {
+    return this.active ? this.obs.publishPaced(rows, localQuoteVolumes, () => this.active) : Promise.resolve(0)
   }
   registerJob(job) {
     this.scheduler.add(job)

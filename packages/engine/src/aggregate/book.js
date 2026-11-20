@@ -474,17 +474,21 @@ export class MarketBook {
     // app) a read returns the last rebuild while it is younger than READ_LIMIT_MS and leaves a due rebuild to the
     // background; maxStaleMs 0 (tests) rebuilds at once. Freshness counts from the END of a rebuild: counted from its
     // start, a rebuild longer than the 1 s clean window was stale on arrival (11-20: USDT page 68 s, ~50 rebuilds).
-    if (this.maxStaleMs > 0 && !halted && !this.rebuildError && now - this.refreshed < READ_LIMIT_MS) {
-      if (now - this.refreshed >= (this.dirty ? this.maxStaleMs : 1000)) this.scheduleRebuild()
+    if (this.maxStaleMs > 0 && !this.rebuildError && now - this.refreshed < READ_LIMIT_MS) {
+      // A changed halt set (venue reads flip halts constantly with ~80 venues) starts a background rebuild at once; it
+      // used to force a synchronous rebuild into the read (owner node 11-20: 0.8-1.3 s requests).
+      if (halted) this.scheduleRebuild(true)
+      else if (now - this.refreshed >= (this.dirty ? this.maxStaleMs : 1000)) this.scheduleRebuild()
       return this.snapshots
     }
     if (!halted && now - this.refreshed < (this.dirty ? this.maxStaleMs : 1000)) return this.snapshots
     return this.rebuildNow(now)
   }
   /** A background rebuild, spaced so rebuilds take at most ~1/(1+REBUILD_SPACING) of the main thread. */
-  scheduleRebuild() {
-    if (this.rebuildTimer || this.rebuilding || this.stopped) return
-    const wait = Math.min(SPACING_CAP_MS, Math.max(0, this.refreshed + REBUILD_SPACING * this.rebuildMs - this.clock()))
+  scheduleRebuild(soon = false) {
+    if (this.rebuilding || this.stopped || (this.rebuildTimer && !soon)) return
+    clearTimeout(this.rebuildTimer)
+    const wait = soon ? 0 : Math.min(SPACING_CAP_MS, Math.max(0, this.refreshed + REBUILD_SPACING * this.rebuildMs - this.clock()))
     this.rebuildTimer = setTimeout(() => { this.rebuildTimer = null; this.rebuildSliced() }, wait)
     this.rebuildTimer.unref?.()
   }
@@ -768,16 +772,26 @@ export class MarketBook {
     if (!sliced) this.dirty = false
     if (late()) { busy += performance.now() - mark; yield; mark = performance.now() }
     // A synchronous rebuild that supersedes this one finishes it first (rebuildNow), so these writes are never lost.
-    this.store.transaction(() => {
-      for (const asset of drops) this.dropHistory.run(asset)
-      // A mute or source expiry can make the newest eligible source timestamp move backwards.
-      for (const { asset, at, row } of writes) {
-        this.dropNewerPrice.run(asset, at)
-        this.store.upsertPrice(row)
-      }
-      if (samples.length) this.store.recordPrices(samples)
-      for (const id of retired) this.dropPrice.run(id)
-    })
+    // Background rebuilds write in transactions of about one slice each: a live node changes thousands of prices and
+    // candles per rebuild (owner node 11-20: one 0.4-0.7 s write). Each row stays whole; a sync rebuild writes once.
+    const ops = []
+    for (const asset of drops) ops.push(() => this.dropHistory.run(asset))
+    // A mute or source expiry can make the newest eligible source timestamp move backwards.
+    for (const { asset, at, row } of writes) ops.push(() => { this.dropNewerPrice.run(asset, at); this.store.upsertPrice(row) })
+    for (let i = 0; i < samples.length; i += 200) {
+      const chunk = samples.slice(i, i + 200)
+      ops.push(() => this.store.recordPrices(chunk))
+    }
+    for (const id of retired) ops.push(() => this.dropPrice.run(id))
+    for (let i = 0; i < ops.length;) {
+      this.store.transaction(() => {
+        while (i < ops.length) {
+          ops[i++]()
+          if (late()) break
+        }
+      })
+      if (i < ops.length) { busy += performance.now() - mark; yield; mark = performance.now() }
+    }
     this.rebuildMs = busy + performance.now() - mark
     for (const result of changed) this.onPrice(result)
     return next
