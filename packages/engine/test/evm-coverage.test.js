@@ -256,3 +256,16 @@ test('a failing refresh on a busy chain backs off for a period and decoding stil
   assert.ok(f.requests.some(r => r.method === 'eth_getBlockByNumber'), 'decode reached the block header')
   assert.equal(source.refreshAt, f.now() + 300_000)
 })
+
+test('the scanner turn weighs waiting time by job weight: a valuable hot seeder beats an older small-chain scanner', async () => {
+  let now = 1_000_000
+  const scheduler = new Scheduler({ clock: () => now, random: () => 0.99, coverage: () => 0 })
+  const ran = []
+  scheduler.add({ id: 'evm:aaa:state', lane: 'scanner', weight: () => 2, interval: 1, run() { ran.push('small') } })
+  scheduler.add({ id: 'evm:poly:seed', lane: 'scanner', weight: () => 17, interval: 1, run() { ran.push('poly') } })
+  scheduler.jobs.get('evm:aaa:state').last = now - 60_000 // waited a minute: 120k
+  scheduler.jobs.get('evm:poly:seed').last = now - 10_000 // waited 10 s: 170k
+  scheduler.turn = 5
+  await scheduler.runOne()
+  assert.deepEqual(ran, ['poly'])
+})

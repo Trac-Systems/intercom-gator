@@ -203,16 +203,20 @@ export class Engine extends EventEmitter {
         interval: source.limits.period,
         run: () => source.logs(),
       })
-      // Price scanners: their own scheduler turn and reserved budget share (DESIGN 5.3).
+      // Price scanners: their own scheduler turn and reserved budget share (DESIGN 5.3), weighted by the chain's
+      // signed token count (Polygon 183 -> 8.5, Scroll 1 -> 2) and doubled for the seeder's priority prefix.
       const scanner = run => () => this.budget.scanner(run)
+      const weight = 1 + Math.log2(1 + this.catalog.assets.filter(a => a.chain === chain.id).length)
       this.scheduler.add({ id: 'evm:' + chain.id + ':seed', interval: () => source.seedDelay(), lane: 'scanner',
+        weight: () => weight * (source.seedHot ? 2 : 1),
         ready: () => source.seedWake <= clock(), run: scanner(() => source.seed()) })
       this.scheduler.add({ id: 'evm:' + chain.id + ':trades', marketChain: chain.id, interval: () => source.tradesDelay(),
-        lane: 'scanner', ready: () => !!source.localPool.get(chain.id), run: scanner(() => source.trades()) })
+        lane: 'scanner', weight: () => weight, ready: () => !!source.localPool.get(chain.id), run: scanner(() => source.trades()) })
       this.scheduler.add({
         id: 'evm:' + chain.id + ':state',
         marketChain: chain.id,
         lane: 'scanner',
+        weight: () => weight,
         interval: 2000,
         ready: () => source.stateReady(),
         run: scanner(() => source.scheduledState()),

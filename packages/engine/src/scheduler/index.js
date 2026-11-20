@@ -186,14 +186,17 @@ export class Scheduler {
     // One turn in eight goes to the longest-waiting ready price scanner (EVM seed/state). They have no markets of
     // their own to score and shared the every-fourth-turn rotation with ~100 supply, derivatives and names jobs:
     // on a small node (one turn per second) Polygon's scanners got no turn in the first minutes (11-20).
+    // Waiting time counts times the job's weight (chain value, hot seeding), capped at an hour so unvisited jobs
+    // start in weight order: plain round robin over ~60 scanners revisited Polygon's seeder every few minutes.
     if (this.turn % 8 === 6) {
-      let oldest = null
+      let best = null, highest = -1
       for (const job of this.jobs.values()) {
         if (job.lane !== 'scanner' || (this.backgroundJobs && !this.backgroundJobs.has(job.id))) continue
         if (job.next > now || job.ready?.() === false) continue
-        if (!oldest || job.last < oldest.last || (job.last === oldest.last && job.id < oldest.id)) oldest = job
+        const value = Math.min(3_600_000, now - job.last) * (job.weight?.() ?? 1)
+        if (value > highest || (value === highest && job.id < best.id)) { best = job; highest = value }
       }
-      if (oldest) return oldest
+      if (best) return best
     }
     if (this.turn % 4 === 0 || fairMarket) {
       let oldest = null
