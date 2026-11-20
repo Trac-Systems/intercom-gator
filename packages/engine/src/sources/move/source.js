@@ -1,3 +1,4 @@
+import { registerDexJob, runDexTasks } from '../dex-jobs.js'
 import { MARKET_POLICY } from '../../../../store/src/markets.js'
 import { RateLimited } from '../../scheduler/index.js'
 import { decimal } from '../../obs/index.js'
@@ -206,15 +207,7 @@ export class MoveSource {
     if (!event) return event
     return this.measure([{ ...hint, ...event, token0: hint.token0, token1: hint.token1 }], cache, true, hint.reporter)
   }
-  async run() {
-    const tasks = this.reader.tasks
-    for (let i = 0; i < tasks.length; i++) {
-      const turn = this.turn
-      this.turn = (turn + 1) % tasks.length
-      try { if (await tasks[turn]()) return }
-      catch (error) { if (error instanceof RateLimited) this.turn = turn; throw error }
-    }
-  }
+  run() { return runDexTasks(this, this.reader.tasks) }
 }
 export function registerMove(engine) {
   const sources = new Map()
@@ -222,10 +215,7 @@ export function registerMove(engine) {
     const client = new MoveClient(engine, chain)
     if (!client.endpoint) continue
     const source = new MoveSource(engine, chain, client)
-    sources.set(chain, source)
-    engine.registerJob({ id: chain + ':pools', marketChain: chain, interval: 5000,
-      ready: () => !!client.endpoint && engine.clock() >= client.next, run: () => source.run(),
-      spotCheck: (id, reads) => source.state(id.split(':')[2], reads) })
+    sources.set(chain, registerDexJob(chain, source))
   }
   return sources
 }

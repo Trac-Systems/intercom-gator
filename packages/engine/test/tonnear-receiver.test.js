@@ -8,7 +8,6 @@ import { createIntel, migrations as intelMigrations } from '../src/intel/index.j
 import { poolKey } from '../src/sources/ton/address.js'
 import { USDT } from '../src/sources/ton/deployments.js'
 import { refKey } from '../src/sources/near/source.js'
-
 import { archive, LocalTransport } from './helpers/archived-receiver.js'
 
 const signedDigest = bundleDigest(loadBundle()).slice(0, 16)
@@ -91,5 +90,31 @@ test('this release accepts a peer price for a TON market it verified itself', as
   } finally {
     await engine.stop()
     store.close()
+  }
+})
+
+test('a pool disagreement reaches its own family reader with all five scanners enabled', async t => {
+  const store = openStore({ file: ':memory:', migrations })
+  t.after(() => store.close())
+  const jobs = ['tron:sunswap', 'sui:pools', 'aptos:pools', 'ton:dex', 'near:ref']
+  let now = 1795134200000
+  const engine = new Engine({ bundle: loadBundle(), store, transport: new LocalTransport(), clock: () => now,
+    backgroundJobs: jobs, patches: { patchFeed: false, snapshot: false },
+    rpcConfig: { fetch: () => assert.fail('unexpected background read') } })
+  const scanners = engine.sources().groups.find(group => group.id === 'scanners').items
+  assert.deepEqual(scanners.map(scanner => scanner.id).sort(), [...jobs].sort())
+  const readers = [engine.tron, engine.move.get('sui'), engine.move.get('aptos'), engine.ton, engine.near]
+  for (const [i, job] of jobs.entries()) {
+    const chain = job.split(':')[0], pool = 'pool-' + chain, market = 'dex:' + chain + ':' + pool
+    engine.registry.markets.set(market, { id: market, kind: 'dex', chain })
+    let received
+    readers[i].state = (id, reads) => {
+      received = id
+      if (engine.move.has(chain)) assert.ok(reads instanceof Map)
+    }
+    engine.book.onDisagreement(market)
+    assert.equal(await engine.scheduler.runOne(), job)
+    assert.equal(received, pool)
+    now += 60_000
   }
 })

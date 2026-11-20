@@ -1,5 +1,5 @@
 import { MARKET_POLICY } from '../../../../store/src/markets.js'
-import { RateLimited } from '../../scheduler/index.js'
+import { registerDexJob, runDexTasks } from '../dex-jobs.js'
 import { decimal } from '../../obs/index.js'
 import { TronClient } from './client.js'
 import { FACTORIES, USDT, WTRX } from './deployments.js'
@@ -163,26 +163,11 @@ export class TronSource {
     await this.measure([{ ...hint, ...cache.get('creation') }], true)
     return true
   }
-  async run() {
-    for (let i = 0; i < this.tasks.length; i++) {
-      const index = this.turn
-      this.turn = (index + 1) % this.tasks.length
-      try {
-        if (await this.tasks[index]()) return
-      } catch (error) {
-        if (error instanceof RateLimited) this.turn = index
-        throw error
-      }
-    }
-  }
+  run() { return runDexTasks(this) }
 }
 
 export function registerTron(engine) {
   const client = new TronClient(engine)
   if (!client.endpoint) return null
-  const source = new TronSource(engine, client)
-  engine.registerJob({ id: 'tron:sunswap', marketChain: 'tron', interval: 5000,
-    ready: () => engine.clock() >= client.next && !!client.endpoint,
-    run: () => source.run(), spotCheck: id => source.state(id.split(':')[2]) })
-  return source
+  return registerDexJob('tron', new TronSource(engine, client))
 }

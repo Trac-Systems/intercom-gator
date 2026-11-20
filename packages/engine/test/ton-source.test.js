@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { EventEmitter } from 'node:events'
+import { LocalTransport } from './helpers/archived-receiver.js'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { bundleDigest, loadBundle } from '@gator/bundle'
@@ -23,17 +23,8 @@ const STON_V1_POOL = 'EQD8TJ8xEWB1SpnRE4d89YO3jl0W0EiBnNS4IBaHaUmdfizE'
 const call = (address, method) => fixture.calls.findLast(c => c.body.address === address && c.body.method === method).json
 const key = body => JSON.stringify([body.address, body.method, body.stack ?? []])
 
-class Transport extends EventEmitter {
-  publicKey = 'a'.repeat(64)
-  sent = []
-  channels() { return [] }
-  async join() { return true }
-  async leave() { return true }
-  send(ch, msg) { this.sent.push({ ch, msg }); return true }
-}
-
 async function node(t, store) {
-  const transport = new Transport(), calls = []
+  const transport = new LocalTransport(), calls = []
   const answers = new Map(fixture.calls.map(c => [key(c.body), c.json]))
   const ctx = { now: fixture.at, calls, store, transport, refuse: null }
   const fetch = async (url, init) => {

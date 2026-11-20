@@ -1,11 +1,10 @@
-import { RateLimited } from '../../scheduler/index.js'
+import { registerDexJob } from '../dex-jobs.js'
 import { labels, validDecimals } from '../names/text.js'
 import { FamilyClient, FamilyDex, reserveState } from '../family-dex.js'
 import { addressSlice, assetSlice, poolKey, stackAddress, stackAsset, tonAddress } from './address.js'
 import { DEDUST_FACTORY, PTON, QUOTES, STONFI_API, STONFI_V1, STONFI_V2, USDT } from './deployments.js'
 
 const MINUTE = 60_000, HOUR = 3_600_000, DAY = 24 * HOUR
-const SETTING = 'engine-ton/'
 // toncenter documents 1 request/s without a key; the host bucket keeps all engine users at half of that.
 const SHARES = { small: 6, normal: 12, large: 20 }
 const PAGE = 16
@@ -59,7 +58,6 @@ export class TonSource extends FamilyDex {
   constructor(engine, client = new TonClient(engine)) {
     super(engine, 'ton', { anchors: { [USDT]: 1 } })
     this.client = client
-    this.turn = 0
     this.tasks = [() => this.state(), () => this.verify(), () => this.pairs(), () => this.state(),
       () => this.factory(), () => this.verify(), () => this.meta(), () => this.history()]
     this.tokenRows = engine.store.writer.prepare(`SELECT token0 AS t FROM engine_family_candidates WHERE chain='ton' AND stage=1 AND funded=1
@@ -67,14 +65,9 @@ export class TonSource extends FamilyDex {
     this.needMeta = engine.store.writer.prepare(`SELECT token0, token1 FROM engine_family_candidates WHERE chain='ton' AND stage=1 AND due<=?
       AND (funded=1 OR json_extract(extra,'$.wantMeta')=1) ORDER BY funded DESC, due LIMIT 32`)
   }
-  setting(key) { return this.engine.store.getSetting(SETTING + key) }
-  save(key, value) { this.engine.store.setSetting(SETTING + key, value) }
   info(address) {
-    if (address === 'native') return this.engine.registry.assets.get('ton:native')
-    const asset = this.engine.registry.assets.get('ton:' + address)
-    return asset?.decimals != null ? asset : this.setting('meta/' + address)
+    return address === 'native' ? this.engine.registry.assets.get('ton:native') : super.info(address)
   }
-  decimals(address) { return this.info(address)?.decimals ?? null }
   /** Signed TON assets and funded discovered jettons against TON and USDT. */
   pairPlan() {
     const signed = this.engine.catalog.assets.filter(a => a.chain === 'ton' && tonAddress(a.address) === a.address)
@@ -296,26 +289,10 @@ export class TonSource extends FamilyDex {
     const funded = this.engine.store.reader.prepare("SELECT count(*) AS n FROM engine_family_candidates WHERE chain='ton' AND funded=1").get().n
     return Math.max(2 * MINUTE, Math.ceil((funded + 4) / (this.client.rpm / 3)) * MINUTE)
   }
-  async run() {
-    for (let i = 0; i < this.tasks.length; i++) {
-      const index = this.turn
-      this.turn = (index + 1) % this.tasks.length
-      try {
-        if (await this.tasks[index]()) return
-      } catch (error) {
-        if (error instanceof RateLimited) this.turn = index
-        throw error
-      }
-    }
-  }
 }
 
 export function registerTon(engine) {
   const client = new TonClient(engine)
   if (!client.endpoint) return null
-  const source = new TonSource(engine, client)
-  engine.registerJob({ id: 'ton:dex', marketChain: 'ton', interval: 2500,
-    ready: () => engine.clock() >= client.next && !!client.endpoint,
-    run: () => source.run(), spotCheck: id => source.state(id.split(':')[2]) })
-  return source
+  return registerDexJob('ton', new TonSource(engine, client))
 }

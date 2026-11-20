@@ -1,5 +1,6 @@
 import { MARKET_POLICY } from '../../../store/src/markets.js'
 import { RateLimited } from '../scheduler/index.js'
+import { runDexTasks } from './dex-jobs.js'
 import { rateLimit } from './bundle-adapter.js'
 import { decimal } from '../obs/index.js'
 
@@ -80,6 +81,8 @@ export class FamilyDex {
     this.engine = engine
     this.chain = chain
     this.anchors = anchors
+    this.turn = 0
+    this.settingsPrefix = 'engine-' + chain + '/'
     const db = engine.store.writer
     this.upsert = db.prepare(`INSERT INTO engine_family_candidates(chain,pool,dex,kind,ref,token0,token1,firstSeen,due,funded,stage,isNew,extra)
       VALUES (?,?,?,?,?,?,?,?,0,0,?,?,?) ON CONFLICT(chain,pool) DO UPDATE SET
@@ -117,6 +120,9 @@ export class FamilyDex {
   reject(p, minutes = 24 * 60) {
     this.setDue.run(this.engine.clock() + minutes * MINUTE, 0, this.chain, p.pool)
   }
+  run() { return runDexTasks(this) }
+  setting(key) { return this.engine.store.getSetting(this.settingsPrefix + key) }
+  save(key, value) { this.engine.store.setSetting(this.settingsPrefix + key, value) }
   assetId(address) { return this.chain + ':' + address }
   /** USD per whole token, or null. Red prices do not value pools; stablecoin anchors cover a cold start. */
   usd(address) {
@@ -124,9 +130,11 @@ export class FamilyDex {
     if (p) return p.trust === 'red' ? null : p.priceReal
     return this.anchors[address] ?? null
   }
-  decimals(address) {
-    return this.engine.registry.assets.get(this.assetId(address))?.decimals ?? null
+  info(address) {
+    const asset = this.engine.registry.assets.get(this.assetId(address))
+    return asset?.decimals != null ? asset : this.setting('meta/' + address)
   }
+  decimals(address) { return this.info(address)?.decimals ?? null }
   /** Two-sided depth: both sides of a constant-product pool hold equal value at the pool price. */
   liquidity(p, state) {
     if (!state) return null

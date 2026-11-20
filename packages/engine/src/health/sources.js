@@ -2,6 +2,8 @@
 // error share and requests in the last hour. Built from the RPC/HTTP outcome counters and scheduler job records.
 // Only host names leave this module: never paths, query strings, credentials or a user's full endpoint URL.
 
+import { dexJobs } from '../sources/dex-jobs.js'
+
 const MIN = 60_000, HOUR = 3_600_000
 export const SLOW_MS = 3000
 
@@ -175,17 +177,12 @@ export function sourcesReport(engine) {
       { lagBlocks, lagSeconds, lastGap: gaps(chain), lastOk, failures,
         state: sourceState({ ...sum, lastSuccess: lastOk ?? sum.lastSuccess }, { failures, lagSeconds, now, enabled: ids.some(allowed) }) }))
   }
-  const readers = [
-    ['tron:sunswap', 'SunSwap', engine.tron],
-    ['sui:pools', 'Sui pools', engine.move?.get('sui')],
-    ['aptos:pools', 'Aptos pools', engine.move?.get('aptos')],
-    ['ton:dex', 'STON.fi + DeDust', engine.ton],
-    ['near:ref', 'Ref Finance', engine.near],
-  ]
-  for (const [id, name, reader] of readers) {
+  const readers = [['tron', engine.tron], ...(engine.move ?? []), ['ton', engine.ton], ['near', engine.near]]
+  for (const [chain, reader] of readers) {
+    const { id, name } = dexJobs.get(chain)
     const endpoint = reader?.client.endpoint
     if (!endpoint || !allowed(id)) continue
-    const chain = id.split(':')[0], sum = httpSum(endpoint.url), info = jobInfo(jobs.get(id), now)
+    const sum = httpSum(endpoint.url), info = jobInfo(jobs.get(id), now)
     used.add(origin(endpoint.url))
     scanners.push(item({ id, kind: chain + '-scanner', name, chain, host: host(endpoint.url) },
       sum, { ...info, state: sourceState(sum, { failures: info.failures, now }) }))

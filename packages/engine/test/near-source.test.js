@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { EventEmitter } from 'node:events'
+import { LocalTransport } from './helpers/archived-receiver.js'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { bundleDigest, loadBundle } from '@gator/bundle'
@@ -18,22 +18,13 @@ const STNEAR = fixture.calls.find(c => c.method_name === 'get_pool_by_ids').valu
 const META = fixture.calls.find(c => c.method_name === 'ft_metadata').value
 const NEAR_USD = 3.21 // independent reference sample (Binance NEARUSDT, same hour)
 
-class Transport extends EventEmitter {
-  publicKey = 'a'.repeat(64)
-  sent = []
-  channels() { return [] }
-  async join() { return true }
-  async leave() { return true }
-  send(ch, msg) { this.sent.push({ ch, msg }); return true }
-}
-
 function answer(value) {
   return Response.json({ jsonrpc: '2.0', id: 'gator', result: { block_height: 225336355, logs: [],
     result: [...Buffer.from(JSON.stringify(value))] } })
 }
 
 async function node(t, store, pools) {
-  const transport = new Transport(), calls = []
+  const transport = new LocalTransport(), calls = []
   const ctx = { now: fixture.calls[0].at, calls, store, transport, pools, volumes: [] }
   const fetch = async (url, init) => {
     const { origin } = new URL(url)

@@ -17,6 +17,7 @@ import { registerVenueContracts } from './sources/venue-contracts/index.js'
 import { PendingDexQuotes } from './coverage/seed-identity.js'
 import { StoredDiscoveries } from './coverage/discoveries.js'
 import { DexCoverage } from './coverage/dex.js'
+import { dexJobs } from './sources/dex-jobs.js'
 import { registerMove } from './sources/move/source.js'
 import { assetAddress, moveChain } from './sources/move/identity.js'
 import { registerTron } from './sources/tron/source.js'
@@ -108,9 +109,7 @@ export class Engine extends EventEmitter {
       onDisagreement: id => {
         const market = this.registry.markets.get(id)
         const job = market.kind === 'cex' ? 'cex:' + market.exchange :
-          market.chain === 'tron' ? 'tron:sunswap' : moveChain(market.chain) ? market.chain + ':pools' :
-          market.chain === 'ton' ? 'ton:dex' : market.chain === 'near' ? 'near:ref' :
-          this.evm.has(market.chain) ? 'evm:' + market.chain + ':state' : 'sol:' + market.exchange
+          dexJobs.get(market.chain)?.id ?? (this.evm.has(market.chain) ? 'evm:' + market.chain + ':state' : 'sol:' + market.exchange)
         this.scheduler.requestSpotCheck(job, id)
       },
     })

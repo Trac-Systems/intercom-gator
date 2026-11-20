@@ -1,33 +1,17 @@
-import { createHash } from 'node:crypto'
+import { REF, nearToken, refKey, USDC, USDT } from './identity.js'
 import { decimal } from '../../obs/index.js'
-import { RateLimited } from '../../scheduler/index.js'
+import { registerDexJob } from '../dex-jobs.js'
 import { labels, validDecimals } from '../names/text.js'
 import { FamilyClient, FamilyDex, reserveState } from '../family-dex.js'
 
+export { REF, WNEAR, USDC, USDT, nearToken, refKey, refId } from './identity.js'
+
 const MINUTE = 60_000, HOUR = 3_600_000
-const SETTING = 'engine-near/'
-// Ref Finance v2 (classic AMM): https://guide.ref.finance/developers/contracts — release data in reader code (§5.4).
-export const REF = 'v2.ref-finance.near'
-export const WNEAR = 'wrap.near'
-export const USDT = 'usdt.tether-token.near'
-export const USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1'
 const PAGE = 250, BATCH = 48
 // The signed NEAR endpoints publish no keyless limit; each host bucket uses the engine default (6/min per host) and
 // the reader rotates over the three signed hosts.
 const SHARES = { small: 4, normal: 10, large: 15 }
 const ANSWERS = new Set(['CONTRACT_EXECUTION_ERROR', 'UNKNOWN_ACCOUNT', 'NO_CONTRACT_CODE', 'INVALID_ACCOUNT'])
-const ACCOUNT = /^(?=.{2,64}$)(?:[a-z\d]+[-_])*[a-z\d]+(?:\.(?:[a-z\d]+[-_])*[a-z\d]+)*$/
-
-export const nearToken = id => (id === WNEAR ? 'native' : typeof id === 'string' && ACCOUNT.test(id) ? id : null)
-/**
- * Market key of a Ref pool for the v1 wire pattern (0x + 64 hex): 24 bytes of sha256(contract), then the pool id as a
- * big-endian u64, so a receiver can recover and check the pool without a lookup table.
- */
-export const refKey = (id, contract = REF) =>
-  '0x' + createHash('sha256').update(contract).digest('hex').slice(0, 48) + BigInt(id).toString(16).padStart(16, '0')
-/** @returns {number|null} the Ref pool id of a market key, or null for another contract. */
-export const refId = (key, contract = REF) => (typeof key === 'string' && key.length === 66 && key === refKey(BigInt('0x' + key.slice(50)), contract)
-  ? Number(BigInt('0x' + key.slice(50))) : null)
 
 /** NEAR JSON-RPC view calls at the final block. */
 export class NearClient extends FamilyClient {
@@ -65,20 +49,12 @@ export class NearSource extends FamilyDex {
   constructor(engine, client = new NearClient(engine)) {
     super(engine, 'near', { anchors: { [USDT]: 1, [USDC]: 1 } })
     this.client = client
-    this.turn = 0
     this.tasks = [() => this.state(), () => this.pages(), () => this.meta(), () => this.pages(), () => this.volumes()]
     this.volumeDue = engine.store.writer.prepare(`SELECT * FROM engine_family_candidates WHERE chain='near' AND funded=1
       ORDER BY coalesce(json_extract(extra,'$.volAt'),0), pool LIMIT 1`)
     this.needMeta = engine.store.writer.prepare(`SELECT token0, token1 FROM engine_family_candidates WHERE chain='near' AND stage=1 AND due<=?
       ORDER BY due LIMIT 64`)
   }
-  setting(key) { return this.engine.store.getSetting(SETTING + key) }
-  save(key, value) { this.engine.store.setSetting(SETTING + key, value) }
-  info(address) {
-    const asset = this.engine.registry.assets.get('near:' + address)
-    return asset?.decimals != null ? asset : this.setting('meta/' + address)
-  }
-  decimals(address) { return this.info(address)?.decimals ?? null }
   /**
    * Directory pass over `get_pools`: a durable index pages the whole list every six hours, then polls the tail so a
    * pool created after the pass is checked within minutes. Pools whose priced side shows $10k of depth are queued.
@@ -181,27 +157,10 @@ export class NearSource extends FamilyDex {
     const diff = total(samples.at(-1)) - total(samples[0])
     return places == null || diff <= 0n ? '0' : decimal(Number(diff) / 10 ** places)
   }
-  refresh() { return 2 * MINUTE }
-  async run() {
-    for (let i = 0; i < this.tasks.length; i++) {
-      const index = this.turn
-      this.turn = (index + 1) % this.tasks.length
-      try {
-        if (await this.tasks[index]()) return
-      } catch (error) {
-        if (error instanceof RateLimited) this.turn = index
-        throw error
-      }
-    }
-  }
 }
 
 export function registerNear(engine) {
   const client = new NearClient(engine)
   if (!client.endpoint) return null
-  const source = new NearSource(engine, client)
-  engine.registerJob({ id: 'near:ref', marketChain: 'near', interval: 5000,
-    ready: () => engine.clock() >= client.next && !!client.endpoint,
-    run: () => source.run(), spotCheck: id => source.state(id.split(':')[2]) })
-  return source
+  return registerDexJob('near', new NearSource(engine, client))
 }
