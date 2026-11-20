@@ -23,7 +23,7 @@ const STABLES = {
   optimism: 'optimism:0x0b2c639c533813f4aa9d7837caf62653d097ff85', // USDC, coin circle-usdc
   polygon: 'polygon:0xc2132d05d31c914a87c6611c10748aeb04b58e8f', // USDT, coin tether-usdt (escrow-backed)
 }
-const TOKENS_PER_CHAIN = 12
+const TOKENS_PER_CHAIN = 20
 
 function node(t) {
   const bundle = loadBundle(), store = openStore({ file: ':memory:', migrations, profile: 'small' })
