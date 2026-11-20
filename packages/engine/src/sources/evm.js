@@ -39,7 +39,8 @@ function variants(d) {
 /** Plan currency pairs and deployment methods separately so each job builds only one page of calldata. */
 export function seedPlan(source) {
   const { chain, registry } = source
-  const max = source.limits.tokens
+  const roster = source.coverage?.members()
+  const max = roster?.split ? Infinity : source.limits.tokens
   const native = registry.assets.get(chain.id + ':native')
   const wrappedSymbol = native && 'W' + native.symbol.toUpperCase()
   function quoteOrder(q) {
@@ -70,7 +71,8 @@ export function seedPlan(source) {
     }
   }
   const methods = chain.deployments.flatMap(d => variants(d).map(args => ({ d, args })))
-  return { pairs: [...pairs.values()], methods }
+  const ordered = [...pairs.values()]
+  return { pairs: roster?.split ? roster.seedPairs(chain.id, ordered, source.clock()) : ordered, methods }
 }
 
 function probe(pair, method) {
@@ -89,10 +91,18 @@ function probe(pair, method) {
   return candidate
 }
 
+/** Regenerate only the signed factory's supported methods for a claimed seed pair. */
+export function seedProbesFor(source, { dex, kind, token0, token1, pool }) {
+  const pair = [token0 === 'native' ? ZERO : token0, token1]
+  return source.chain.deployments.filter(d => d.name === dex && d.kind === kind)
+    .flatMap(d => variants(d).map(args => probe(pair, { d, args })))
+    .filter(p => p && (kind !== 'v4' || p.pool === pool))
+}
+
 /** A successful log scan advances a durable cursor atomically with its decode queue. */
 export class EvmSource {
-  constructor({ chain, store, rpc, registry, publish, discover, profile = store.profile, dex, clock = Date.now }) {
-    Object.assign(this, { chain, store, rpc, registry, publish, discover, clock })
+  constructor({ chain, store, rpc, registry, publish, discover, profile = store.profile, dex, coverage, clock = Date.now }) {
+    Object.assign(this, { chain, store, rpc, registry, publish, discover, coverage, clock })
     this.limits = LIMITS[profile] ?? LIMITS.normal
     this.definition = dex?.evm.find(d => d.chain === chain.id)
     // The catalog omits Sync and factory fee tiers. Read both from the same effective signed bundle.
@@ -132,7 +142,7 @@ export class EvmSource {
       ON d.market='dex:'||p.chain||':'||p.pool WHERE p.chain=? AND d.fromHint=0 LIMIT 1`)
     this.queueSize = db.prepare('SELECT count(*) AS n FROM engine_logs WHERE chain=?')
     this.done = db.prepare('DELETE FROM engine_logs WHERE chain=? AND block=? AND idx=?')
-    this.poolInfo = db.prepare(`SELECT p.*,k.stable,k.spacing FROM pools p JOIN engine_market_data d
+    this.poolInfo = db.prepare(`SELECT p.*,k.stable,k.spacing,d.fromHint FROM pools p JOIN engine_market_data d
       ON d.market='dex:'||p.chain||':'||p.pool LEFT JOIN engine_pool_parameters k USING(chain,pool)
       WHERE p.chain=? AND p.pool=?`)
     this.saveParams = db.prepare('INSERT OR REPLACE INTO engine_pool_parameters VALUES (?,?,?,?)')
@@ -168,13 +178,16 @@ export class EvmSource {
     this.quotes = new Map((this.definition?.quoteTokens ?? chain.quotes.map(address =>
       registry?.assets.get(chain.id + ':' + address) ?? { address })).map(q => [q.address.toLowerCase(), { ...q, address: q.address.toLowerCase() }]))
     this.seedCursor = 'engine-seed/' + chain.id
-    this.seedWake = store.getSetting(this.seedCursor)?.wake ?? 0
+    const savedSeed = store.getSetting(this.seedCursor)
+    this.seedWake = savedSeed?.wake ?? 0
+    this.planVersion = savedSeed?.layout ?? 'solo'
     this.seedMemo = db.prepare('SELECT retryAt FROM engine_seed_attempts WHERE chain=? AND probe=?')
     this.cacheSeed = db.prepare('INSERT OR REPLACE INTO engine_seed_attempts VALUES (?,?,?)')
     this.expireSeed = db.prepare('DELETE FROM engine_seed_attempts WHERE chain=? AND retryAt<=?')
     this.assetPrice = db.prepare('SELECT priceReal,trust FROM prices WHERE asset=? AND at>=? AND priceReal>0')
     this.saveDepth = db.prepare('UPDATE pools SET liquidity=? WHERE chain=? AND pool=?')
     this.refreshAt = 0
+    this.decodeNext = false
     this.nextPool = 0
     this.adoptQueue()
   }
@@ -239,15 +252,24 @@ export class EvmSource {
     const count = (this.store.getSetting(key)?.count ?? 0) + 1
     this.store.setSetting(key, { from, to, count, at: this.clock() })
   }
-  async scan(last, filter, creation, accept, advance) {
-    const chain = this.chain.id, lane = creation ? 'creation' : 'trades'
+  async scan(last, filter, creation, accept, advance, rpc = this.rpc) {
+    const chain = this.chain.id, lane = creation ? 'creation' : rpc === this.rpc ? 'trades' : 'public-trades'
     const span = creation ? 'span' : 'tradeSpan'
     const window = creation ? this.creationWindow : this.chain.range
     // A single slow endpoint may grant only one call per minute. Keep the sampled height
     // for its next grant so header requests cannot consume every available token.
     const previousHead = this.pendingHeads.get(lane)
-    const sample = previousHead && this.clock() < previousHead.expires ? previousHead :
-      { block: (await this.chainHead()).block, expires: this.clock() + 600_000 }
+    let sample = previousHead
+    if (!sample || this.clock() >= sample.expires) {
+      let block
+      if (rpc === this.rpc) block = (await this.chainHead()).block
+      else {
+        const tip = uint(await rpc.call(chain, 'eth_blockNumber', []))
+        if (tip == null) throw new Error('Invalid public chain head')
+        block = Math.max(0, tip - 2)
+      }
+      sample = { block, expires: this.clock() + 600_000 }
+    }
     const head = sample.block
     this.pendingHeads.delete(lane)
     const next = last == null ? head : last + 1
@@ -257,7 +279,7 @@ export class EvmSource {
     let logs
     try {
       const query = { ...filter, fromBlock: hex(from), toBlock: hex(to) }
-      logs = creation ? await this.creationLogs(query) : await this.rpc.call(chain, 'eth_getLogs', [query])
+      logs = creation ? await this.creationLogs(query) : await rpc.call(chain, 'eth_getLogs', [query])
     } catch (e) {
       // A healthy endpoint may have just spent its token on the header and all fallback
       // endpoints may fail. Give that healthy endpoint a chance to answer the log request.
@@ -302,7 +324,7 @@ export class EvmSource {
   }
   async trades() {
     const chain = this.chain.id
-    const tracked = this.tracked.all(this.clock() - DAY, this.clock() - MARKET_POLICY.maxPriceAge, chain, this.limits.tracked)
+    const tracked = this.coverage?.trades(this) ?? this.tracked.all(this.clock() - DAY, this.clock() - MARKET_POLICY.maxPriceAge, chain, this.limits.tracked)
     // Keep priority order among equally overdue pools, and visit the least recently polled group first.
     tracked.sort((a, b) => (a.polled ?? -1) - (b.polled ?? -1))
     const group = [], topics = new Set()
@@ -326,7 +348,7 @@ export class EvmSource {
       (s, e, b) => selected.get(s.pool)?.topics.includes(e.topic) && (selected.get(s.pool).scanned ?? -1) < b &&
         (emitter ? s.emitter === emitter : e.emitter === 'pool'), to => {
         for (const p of group) this.trackCursor.run(chain, p.pool, Math.max(to, p.scanned ?? 0), this.clock())
-      })
+      }, group.some(p => p.fromHint) ? this.rpc.publicOnly : this.rpc)
   }
   deployment(emitter, event) {
     return this.chain.deployments.find((d) => d.address === emitter.toLowerCase() && d.topics.includes(event.topic))
@@ -334,13 +356,13 @@ export class EvmSource {
   async memo(key, fn) {
     return readOnce(this.work, key, fn)
   }
-  async read(calls, block) {
+  async read(calls, block, rpc = this.rpc) {
     const values = []
     for (let i = 0; i < calls.length; i += 128) {
       const chunk = calls.slice(i, i + 128)
       values.push(
-        ...(await this.memo(JSON.stringify([block, chunk]), () =>
-          multiRead(this.rpc, this.chain, chunk, hex(block))
+        ...(await this.memo(JSON.stringify([rpc === this.rpc, block, chunk]), () =>
+          multiRead(rpc, this.chain, chunk, hex(block))
         ))
       )
     }
@@ -552,11 +574,22 @@ export class EvmSource {
     return deployment?.name === pool.dex && deployment.kind === pool.kind &&
       token(swap.token0) === pool.token0 && token(swap.token1) === pool.token1
   }
+  hasPools() {
+    const query = this.coverage?.members().split ? this.coverage.known : this.localPool
+    return !!query.get(this.chain.id)
+  }
   stateReady() {
-    return !!this.pending.get(this.chain.id) || (this.refreshAt <= this.clock() && !!this.localPool.get(this.chain.id))
+    return !!this.pending.get(this.chain.id) || (this.refreshAt <= this.clock() && this.hasPools())
   }
   async scheduledState() {
-    if (!this.pending.get(this.chain.id)) return this.refreshState()
+    const pending = this.pending.get(this.chain.id)
+    // A busy scheduler may revisit this chain less often than its refresh period. Give
+    // queued swaps and creations a turn even if the state page is always overdue.
+    if (!pending || (!this.decodeNext && this.coverage?.members().split && this.refreshAt <= this.clock())) {
+      this.decodeNext = true
+      return this.refreshState()
+    }
+    this.decodeNext = false
     for (let i = 0; i < this.limits.blocks; i++) {
       await this.state()
       if (!this.pending.get(this.chain.id)) break
@@ -575,17 +608,20 @@ export class EvmSource {
         event = this.chain.events[log.topics[0]]
       return { ...r, log, event, swap: event && decodeEvent(log, event) }
     })
-    const header = await this.memo('header' + block, () =>
-      this.rpc.call(chain, 'eth_getBlockByNumber', [hex(block), false])
+    const peerOrigin = events.some(e => !e.creation && e.swap?.pool && this.poolInfo.get(chain, e.swap.pool)?.fromHint)
+    const rpc = peerOrigin ? this.rpc.publicOnly : this.rpc
+    const headerKey = 'header' + peerOrigin + block
+    const header = await this.memo(headerKey, () =>
+      rpc.call(chain, 'eth_getBlockByNumber', [hex(block), false])
     )
     const ts = uint(header?.timestamp)
     if (ts == null || uint(header.number) !== block) {
-      this.work.delete('header' + block)
+      this.work.delete(headerKey)
       throw new Error('Invalid block header')
     }
     const at = ts * 1000
     const valid = events.filter((e) => e.swap && (!e.log.blockHash || e.log.blockHash === header.hash))
-    const read = this.read.bind(this)
+    const read = (calls, at) => this.read(calls, at, rpc)
     const pools = await this.resolvePools(valid, block, at, read)
     const creations = new Set()
     for (const entry of valid) {
@@ -607,7 +643,7 @@ export class EvmSource {
         const market = this.registry.pool(p, {
           token0: { decimals: decimals.get(p.token0) },
           token1: { decimals: decimals.get(p.token1) },
-        })
+        }, !!p.fromHint && !creations.has(p.pool))
         if (market && p.block === block && creations.has(p.pool)) this.saveCreation.run(chain, p.pool, at)
         if (!old || p.block === block) this.saveParameters(p)
         if (!old || (p.tx && !old.tx)) discoveries.push(p)
@@ -735,12 +771,22 @@ export class EvmSource {
     return [m.id, decimal(m.inverse ? 1 / price : price), decimal(this.volume.get(m.id, at - DAY, at).v),
       null, null, null, at]
   }
+  seedReady() {
+    const layout = this.coverage?.members().version ?? 'solo'
+    if (this.planVersion !== layout) {
+      this.planVersion = layout
+      this.plan = null
+      this.seedWake = 0
+    }
+    return this.seedWake <= this.clock()
+  }
   nextProbes() {
+    this.seedReady()
     this.plan ??= seedPlan(this)
     const { pairs, methods } = this.plan
     const total = pairs.length * methods.length
     const saved = this.store.getSetting(this.seedCursor) ?? {}
-    let pos = saved.next < total ? saved.next : 0
+    let pos = (saved.layout ?? 'solo') === this.planVersion && saved.next < total ? saved.next : 0
     const batch = [], now = this.clock(), limit = this.chain.multicall ? this.limits.seed : 1
     // Keep CPU/SQLite work bounded too, including when a rank change leaves a cached page in front of us.
     let visited = 0
@@ -751,7 +797,7 @@ export class EvmSource {
       const p = probe(pair, method)
       if (p && !(this.seedMemo.get(this.chain.id, p.key)?.retryAt > now)) batch.push(p)
     }
-    return { batch, next: pos % total, end: pos === total }
+    return { batch, next: pos % total, end: pos === total, layout: this.planVersion }
   }
   async seed() {
     const chain = this.chain.id, now = this.clock()
@@ -811,8 +857,10 @@ export class EvmSource {
           }
         }
       })
-      // There is no creation transaction for a state discovery. Publish the price, never a fabricated pool hint.
-      if (rows.length) this.publish(rows)
+      if (rows.length) {
+        this.coverage?.announceSeeds(this, rows)
+        this.publish(rows)
+      }
     }
     this.store.transaction(() => {
       for (const p of batch) this.cacheSeed.run(chain, p.key, now + (retry.get(p.key) ?? 6 * 3600_000))
@@ -821,14 +869,19 @@ export class EvmSource {
         if (!this.expireSeed.run(chain, now).changes) wake = this.store.writer.prepare('SELECT min(retryAt) AS at FROM engine_seed_attempts WHERE chain=?').get(chain).at ?? 0
         this.plan = null // refresh ranked membership at the next pass
       }
-      this.store.setSetting(this.seedCursor, { next: work.next, wake })
-      this.seedWake = wake
+      this.store.setSetting(this.seedCursor, { next: work.next, wake, ...(work.layout !== 'solo' && { layout: work.layout }) })
+      this.seedWake = this.planVersion === work.layout ? wake : 0
     })
     this.seedWork = null
   }
   async refreshState() {
     if (this.refreshAt > this.clock()) return
     const limit = this.chain.multicall ? this.limits.chunk : 1
+    if (this.coverage?.members().split) {
+      await this.coverage.state(this, limit)
+      this.refreshAt = this.clock() + this.limits.period
+      return
+    }
     const pools = this.store.reader.prepare(`SELECT p.*,k.spacing,k.stable FROM pools p JOIN engine_market_data d
       ON d.market='dex:'||p.chain||':'||p.pool LEFT JOIN engine_pool_parameters k USING(chain,pool)
       WHERE p.chain=? AND d.fromHint=0 AND p.kind IN
@@ -886,6 +939,7 @@ export class EvmSource {
         this.saveDepth.run(state.empty ? 0 : state.liquidity, p.chain, p.pool)
       if (!state.empty) rows.push(this.stateRow(m, state.price, at))
     }
+    this.coverage?.announceSeeds(this, rows)
     this.publish(rows)
   }
 }

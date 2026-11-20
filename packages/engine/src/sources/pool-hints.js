@@ -1,6 +1,7 @@
 import { decodeEvent, multiRead, ZERO } from './evm-abi.js'
 import { resolveCurveCreations } from './curve.js'
 import { RateLimited } from '../scheduler/index.js'
+import { seedPair, verifySeedIdentity } from '../coverage/seed-identity.js'
 import { solanaPair } from './solana.js'
 
 const CAPACITY = 128
@@ -12,8 +13,8 @@ const evmToken = value => typeof value === 'string' && (value === 'native' || /^
  * A missing receipt or a conflicting identity lowers that sender's future priority.
  * Endpoint failures do not count against the sender. */
 export class PoolHints {
-  constructor({ book, clock, evm, registry, rpc, http, catalog, onConfirmed }) {
-    Object.assign(this, { book, clock, evm, registry, rpc, http, catalog, onConfirmed })
+  constructor({ book, clock, evm, registry, rpc, http, catalog, onConfirmed, preference = () => 0 }) {
+    Object.assign(this, { book, clock, evm, registry, rpc, http, catalog, onConfirmed, preference })
     this.pending = new Map()
     this.penalties = new Map()
   }
@@ -31,13 +32,17 @@ export class PoolHints {
     if (typeof dex !== 'string' || dex.length > 96 || typeof kind !== 'string' || kind.length > 64) return
     if (this.evm.has(chain)) {
       if (!this.evm.get(chain).chain.deployments.some(d => d.name === dex && d.kind === kind)) return
-      if (typeof tx !== 'string' || !/^0x[0-9a-f]{64}$/i.test(tx) || typeof pool !== 'string' ||
-          !/^0x(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(pool) || ![token0, token1].every(evmToken) ||
-          !Number.isSafeInteger(block) || block < 0) return
+      if (typeof pool !== 'string' ||
+          !/^0x(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(pool) || ![token0, token1].every(evmToken)) return
       pool = pool.toLowerCase()
       token0 = token0.toLowerCase()
       token1 = token1.toLowerCase()
-      tx = tx.toLowerCase()
+      if (tx === null && block === null) {
+        if (!this.book.isProven(reporter) || !seedPair(this.evm.get(chain), { kind, token0, token1 })) return
+      } else {
+        if (typeof tx !== 'string' || !/^0x[0-9a-f]{64}$/i.test(tx) || !Number.isSafeInteger(block) || block < 0) return
+        tx = tx.toLowerCase()
+      }
     } else if (this.registry.chains.get(chain)?.family !== 'solana' || !['raydium', 'orca', 'meteora'].includes(dex) ||
                ![pool, token0, token1].every(solAddress)) return
     if (token0 === token1 || this.registry.markets.has('dex:' + chain + ':' + pool)) return
@@ -120,7 +125,9 @@ export class PoolHints {
         continue
       }
       hint.priority = this.rank(hint.reporter)
-      if (!best || hint.priority > best.priority) best = hint
+      hint.preference = this.preference('dex:' + hint.key)
+      if (!best || hint.priority > best.priority || (hint.priority === best.priority && hint.preference > best.preference))
+        best = hint
     }
     if (!best) { this.work = null; return }
     this.busy = true
@@ -128,6 +135,11 @@ export class PoolHints {
     let retry = false
     try {
       const source = this.evm.get(best.chain)
+      if (source && best.tx === null) {
+        if (this.book.isProven(best.reporter) && await verifySeedIdentity(source, best, this.rpc, this.work.cache) === false)
+          this.penalize(best.reporter)
+        return // A state-only identity has no creation event to send to New or catch-up.
+      }
       const result = source ? await source.verifyPoolHint(best, this.rpc, this.work.cache) : await this.solana(best)
       if (result === false) this.penalize(best.reporter)
       else if (source && result) this.onConfirmed(result)

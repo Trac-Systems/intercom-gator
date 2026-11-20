@@ -13,7 +13,11 @@ import { HttpSources } from './sources/http.js'
 import { derivativeJobs } from './sources/derivatives.js'
 import { fetchTickers, loadNextSymbol } from './sources/cex.js'
 import { registerVenueContracts } from './sources/venue-contracts/index.js'
+import { PendingDexQuotes } from './coverage/seed-identity.js'
+import { StoredDiscoveries } from './coverage/discoveries.js'
+import { DexCoverage } from './coverage/dex.js'
 import { EvmSource } from './sources/evm.js'
+import { SolanaCoverage } from './coverage/solana.js'
 import { checkSolanaPrice, fetchSolana } from './sources/solana.js'
 import { registerNamesJob } from './sources/metadata.js'
 import { fetchReferences } from './sources/api.js'
@@ -130,8 +134,11 @@ export class Engine extends EventEmitter {
       outliers: (asset) => this.book?.snapshots?.get(asset)?.why?.outliers,
     })
     this.queries = new Queries(this)
+    this.dexCoverage = new DexCoverage(this)
+    this.pendingDexQuotes = new PendingDexQuotes(this)
+    this.storedDiscoveries = new StoredDiscoveries(this)
     this.evm = new Map()
-    this.hints = new PoolHints({ book: this.book, clock, evm: this.evm, registry: this.registry,
+    this.hints = new PoolHints({ preference: id => this.storedDiscoveries.preference(id), book: this.book, clock, evm: this.evm, registry: this.registry,
       rpc: this.rpc.publicOnly, http: this.http, catalog: this.catalog, onConfirmed: pool => this.discovery(pool, true) })
     this.discoveryQuota = new PeerQuota(clock, 60)
     this.onMessage = (channel, env) => this.receive(channel, env)
@@ -142,6 +149,7 @@ export class Engine extends EventEmitter {
     this.control(store.getSetting('engine-settings'))
     this.installJobs()
     this.catchup = new PoolCatchup(this)
+    this.dexCoverage.installBacklogJob()
   }
   installJobs() {
     const { registry, store, clock, http } = this
@@ -188,7 +196,7 @@ export class Engine extends EventEmitter {
     for (const chain of this.catalog.chains) {
       if (chain.family !== 'evm' || !chain.deployments.length) continue
       const source = new EvmSource({ chain, store, rpc: this.rpc, registry, clock, publish, discover,
-        dex: this.bundle.dex, profile: this.profile })
+        dex: this.bundle.dex, profile: this.profile, coverage: this.dexCoverage })
       this.evm.set(chain.id, source)
       if (chain.deployments.some((d) => d.kind === 'v4'))
         this.scheduler.add({
@@ -205,9 +213,9 @@ export class Engine extends EventEmitter {
         run: () => source.logs(),
       })
       this.scheduler.add({ id: 'evm:' + chain.id + ':seed', interval: source.limits.period,
-        ready: () => source.seedWake <= clock(), run: () => source.seed() })
+        ready: () => source.seedReady(), run: () => source.seed() })
       this.scheduler.add({ id: 'evm:' + chain.id + ':trades', marketChain: chain.id, interval: source.limits.period,
-        ready: () => !!source.localPool.get(chain.id), run: () => source.trades() })
+        ready: () => source.hasPools(), run: () => source.trades() })
       this.scheduler.add({
         id: 'evm:' + chain.id + ':state',
         marketChain: chain.id,
@@ -218,17 +226,23 @@ export class Engine extends EventEmitter {
       })
     }
     const sol = this.catalog.chains.find((c) => c.family === 'solana')
+    this.solanaReaders = new Map()
     for (const source of this.catalog.apis) {
       if (sol && ['raydium', 'meteora', 'orca'].includes(source.id)) {
-        const pools = (client, fromHint = false) => fetchSolana({ source, registry, http: client, clock, chain: sol.id,
-          publish, fromHint, discover: data => this.discovery(data, fromHint) })
+        const reader = new SolanaCoverage(this, { source, registry, http, clock, chain: sol.id, publish, discover })
         const directory = this.catalog.apis.find(api => api.id === 'dexscreener')
+        this.solanaReaders.set(source.id, reader)
         this.scheduler.add({
           id: 'sol:' + source.id,
           interval: 30000,
           markets: () => registry.jobsFor((m) => m.exchange === source.id),
-          run: () => pools(http),
-          spotCheck: id => directory ? checkSolanaPrice(directory, http, registry, id, publish, clock) : pools(publicHttp, true),
+          run: () => reader.run(),
+          spotCheck: id => {
+            if (this.dexCoverage.members().split) return reader.spotCheck(id)
+            if (directory) return checkSolanaPrice(directory, http, registry, id, publish, clock)
+            return fetchSolana({ ...reader.options, http: publicHttp, fromHint: true,
+              discover: data => this.discovery(data, true) })
+          },
         })
       } else if (source.id === 'bitcoin-fees') {
         this.scheduler.add({
@@ -284,7 +298,8 @@ export class Engine extends EventEmitter {
     this.logos = registerLogos(this)
     this.focus = registerFocus(this)
     this.nfts = registerNftJobs(this, { enabled: this.nftsEnabled })
-    this.scheduler.add({ id: 'discovery:verify', interval: 15_000, ready: () => this.hints.size > 0,
+    this.scheduler.add({ id: 'discovery:verify', interval: 15_000,
+      ready: () => this.hints.size > 0 || (this.dexCoverage.members().split && this.storedDiscoveries.due()),
       run: () => this.verifyHint() })
   }
   /** One rotation slice, plus (for the general price reference) the top assets that have no market of their own:
@@ -358,14 +373,17 @@ export class Engine extends EventEmitter {
     )
       this.emit('listingHint', { exchange: msg.exchange, symbol: msg.symbol })
   }
-  verifyHint() {
-    return this.hints.verifyNext()
+  async verifyHint() {
+    if (!this.hints.size) this.storedDiscoveries.enqueue()
+    await this.hints.verifyNext()
+    this.pendingDexQuotes.flush()
   }
   discovery(data, fromHint = false, historyReporter) {
     const { pool, chain, dex, kind, token0, token1, block, tx, exchange, symbol, firstSeen } = data
     const msg = pool
       ? { t: 'pool', v: 1, chain, pool, dex, kind, token0, token1, block: block ?? null, tx: tx ?? null }
       : { t: 'listing', v: 1, exchange, symbol, firstSeen }
+    if (pool) this.pendingDexQuotes.flush('dex:' + chain + ':' + pool)
     this.emit('discovery', msg, data.firstSeen, fromHint, historyReporter)
     if (historyReporter) return
     if (pool || this.registry.venues.get(exchange)?.publishMarketData) this.transport.send('gator/new', msg)
@@ -400,6 +418,7 @@ export class Engine extends EventEmitter {
       clock: this.clock,
       muted: (k) => this.book.muted(k),
       accepts: (r) => !!this.registry.known(r[0]),
+      onUnknown: (key, rows, digest) => this.pendingDexQuotes.remember(key, rows, digest),
       canPublish: ([id]) => {
         const [kind, venue] = id.split(':', 2)
         return kind !== 'cex' || this.registry.venues.get(venue)?.publishMarketData

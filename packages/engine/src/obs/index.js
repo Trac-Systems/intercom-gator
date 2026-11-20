@@ -112,10 +112,11 @@ export class ObservationExchange {
     muted = () => false,
     accepts = () => true,
     canPublish = () => true,
+    onUnknown,
     rowLimit,
   }) {
     if (!/^[a-f0-9]{16}$/.test(digest)) throw new TypeError('Expected 16-hex bundle digest prefix')
-    Object.assign(this, { transport, digest, clock, ingest, muted, accepts, canPublish })
+    Object.assign(this, { transport, digest, clock, ingest, muted, accepts, canPublish, onUnknown })
     this.quota = new PeerQuota(clock, rowLimit)
     this.joined = []
     this.listener = (channel, env) => this.receive(channel, env)
@@ -181,7 +182,9 @@ export class ObservationExchange {
     )
       return
     if (!msg.o.every((row) => validRow(row, now) && channelFor(row[0]) === channel)) return
-    const accepted = msg.o.filter(this.accepts)
+    const accepted = [], unknown = []
+    for (const row of msg.o) (this.accepts(row) ? accepted : unknown).push(row)
+    if (unknown.length) this.onUnknown?.(env.from, unknown, msg.b)
     if (accepted.length) this.ingest(env.from, accepted, false)
   }
 }
