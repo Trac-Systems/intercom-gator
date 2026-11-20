@@ -149,6 +149,14 @@ export class Engine extends EventEmitter {
       outliers: (asset) => this.book?.snapshots?.get(asset)?.why?.outliers,
     })
     this.queries = new Queries(this)
+    // Volume guard (d) compares turnover with the coin's cap: a signed coin or link set's cap counted once, a native
+    // coin's own. A single-chain token's own cap can be just its bridged share (live 11-20: HTX BTT/USDT, bound to
+    // BTT's Ethereum ERC-20, read 20x that deployment's cap), so standalone tokens skip (d); (b) and (c) still apply.
+    this.book.guardCap = id => {
+      const group = this.queries.groupOf(id)
+      if (group) return this.queries.groupCap(group)
+      return id.endsWith(':native') ? this.book.snapshots.get(id)?.marketCap ?? null : null
+    }
     this.dexCoverage = new DexCoverage(this)
     this.pendingDexQuotes = new PendingDexQuotes(this)
     this.storedDiscoveries = new StoredDiscoveries(this)

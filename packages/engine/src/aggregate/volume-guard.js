@@ -20,7 +20,8 @@ export const VOLUME_GUARD = Object.freeze({
   // (c) Out of line with the book: more than this multiple of the larger top-of-book side (price × size, USD).
   // Live 11-20: Bitget BTCUSDT 1,135× ($281k bid side, $319M/day); RANTUSDT 6.6 million× ($15k ask side, $102B/day).
   bookTurnoverMultiple: 1_000_000,
-  // (d) Out of line with the asset: more than this multiple of the base asset's market cap in one day.
+  // (d) Out of line with the asset: more than this multiple of the coin's market cap in one day (the engine passes a
+  // coin group's or native coin's cap; a single-chain token's own cap may be only its bridged share and is not used).
   capTurnoverMultiple: 20,
   // (a) Confirmation by independent sources trading the same resolved asset (another exchange; all DEX pools as one).
   confirmOneShare: 0.25,

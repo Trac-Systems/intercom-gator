@@ -347,7 +347,7 @@ export class MarketBook {
         volume: marketUsdVolume(p, snapshots), stock: evidence?.stock === true,
         stable: !!this.registry.assets.get(p.base)?.stable, bookUsd: rate ? evidence.book * rate : null })
     }
-    return volumeSuspects(rows, { capUsd: id => snapshots.get(id)?.marketCap ?? null })
+    return volumeSuspects(rows, { capUsd: this.guardCap ?? (id => snapshots.get(id)?.marketCap ?? null) })
   }
   refresh() {
     const now = this.clock()

@@ -50,7 +50,8 @@ export function marketViews(app, people) {
         kind: m.kind.toUpperCase(), chain: m.chain, pair: base + '/' + quote, base: m.base, quote: m.quote,
         asset: member, chainName: engine.queries.chainName(chainId),
         price: m.price, volume24h: m.volume24h, liquidity: m.liquidity ?? null,
-        ...(m.volumeSuspect && { volumeSuspect: m.volumeSuspect.reason, volumeNote: m.volumeSuspect.note }),
+        ...(m.volumeSuspect && { volumeSuspect: m.volumeSuspect.reason, volumeNote: m.volumeSuspect.note,
+          volumeChecks: m.volumeSuspect.checks }),
         trust: source ? marketTrust(m, member, source, stale, age, excluded) : null,
         updated: age == null ? null : Math.floor(age / 1000), windowMs: source?.window ?? null };
     });
