@@ -214,7 +214,8 @@ function exchange(e, common) {
     limits = e.rateLimit
   const absolute = (path) => new URL(path, e.restBase).href.replaceAll('%7B', '{').replaceAll('%7D', '}')
   const documented = [limits.requestsPerMinute, limits.weightPerMinute].filter((n) => n > 0)
-  const rpm = documented.length ? Math.min(...documented) : rateLimit(limits.note)
+  // The public CEX.IO spot API documents 100 points/minute, with 10 points for get_processing_info.
+  const rpm = documented.length ? Math.min(...documented) : e.id === 'cex-io' ? 100 : rateLimit(limits.note)
   const derivatives = Object.entries(e.derivatives ?? {})
     .filter(([, spec]) => spec)
     .map(([kind, spec]) => {

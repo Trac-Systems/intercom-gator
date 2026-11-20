@@ -117,6 +117,12 @@ test('unknown network and wrong-chain/no-code responses never register a listing
   assert.equal(f.base('NEWSYM'), 'unresolved:gate:NEWSYM')
   assert.equal(f.registry.assets.has('base:' + A), false)
   assert.equal(f.venue.contracts.pending.size, 0)
+  f.http.directory = [currency('LOCALX', B)]
+  await f.directory()
+  assert.ok(f.venue.contracts.pending.has(NEW))
+  f.advance(DAY + 3_600_001)
+  f.engine.book.refresh()
+  assert.equal(f.venue.contracts.pending.size, 0)
 })
 
 test('a fresh independent DEX price vetoes a >3x disagreement, logs locally and allows an exact 3x boundary', async t => {
@@ -285,16 +291,18 @@ test('an address-only pool placeholder needs verification and a confirmed split 
 })
 
 test('CEX.IO accepts its current public ticker spelling and keeps the resulting listing local', async t => {
-  const { engine, registry } = await setup(t)
+  const { engine, registry, advance } = await setup(t)
   registry.registerToken('ethereum', A, { decimals: 18 })
   const jobs = engine.scheduler.jobs
-  engine.http.getPublic = async (url, rpm, cost, body) => {
-    assert.deepEqual(body, {})
-    if (url.endsWith('/get_processing_info')) return { ok: 'ok', data: { LOCALX: { blockchains: { ethereum: { contract: A } } } } }
+  engine.http.fetch = async (url, init) => {
+    assert.deepEqual(JSON.parse(init.body), {})
+    if (url.endsWith('/get_processing_info')) return Response.json({ ok: 'ok', data: { LOCALX: { blockchains: { ethereum: { contract: A } } } } })
     assert.ok(url.endsWith('/get_ticker'))
-    return { ok: 'ok', data: { 'LOCALX-USD': { last: '2', volume: '100', bestBid: '1.99', bestAsk: '2.01' } } }
+    return Response.json({ ok: 'ok', data: { 'LOCALX-USD': { last: '2', volume: '100', bestBid: '1.99', bestAsk: '2.01' } } })
   }
   await jobs.get('cex:cex-io:contracts').run()
+  assert.equal(engine.http.hosts.get('https://trade.cex.io').cost, 10)
+  advance(15_000)
   await jobs.get('cex:cex-io').run()
   assert.equal(registry.markets.get('cex:cex-io:LOCALX-USD').base, ID)
   assert.ok(!JSON.stringify(engine.transport.sent).includes('cex:cex-io:'))

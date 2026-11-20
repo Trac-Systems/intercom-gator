@@ -117,6 +117,7 @@ class VenueContracts {
     const { engine, venue } = this, { registry, clock, book } = engine
     this.nextTickerExpiry = Infinity
     if (!this.directory.size && !this.bindings.size && !this.duringRead) {
+      this.pending.clear()
       this.resumed.clear()
       return
     }
@@ -189,7 +190,8 @@ class VenueContracts {
     }
     const directory = this.directory, signal = engine.abort?.signal
     const reads = this.partial.get(first) ?? {}
-    const current = () => !signal?.aborted && this.directory === directory && engine.clock() - this.readAt <= DAY + HOUR
+    const current = () => !signal?.aborted && this.directory === directory && this.source === this.url() &&
+      engine.clock() - this.readAt <= DAY + HOUR
     const wanted = id => current() && this.pending.has(id)
     try {
       await registerVenueTokens(engine, chain, ids, wanted, reads, this.rotation)
