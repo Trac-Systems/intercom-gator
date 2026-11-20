@@ -402,4 +402,17 @@ export const migrations = [
       CREATE INDEX engine_move_swaps_at ON engine_move_swaps(chain,at);`)
     },
   },
+  {
+    // TON and NEAR DEX readers: one queue keyed by chain. `pool` is the 0x market key, `ref` the venue's reference.
+    id: 'engine-family-dex-v1',
+    up(db) {
+      db.exec(`CREATE TABLE engine_family_candidates (
+        chain TEXT NOT NULL, pool TEXT NOT NULL, dex TEXT NOT NULL, kind TEXT NOT NULL, ref TEXT NOT NULL,
+        token0 TEXT NOT NULL, token1 TEXT NOT NULL, firstSeen INTEGER NOT NULL, due INTEGER NOT NULL,
+        funded INTEGER NOT NULL DEFAULT 0, stage INTEGER NOT NULL DEFAULT 0, isNew INTEGER NOT NULL DEFAULT 0,
+        extra TEXT NOT NULL DEFAULT '{}', PRIMARY KEY (chain, pool)
+      ) STRICT, WITHOUT ROWID;
+      CREATE INDEX engine_family_due ON engine_family_candidates(chain,stage,due);`)
+    },
+  },
 ]

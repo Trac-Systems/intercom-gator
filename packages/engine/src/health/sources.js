@@ -175,20 +175,20 @@ export function sourcesReport(engine) {
       { lagBlocks, lagSeconds, lastGap: gaps(chain), lastOk, failures,
         state: sourceState({ ...sum, lastSuccess: lastOk ?? sum.lastSuccess }, { failures, lagSeconds, now, enabled: ids.some(allowed) }) }))
   }
-  const tron = engine.tron?.client.endpoint
-  if (tron && allowed('tron:sunswap')) {
-    const sum = httpSum(tron.url), info = jobInfo(jobs.get('tron:sunswap'), now)
-    used.add(origin(tron.url))
-    scanners.push(item({ id: 'tron:sunswap', kind: 'tron-scanner', name: 'SunSwap', chain: 'tron', host: host(tron.url) },
-      sum, { ...info, state: sourceState(sum, { failures: info.failures, now }) }))
-  }
-  for (const [chain, source] of engine.move ?? []) {
-    const id = chain + ':pools', endpoint = source.client.endpoint
-    if (!allowed(id) || !endpoint) continue
-    const sum = httpSum(endpoint.url), info = jobInfo(jobs.get(id), now)
+  const readers = [
+    ['tron:sunswap', 'SunSwap', engine.tron],
+    ['sui:pools', 'Sui pools', engine.move?.get('sui')],
+    ['aptos:pools', 'Aptos pools', engine.move?.get('aptos')],
+    ['ton:dex', 'STON.fi + DeDust', engine.ton],
+    ['near:ref', 'Ref Finance', engine.near],
+  ]
+  for (const [id, name, reader] of readers) {
+    const endpoint = reader?.client.endpoint
+    if (!endpoint || !allowed(id)) continue
+    const chain = id.split(':')[0], sum = httpSum(endpoint.url), info = jobInfo(jobs.get(id), now)
     used.add(origin(endpoint.url))
-    scanners.push(item({ id, kind: chain + '-scanner', name: chain === 'sui' ? 'Sui pools' : 'Aptos pools',
-      chain, host: host(endpoint.url) }, sum, { ...info, state: sourceState(sum, { failures: info.failures, now }) }))
+    scanners.push(item({ id, kind: chain + '-scanner', name, chain, host: host(endpoint.url) },
+      sum, { ...info, state: sourceState(sum, { failures: info.failures, now }) }))
   }
   for (const [id, job] of jobs) {
     if (!id.startsWith('sol:')) continue
