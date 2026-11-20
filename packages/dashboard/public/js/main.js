@@ -298,19 +298,36 @@ ctx.fgPop = fgPop;
 /* ---------------- search (⌘K) ---------------- */
 const srEl = $('#sr'), qEl = /** @type {HTMLInputElement} */ ($('#q'));
 let RES = [], act = -1, sq = 0;
+// A full EVM contract address the node does not know: the node looks it up by itself (DESIGN §5.3). The dashboard asks
+// for that only once the address has settled in the box (never while typing), then polls the status and opens the token.
+const FULL_EVM = /^0x[0-9a-fA-F]{40}$/;
+let lookTimer = 0, pollTimer = 0, watching = '';
+const LOOK_TITLE = { queued: 'Looking this token up', running: 'Looking this token up', found: 'Token found', 'no-pools': 'Token found, no pool yet',
+  'not-token': 'Not a token', 'no-contract': 'No contract here', limited: 'Lookup limit reached', busy: 'Lookups busy', unavailable: 'Lookup unavailable' };
 function hl(s, q) {
   s = esc(s); if (!q) return s;
   const e = esc(q).toLowerCase(), i = s.toLowerCase().indexOf(e);
   return i < 0 ? s : s.slice(0, i) + '<mark>' + s.slice(i, i + e.length) + '</mark>' + s.slice(i + e.length);
 }
-async function runSearch(q) {
+async function runSearch(q, look = false) {
   const my = ++sq;
+  clearTimeout(pollTimer);
   if (!q.trim()) { RES = []; renderSR(); return; }
   let r;
-  try { r = await api.search(q.trim()); } catch { r = { tokens: [], profiles: [], posts: [] }; }
+  try { r = await api.search(q.trim(), look); } catch { r = { tokens: [], profiles: [], posts: [] }; }
   if (my !== sq) return;
   ctx.noteTokens(r.tokens);
   RES = [];
+  const lk = r.lookup;
+  if (lk) {
+    const open = lk.asset && (lk.state === 'found' || lk.state === 'no-pools');
+    if (open && watching === lk.address) { watching = ''; closeSR(); qEl.blur(); qEl.value = ''; ctx.q = ''; ctx.go(href('token', { id: lk.asset })); return; }
+    RES.push({ g: 'Token lookup', k: 'look', l: lk, go: open ? href('token', { id: lk.asset }) : null });
+    if (lk.state === 'queued' || lk.state === 'running') {
+      watching = lk.address;
+      pollTimer = setTimeout(() => { if (qEl.value.trim() === q.trim()) runSearch(q); }, 1500);
+    }
+  }
   for (const t of r.tokens) if (tokId(t)) RES.push({ g: 'Tokens', k: 'tok', t, go: href('token', { id: tokId(t) }) });
   if (r.address) RES.push({ g: 'Address', k: 'addr', a: r.address, go: href('portfolio', {}, { add: r.address.value }) });
   for (const p of r.profiles) { ctx.notePerson(p); RES.push({ g: 'Agents and channels', k: 'ch', p, go: href('profile', { key: p.key }) }); }
@@ -325,7 +342,11 @@ function renderSR() {
   RES.forEach((r, i) => {
     if (r.g !== g) { g = r.g; html += `<h6>${g}</h6>`; }
     const a = ` role="option" id="r${i}" data-i="${i}" class="res${i === act ? ' on' : ''}" aria-selected="${i === act}"`;
-    if (r.k === 'tok') {
+    if (r.k === 'look') {
+      const l = r.l, live = l.state === 'queued' || l.state === 'running';
+      const tone = live ? ' run' : l.state === 'found' ? ' g' : ['limited', 'busy', 'unavailable'].includes(l.state) ? ' y' : '';
+      html += `<button${a.replace('class="res', 'class="res look')}><span class="look-dot${tone}" aria-hidden="true"></span><span class="t1">${esc(LOOK_TITLE[l.state] || 'Token lookup')}</span><span class="r"></span><span class="t2" role="status">${esc(l.message)}</span></button>`;
+    } else if (r.k === 'tok') {
       const t = r.t, c = ch24(t);
       html += `<button${a}>${tokMark(t, 24)}<span class="t1">${hl(t.name, q)} <span>${hl(t.symbol, q.replace(/^\$/, ''))}</span></span><span class="r n">${priceH(t.price)}<br><span class="${dir(c)}">${pct(c)}</span></span><span class="t2">${t.rank ? '#' + t.rank + ' · ' + esc(t.category) : esc(t.chain) + ' · new · ' + esc(t.age || '')}</span></button>`;
     } else if (r.k === 'addr') {
@@ -346,12 +367,15 @@ function renderSR() {
 }
 function closeSR() { srEl.classList.remove('open'); qEl.setAttribute('aria-expanded', 'false'); qEl.removeAttribute('aria-activedescendant'); }
 function choose(i) {
-  const r = RES[i]; if (!r) return;
+  const r = RES[i]; if (!r || !r.go) return;
   closeSR(); qEl.blur(); qEl.value = ''; ctx.q = '';
   ctx.go(r.go);
 }
 qEl.addEventListener('input', () => {
   runSearch(qEl.value);
+  clearTimeout(lookTimer);
+  const v = qEl.value.trim();
+  if (FULL_EVM.test(v)) lookTimer = setTimeout(() => { if (qEl.value.trim() === v) runSearch(v, true); }, 600);
   if (ctx.route.name === 'markets') { ctx.q = qEl.value; paint(); }
 });
 qEl.addEventListener('focus', () => { if (qEl.value) runSearch(qEl.value); });

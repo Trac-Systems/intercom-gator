@@ -11,6 +11,7 @@ import { editedCard, patchConfig, profiles, rpcEndpoints, saveConfig } from './c
 import { check, HttpError } from './local.js';
 import { withLogos } from '../../engine/src/logos/rows.js';
 import { FocusError } from '../../engine/src/focus/index.js';
+import { AddTokenError } from '../../engine/src/intel/add-token.js';
 
 const socialWrites = ['posts','replies','likes','reposts','follow','unfollow','mute','unmute'];
 const AVATAR_HASH = /^[0-9a-f]{64}$/;
@@ -225,16 +226,20 @@ export function createRouter(app) {
       }
       case 'search': {
         const query = (q.q ?? '').trim();
-        if (!query) return { tokens: [], profiles: [], posts: [], address: null };
+        if (!query) return { tokens: [], profiles: [], posts: [], address: null, lookup: null };
         check(query.length <= 256, 'query too long');
         const kind = addressKind(query);
+        // A full EVM contract address the node does not know starts the add-by-address lookup by itself (DESIGN §5.3);
+        // the answer carries its status at once. lookup=0 only reads the status (the dashboard while typing).
+        const lookup = kind === 'evm' ? (q.lookup === '0' ? engine.addTokens.status(query) : engine.addTokens.lookup(query)) : null;
         return { tokens: engine.search(query.replace(/^\$/, ''), { limit: 6 }), profiles: people.directory({ q: query }).items.slice(0,5),
-          posts: people.searchPosts(query), address: kind ? { kind, value: query } : null };
+          posts: people.searchPosts(query), address: kind ? { kind, value: query } : null, lookup };
       }
       case 'feed': return people.feed(q.author && !q.asset ? { ...q, author: authorKey(q.author) } : q, Math.min(100,limit));
       case 'directory': return people.directory(q);
       case 'watchlist': return watchRows();
       case 'focus': return engine.focus.list();
+      case 'tokens': if (parts.length === 1) return { items: engine.addTokens.list(Number(q.limit) || 100), limits: engine.addTokens.limits }; break;
       case 'portfolio': engine.book.refresh(); return withStates(account.portfolio(), 'holdings');
       case 'alerts': engine.book.refresh(); return withStates(account.alerts(), 'items');
       case 'extras': return extra.list(q.slot);
@@ -314,6 +319,18 @@ export function createRouter(app) {
       try { return await engine.focus.set(focusId(body.asset), body); }
       catch (error) {
         if (error instanceof FocusError) throw new HttpError(error.status, error.message);
+        throw error;
+      }
+    }
+    if (method === 'POST' && path === '/tokens') {
+      check(typeof body.address === 'string', 'address required');
+      try { return await engine.addTokens.add(body, { by: owner ? 'owner' : 'agent' }); }
+      catch (error) {
+        if (error instanceof AddTokenError) {
+          const e = new HttpError(error.status, error.message);
+          if (error.details) e.details = error.details;
+          throw e;
+        }
         throw error;
       }
     }

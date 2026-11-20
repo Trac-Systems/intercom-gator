@@ -33,6 +33,8 @@ import { applyReleaseExtensions } from '../../bundle/src/extensions.js'
 import { settleWithin } from './grace.js'
 import { registerLogos } from './logos/index.js'
 import { registerFocus } from './focus/index.js'
+import { registerAddTokens } from './intel/add-token.js'
+import { registerAnnouncedPools } from './intel/announced-pools.js'
 
 export const migrations = [...coreMigrations, ...patchMigrations]
 /** Scheduler jobs in flight at once, per machine profile; the request budget still caps the rate. */
@@ -297,6 +299,8 @@ export class Engine extends EventEmitter {
     this.historySeed = registerHistorySeed(this)
     this.logos = registerLogos(this)
     this.focus = registerFocus(this)
+    this.addTokens = registerAddTokens(this)
+    this.announcedPools = registerAnnouncedPools(this)
     this.nfts = registerNftJobs(this, { enabled: this.nftsEnabled })
     this.scheduler.add({ id: 'discovery:verify', interval: 15_000,
       ready: () => this.hints.size > 0 || (this.dexCoverage.members().split && this.storedDiscoveries.due()),

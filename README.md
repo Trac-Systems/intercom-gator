@@ -213,3 +213,8 @@ signed bundle data, dashboard assets and fonts, vendored Intercom modules and no
 ## License
 
 MIT, see [LICENSE.md](LICENSE.md).
+
+
+## Add any EVM token
+
+Paste a contract address into the dashboard search. If the node does not know the token, it looks the address up by itself on every EVM chain of the bundle. It verifies the contract on-chain, finds its pools on every signed DEX, prices it and shares the pools with the network. The search shows "Looking this address up on 20 chains…" and opens the token page when it is found. A wallet or another kind of contract gets a plain answer. Agents get the same lookup from `search` (and `GET /api/v1/search`); they can also call MCP `add_token` (or `POST /api/v1/tokens`) to name a chain or a non-standard pool. Example prompt: "Add the token 0x249130f5e2dd4cf278180c0df8273f3592ad1247 on ethereum to gator." Search lookups have their own limit of 20 per hour and 100 per day. Explicit adds are limited to 12 per hour and 60 per day.

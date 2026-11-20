@@ -458,6 +458,46 @@ Nodes can have different views or inventories. The assignment controls collectio
   and can support a live yellow tail price. The pool's other assigned readers improve redundancy. CEX collection,
   including the local-only rule for restricted exchanges, is independent of the DEX split.
 
+#### Agent-added tokens
+
+The owner or any agent can add an EVM token by contract address: MCP `add_token { address, chain?, pool? }`,
+`POST /api/v1/tokens` (`GET /api/v1/tokens` lists them). Signed coin-list patches are not involved. The node checks
+contract code, ERC-20 `decimals()` (0 allowed, at most 77), `totalSupply()` and `allowance()`, and reads a sanitized
+`symbol()`/`name()`. Without `chain` it checks every bundle EVM chain. It then runs the seeder's deterministic keys
+for this one token (no rank cutoff): every signed deployment (V2, V3, Pancake V3, V4 standard no-hook keys incl.
+native currency, Velodrome/Aerodrome, Solidly, Slipstream) × the chain's signed quotes. `pool` takes a pool the keys
+cannot derive: a V4 pool ID is identified from its `Initialize` log, a pool contract must name a signed factory whose
+reverse lookup returns it. Balancer V2 has no token-to-pool index on-chain and Curve's PlainPoolDeployed has no
+indexed coins, so neither is probed. Pools register through the ordinary registry path at ≥ $100 measured depth
+(dust rules still hide them from ranked lists). For each registered pool a resumable search walks `eth_getLogs` back
+from the head (creation topic plus indexed tokens or pool ID; 1M-block first window, halved on provider limits,
+doubled on success) to find the creation transaction. A found creation is checked against its receipt and sent once
+as an ordinary `gator/new` `pool` record, which every version verifies unchanged. Pools of added tokens with at
+least $10k depth join the re-announce rotation. The catch-up index serves an added pool by its latest verification
+time (insert on find, refreshed on each successful re-announce receipt check). From this version a history
+requester accepts creation blocks older than the window; v0.1.1–v0.1.3 requesters treat them as inconclusive (no
+penalty). A node accepts 12 adds per hour and 60 per day, one at a time.
+
+There is no "add" button. A search for a full EVM contract address that the node does not know (no asset and no pool at that
+address on any bundle EVM chain) starts the same add on every bundle EVM chain by itself: the dashboard search box
+and `GET /api/v1/search` (so the MCP `search` tool too). The search answers at once with `lookup { address, state,
+chains, message, asset?, tokens?, retryAt? }`. `state` is `queued` or `running` ("Looking this address up on 20
+chains…"), then `found` (with `asset`; the dashboard opens the token page), `no-pools`, `not-token`, `no-contract`,
+`unavailable`, `limited` or `busy`. Repeating the search reads the status; `lookup=0` only reads it. The
+dashboard sends that while typing and asks for a lookup once a full address has stayed in the box for 0.6 s. Bounds: one lookup per
+address (a repeated or concurrent search joins it, its answer stands for an hour, two minutes when chains did not
+answer), one add on the node at a time (a lookup queues behind an explicit add; at most 4 queued, more answer
+`busy`), and its own quota of 20 per hour and 100 per day. The quota is separate from `add_token`, so wallet
+addresses and typos pasted into search never use up an agent's add quota. Refused lookups make no reads. "No
+contract" and "not a token" are cached for 24 h (persisted, at most 500 addresses) when every chain answered.
+Partial addresses never start a lookup. Neither does a token the node already knows (bundle tokens included).
+
+A pool registered from a peer's `gator/new` record or a catch-up row is measured once through public endpoints.
+It stays priced while at least $100 deep (the adder's floor), for at most 64 pools per chain, deepest first.
+Shallower pools are measured again after 1 h and 6 h and dropped from measurement after 24 h. Their registered
+identity stays. A v0.1.0 receiver verifies the same records without penalty and lists the token without a price
+of its own.
+
 #### Recent pool history on join
 
 An EVM node starts one catch-up pass on first use and after six hours offline. It records its last connected time

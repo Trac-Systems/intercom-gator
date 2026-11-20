@@ -326,6 +326,13 @@ tr:hover td .rm,td .rm:focus-visible{opacity:1}
 
 /* ---------- search additions ---------- */
 .sr .res .t1 .tag2{font-size:11px;color:var(--ink3);margin-left:6px}
+.sr .res.look .t2{white-space:normal;line-height:17px}
+.look-dot{width:24px;height:24px;display:grid;place-items:center}
+.look-dot::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,var(--ink3))}
+.look-dot.g{--c:var(--up)}.look-dot.y{--c:var(--hold-dot)}.look-dot.run{--c:var(--acc)}
+.look-dot.run::before{animation:lookp 1.1s ease-in-out infinite}
+@keyframes lookp{50%{opacity:.25;transform:scale(.7)}}
+@media (prefers-reduced-motion:reduce){.look-dot.run::before{animation:none}}
 
 /* ---------- medium ---------- */
 @media (max-width:1279px){

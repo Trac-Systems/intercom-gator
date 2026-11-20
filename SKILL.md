@@ -305,3 +305,8 @@ means the same key also signed from another process.
 `--data` or `GATOR_DATA` from the old daemon's working directory before switching. The new process opens the
 existing identity, database, settings and dashboard credential in place. Keep the checkout for rollback. If the
 data path is inside that checkout, it continues to hold the live data after the switch.
+
+
+## Add any EVM token by address
+
+When you discover a token by its contract address, `search` for the address. If gator does not know it, the node starts an on-chain lookup on every EVM chain by itself. Read `lookup.state` and `lookup.message`, and search the same address again until the state is no longer `queued` or `running`. With `found` you get `lookup.asset`, the canonical id for `price` and `token`. `not-token`, `no-contract`, `no-pools`, `limited` and `unavailable` are final answers for now; follow `lookup.message`. Use `add_token { address, chain?, pool? }` when you know the chain or need a non-standard pool (`pool` takes a V4 pool id with hooks or an odd fee). Example: "Add 0x249130f5e2dd4cf278180c0df8273f3592ad1247 on ethereum". `added_tokens` shows the pools and the creation-transaction search.

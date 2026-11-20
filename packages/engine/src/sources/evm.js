@@ -23,7 +23,7 @@ async function readOnce(cache, key, load) {
 }
 
 // Fees belong to each V3 factory. V4 allows arbitrary keys; these are its common no-hook conventions.
-function variants(d) {
+export function variants(d) {
   switch (d.kind) {
     case 'v2': return [['0xe6a43905']]
     case 'v3':
@@ -75,7 +75,7 @@ export function seedPlan(source) {
   return { pairs: roster?.split ? roster.seedPairs(chain.id, ordered, source.clock()) : ordered, methods }
 }
 
-function probe(pair, method) {
+export function probe(pair, method) {
   const [a, b] = pair, { d, args } = method
   if (a === ZERO && d.kind !== 'v4') return null
   const key = [d.address, a, b, ...args].join(':')
@@ -542,7 +542,9 @@ export class EvmSource {
     if (uint(header?.number) !== block || uint(header?.timestamp) == null || header.hash !== receipt.blockHash)
       return null
     const at = uint(header.timestamp) * 1000
-    if (history && (receipt.status !== '0x1' || at < history.since || at > this.clock() + 120_000)) return null
+    // The history index serves a pool by its creation or (agent-added tokens, §5.3) its latest verification
+    // time, so a creation block older than the window is accepted; the receipt and factory checks still apply.
+    if (history && (receipt.status !== '0x1' || at > this.clock() + 120_000)) return null
     const read = (calls, at) => once(JSON.stringify([at, calls]), () => multiRead(rpc, this.chain, calls, hex(at)))
     const pools = await this.resolvePools(events, block, at, read)
     const pool = pools.get(hint.pool)
@@ -799,6 +801,24 @@ export class EvmSource {
     }
     return { batch, next: pos % total, end: pos === total, layout: this.planVersion }
   }
+  /** Resolve deterministic factory/manager probes at one block and read the found pools' state.
+   * Shared by the ranked seeder and the one-token add path (intel/add-token.js). */
+  async probeBatch(batch, read) {
+    const lookups = await read(batch.map(p => p.call)), found = []
+    for (const [i, candidate] of batch.entries()) {
+      const result = lookups[i]
+      if (candidate.kind === 'v4') {
+        if (!BigInt.asUintN(160, field(result, 0) ?? 0n)) continue
+        candidate.slot0 = result
+      } else {
+        const id = address(result)
+        if (!id || id === ZERO) continue
+        candidate.pool = id
+      }
+      found.push(candidate)
+    }
+    return { found, states: await this.snapshots(found, read) }
+  }
   async seed() {
     const chain = this.chain.id, now = this.clock()
     // A later budget denial must not force another successful factory lookup at a different block.
@@ -830,20 +850,7 @@ export class EvmSource {
         }
         return out
       }
-      const lookups = await read(batch.map(p => p.call)), found = []
-      for (const [i, candidate] of batch.entries()) {
-        const result = lookups[i]
-        if (candidate.kind === 'v4') {
-          if (!BigInt.asUintN(160, field(result, 0) ?? 0n)) continue
-          candidate.slot0 = result
-        } else {
-          const id = address(result)
-          if (!id || id === ZERO) continue
-          candidate.pool = id
-        }
-        found.push(candidate)
-      }
-      const states = await this.snapshots(found, read)
+      const { found, states } = await this.probeBatch(batch, read)
       this.store.transaction(() => {
         for (const [i, candidate] of found.entries()) {
           const state = states[i]

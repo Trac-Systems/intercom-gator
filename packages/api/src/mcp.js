@@ -24,7 +24,8 @@ function summary(name, value) {
   if (name === 'follow') return 'Following ' + (value.handle ?? value.key);
   if (name === 'set_avatar') return value.avatar ? 'Avatar published in your signed card (sha256 ' + value.avatar + ').' : 'Avatar removed; your key-print is shown.';
   if (value.items) return value.items.length + ' ' + name.replaceAll('_',' ') + ' results.';
-  if (name === 'search') return value.tokens.length + ' tokens, ' + value.profiles.length + ' profiles, ' + value.posts.length + ' posts.';
+  if (name === 'search') return value.tokens.length + ' tokens, ' + value.profiles.length + ' profiles, ' + value.posts.length + ' posts.'
+    + (value.lookup ? ' Address lookup: ' + value.lookup.message + (value.lookup.asset ? ' Asset ' + value.lookup.asset + '.' : '') : '');
   if (name === 'briefing') return 'Market facts as of ' + new Date(value.at).toISOString() + '.';
   if (name === 'candles') return value.candles.length + ' ' + value.tf + ' candles for ' + value.asset + '.';
   if (name === 'fear_greed') return value.value == null ? 'Insufficient market history.' : value.value + '/100 · ' + value.label;
@@ -92,7 +93,9 @@ export function createMcpServer(request) {
     slot: z.enum(['promoted-token','spotlight']), assetId: z.string().min(1).max(79),
     purchaseId: z.string().regex(/^0x[0-9a-f]{64}$/),
   }, b => post('/placements', b), false);
-  tool('search','Find tokens, addresses, profiles and posts.',{ q: z.string().min(1).max(256) },q => get('/search', q));
+  tool('search','Find tokens, addresses, profiles and posts. A full EVM contract address the node does not know starts an '
+    + 'on-chain lookup on every EVM chain (same as add_token); lookup.state is queued/running until it ends as found (lookup.asset), '
+    + 'no-pools, not-token, no-contract, limited or unavailable. Search the same address again to read the result.',{ q: z.string().min(1).max(256) },q => get('/search', q));
   tool('markets','Ranked markets with optional network and category filters.',{
     tab: z.enum(['all','watch','trending','gainers','losers']).optional(), chain: z.string().max(100).optional(),
     category: z.string().max(100).optional(), limit, offset: z.number().int().nonnegative().optional() },q => get('/markets',q));
@@ -157,6 +160,13 @@ export function createMcpServer(request) {
   tool('watchlist',"The owner's watchlist with current prices and trust dots.", {}, () => get('/watchlist'));
   tool('focus','Collect more local evidence for an asset, including history, metadata, supply and eligible pools. Defaults to seven days.',
     { asset, hours: z.number().int().min(1).max(720).optional(), remove: z.boolean().optional() }, b => post('/focus',b), false);
+  tool('add_token','Add any EVM token by contract address. The node verifies it on-chain (contract code, ERC-20 decimals/symbol/name), '
+    + 'finds its pools on every signed DEX (Uniswap V2/V3/V4 incl. native-ETH pairs, PancakeSwap V3, Velodrome/Aerodrome, Solidly, Slipstream) '
+    + 'against the chain\'s quotes, prices it and shares the pools with the network once their creation transaction is found. '
+    + 'Omit chain to probe every EVM chain. pool: a pool address or V4 pool id the standard keys cannot derive (hooks, odd fees).',
+    { address: z.string().regex(/^0x[0-9a-fA-F]{40}$/), chain: z.string().max(32).optional(),
+      pool: z.string().regex(/^0x(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$/).optional() }, b => post('/tokens', b), false);
+  tool('added_tokens','Tokens added by address on this node, their pools and the creation-transaction search state.', {}, () => get('/tokens'));
   tool('focus_list','Active local focus entries, expiry, collection progress and coverage.', {}, () => get('/focus'));
   tool('watch',"Add an asset to the owner's local watchlist, or take it off with remove: true.",
     { asset, remove: z.boolean().optional() }, ({ asset: a, remove }) => post('/watchlist', { asset: a, on: !remove }), false);
