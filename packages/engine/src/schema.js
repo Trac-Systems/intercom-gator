@@ -361,4 +361,16 @@ export const migrations = [
       CREATE INDEX engine_added_pools_search ON engine_added_pools(state,retryAt,updatedAt);`)
     },
   },
+  {
+    id: 'engine-023-announced-pools',
+    up(db) {
+      // Pools registered from a peer's gator/new record or catch-up row (intel/announced-pools.js): measured once,
+      // kept priced while at least the added-token floor deep (bounded per chain), then forgotten after 24 h below it.
+      db.exec(`CREATE TABLE engine_announced_pools (
+        chain TEXT NOT NULL, pool TEXT NOT NULL, since INTEGER NOT NULL, checkAt INTEGER NOT NULL,
+        checks INTEGER NOT NULL DEFAULT 0, depth REAL, belowSince INTEGER, PRIMARY KEY(chain,pool)
+      ) STRICT, WITHOUT ROWID;
+      CREATE INDEX engine_announced_pools_due ON engine_announced_pools(checkAt,chain);`)
+    },
+  },
 ]

@@ -1,12 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { loadBundle } from '@gator/bundle'
-import { createMemoryHub, MemoryTransport } from '@gator/net'
-import { Engine, migrations } from '../src/index.js'
 import { word } from '../src/sources/evm-abi.js'
 import { ADD_LIMITS } from '../src/intel/add-token.js'
-import { openStore } from './store-fixture.js'
+import { contractWithoutErc20, engineWith, replay } from './add-token-fixture.js'
 
 const DMT = '0x249130f5e2dd4cf278180c0df8273f3592ad1247'
 const ETH_POOL = '0xb44cc02c4ffa5ad68cc66ab404800a4f0029e5b6a9752b7cffc1bf8bbaaa92a3'
@@ -15,74 +12,6 @@ const CREATED_TX = '0xd241f3cb7fab0bbdc3b12468f1f0db79cd538acf888c54494bc5966baa
 const USDC_POOL = '0x6ad53eb6c9f2f86b4d1edd95395d783eef8de8e182776539f776ceb9d90de524'
 // Real public reads recorded on 2026-11-20 (Ethereum head 0x193a1ec) by a live add of DMT-NAT.
 const recorded = JSON.parse(readFileSync(new URL('./fixtures/add-token-dmt-nat.json', import.meta.url)))
-
-function replay(records) {
-  const byKey = new Map()
-  for (const r of records) {
-    const key = r.url + ' ' + r.method + ' ' + JSON.stringify(r.params)
-    if (!byKey.has(key)) byKey.set(key, [])
-    byKey.get(key).push(r)
-  }
-  const used = new Map()
-  return async (url, init) => {
-    if (!init?.body) return new Response('{}', { status: 503 })
-    const req = JSON.parse(init.body), list = Array.isArray(req) ? req : [req]
-    const out = list.map(r => {
-      const key = new URL(url).host + ' ' + r.method + ' ' + JSON.stringify(r.params)
-      const hits = byKey.get(key)
-      if (!hits) return { jsonrpc: '2.0', id: r.id, error: { code: -32000, message: 'not recorded' } }
-      const n = used.get(key) ?? 0
-      used.set(key, n + 1)
-      const hit = hits[Math.min(n, hits.length - 1)]
-      return hit.error ? { jsonrpc: '2.0', id: r.id, error: hit.error } : { jsonrpc: '2.0', id: r.id, result: hit.result }
-    })
-    return Response.json(Array.isArray(req) ? out : out[0])
-  }
-}
-
-async function engineWith(fetch, { at = Date.parse('2026-11-20T00:20:00Z') } = {}) {
-  // Real time keeps flowing (the RPC client's short in-call waits use it); the add's patient waits fast-forward.
-  let offset = at - Date.now()
-  const now = () => Date.now() + offset
-  const store = openStore({ file: ':memory:', migrations, profile: 'normal' })
-  // Offline replay: lift the public endpoints' documented rate limits so the test does not wait on buckets.
-  const bundle = structuredClone(loadBundle())
-  for (const chain of bundle.chains) for (const e of chain.endpoints) e.limits = '6000/minute'
-  const engine = new Engine({ store, transport: new MemoryTransport({ hub: createMemoryHub() }), bundle,
-    clock: now, backgroundJobs: [], rpcConfig: { fetch, retries: 0 }, patches: { patchFeed: false } })
-  engine.addTokenSleep = async ms => { offset += ms }
-  const sent = []
-  engine.transport.send = (channel, message) => { sent.push([channel, message]); return true }
-  await engine.start()
-  clearTimeout(engine.timer)
-  return { engine, store, sent, advance: ms => { offset += ms }, clock: now }
-}
-
-// Multicall3 aggregate3 answer where every call fails (a contract without the ERC-20 interface).
-function failedAggregate(data) {
-  const count = Number(BigInt('0x' + data.slice(10 + 64, 10 + 128)))
-  let offset = count * 32
-  const offsets = [], tuples = []
-  for (let i = 0; i < count; i++) {
-    offsets.push(word(offset))
-    const tuple = word(0) + word(64) + word(0)
-    tuples.push(tuple)
-    offset += tuple.length / 2
-  }
-  return '0x' + word(32) + word(count) + offsets.join('') + tuples.join('')
-}
-function contractWithoutErc20(calls = { n: 0 }) {
-  return async (url, init) => {
-    const req = JSON.parse(init.body), list = Array.isArray(req) ? req : [req]
-    const out = list.map(({ id, method, params }) => {
-      calls.n++
-      if (method === 'eth_getCode') return { jsonrpc: '2.0', id, result: '0x6080604052' }
-      if (method === 'eth_call') return { jsonrpc: '2.0', id, result: failedAggregate(params[0].data) }
-      return { jsonrpc: '2.0', id, error: { code: -32601, message: 'unexpected' } }
-    })
-    return Response.json(Array.isArray(req) ? out : out[0])
-  }
-}
 
 test('DMT-NAT on Ethereum: both standard-key V4 pools are found, registered and priced; a found creation is announced', async t => {
   const { engine, store, sent, clock } = await engineWith(replay(recorded))

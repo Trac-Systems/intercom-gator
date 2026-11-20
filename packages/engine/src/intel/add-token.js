@@ -63,7 +63,7 @@ export function registerAddTokens(engine) {
     ON CONFLICT(chain,pool) DO UPDATE SET at=max(at,excluded.at),verified=1`)
   const markAnnounced = db.prepare('INSERT OR REPLACE INTO engine_pool_announcements VALUES (?,?,?,?,?)')
   const recentKey = 'engine-add-token/recent'
-  const sleep = engine.addTokenSleep ?? (ms => new Promise(resolve => setTimeout(resolve, ms)))
+  const sleep = ms => (engine.addTokenSleep ?? (t => new Promise(resolve => setTimeout(resolve, t))))(ms)
   let running = false
 
   function evmChains() {
@@ -147,6 +147,50 @@ export function registerAddTokens(engine) {
       token0: p.token0, token1: p.token1, pair: sym(p.token0) + '/' + sym(p.token1),
       price0in1: state && !state.empty ? state.price : null, liquidityUsd: state?.liquidity ?? null,
       registered: !!market, reason: reason ?? null }
+  }
+
+  /** Register an identified pool of an added token at >= $100 measured depth (the dust rules still hide it from
+   * ranked lists) and start its creation search. Returns the result row and the state row to publish. */
+  function admitPool(source, asset, candidate, state, at, extra = {}) {
+    const chain = source.chain.id
+    let market = null, reason = null, published = null
+    if (!state || state.empty) reason = 'empty pool'
+    else if (state.liquidity == null) reason = 'depth unknown (no USD price on either side yet)'
+    else if (!(state.liquidity >= ADD_LIMITS.minDepthUsd)) reason = 'below the $' + ADD_LIMITS.minDepthUsd + ' depth floor for added tokens'
+    else {
+      const done = registerFound(source, candidate, state, at, extra)
+      if (done) { market = done.market; published = done.row } else reason = 'registry refused the pool identity'
+    }
+    const row = describe(source, candidate, state, market, reason)
+    if (!market) return { row, published }
+    row.reannounce = state.liquidity >= MARKET_POLICY.minPoolLiquidityUsd
+    savePool.run(chain, candidate.pool, asset, candidate.dex, candidate.kind, candidate.token0, candidate.token1,
+      'searching', null, null, null, null, clock())
+    // A pool this node already saw being created (live scan, hint, catch-up) needs no search.
+    const known = store.reader.prepare('SELECT block,tx,token0,token1 FROM pools WHERE chain=? AND pool=?').get(chain, candidate.pool)
+    if (known?.block != null && known.tx?.length === 66 && poolRow.get(chain, candidate.pool).state !== 'found')
+      found.run(known.block, known.tx, known.token0, known.token1, candidate.spacing ?? null, clock(), chain, candidate.pool)
+    return { row, published }
+  }
+
+  /** A V4 pool id given as `pool` whose Initialize log the background search found after the add returned:
+   * check that it holds the added token, measure it and register it like the add would have. */
+  async function identifiedLater(row) {
+    const source = engine.evm.get(row.chain), token = row.asset.slice(row.chain.length + 1)
+    const manager = source?.chain.deployments.find(d => d.kind === 'v4' && d.name === row.dex)
+    if (!manager || row.kind !== 'v4') return false
+    if (![row.token0, row.token1].includes(token)) {
+      progress.run(row.nextBlock, row.span, clock(), 0, 'mismatch', row.chain, row.pool)
+      return false
+    }
+    const candidate = { pool: row.pool, dex: manager.name, kind: 'v4', token0: row.token0, token1: row.token1,
+      manager: manager.address, spacing: row.spacing ?? undefined }
+    const [state] = await source.snapshots([candidate], calls => multiRead(engine.rpc, source.chain, calls))
+    const { published } = admitPool(source, row.asset, candidate, state, clock(), { block: row.block, tx: row.tx })
+    if (!published) return false
+    engine.publish([published])
+    engine.book?.refresh?.()
+    return true
   }
 
   /** A non-standard pool given by the caller: V4 pool IDs are identified from their Initialize log (creation
@@ -277,25 +321,9 @@ export function registerAddTokens(engine) {
     const at = (head.ts ?? Math.floor(now / 1000)) * 1000
     const rows = []
     const consider = async (candidate, state, extra) => {
-      let market = null, reason = null
-      if (!state || state.empty) reason = 'empty pool'
-      else if (state.liquidity == null) reason = 'depth unknown (no USD price on either side yet)'
-      else if (!(state.liquidity >= ADD_LIMITS.minDepthUsd)) reason = 'below the $' + ADD_LIMITS.minDepthUsd + ' depth floor for added tokens'
-      else {
-        const done = registerFound(source, candidate, state, at, extra)
-        if (done) { market = done.market; rows.push(done.row) } else reason = 'registry refused the pool identity'
-      }
-      const row = describe(source, candidate, state, market, reason)
-      if (market) row.reannounce = state.liquidity >= MARKET_POLICY.minPoolLiquidityUsd
+      const { row, published } = admitPool(source, id, candidate, state, at, extra)
+      if (published) rows.push(published)
       result.pools.push(row)
-      if (market) {
-        savePool.run(chain.id, candidate.pool, id, candidate.dex, candidate.kind, candidate.token0, candidate.token1,
-          'searching', null, null, null, null, clock())
-        // A pool this node already saw being created (live scan, hint, catch-up) needs no search.
-        const known = store.reader.prepare('SELECT block,tx,token0,token1 FROM pools WHERE chain=? AND pool=?').get(chain.id, candidate.pool)
-        if (known?.block != null && known.tx?.length === 66 && poolRow.get(chain.id, candidate.pool).state !== 'found')
-          found.run(known.block, known.tx, known.token0, known.token1, candidate.spacing ?? null, clock(), chain.id, candidate.pool)
-      }
     }
     // 1) the seeder's deterministic keys for this token
     const { found: hits, states } = await source.probeBatch(plan(source, address), read)
@@ -311,7 +339,7 @@ export function registerAddTokens(engine) {
           else {
             savePool.run(chain.id, pool, id, manager.name, 'v4', null, null, 'searching', null, null, null, null, clock())
             const row = await settle(poolRow.get(chain.id, pool), budget)
-            if (row.state !== 'found') result.notes.push('pool: Initialize log not found yet (' + row.state + '); the search continues in the background')
+            if (row.state !== 'found') result.notes.push('pool: Initialize log not found yet (' + row.state + '); the search continues in the background and registers the pool when it is found')
             else if (![row.token0, row.token1].includes(address)) result.notes.push('pool: V4 pool does not contain this token')
             else {
               const candidate = { pool, dex: manager.name, kind: 'v4', token0: row.token0, token1: row.token1,
@@ -377,7 +405,7 @@ export function registerAddTokens(engine) {
           throw new AddTokenError(422, coded.length ? 'contract is not an ERC-20 token' : 'no contract at this address on ' +
             (only ? only.id : 'any bundle EVM chain'), { chains: reasons })
         }
-        const budget = { calls: ADD_LIMITS.inlineSearchCalls, rpc }
+        const budget = { calls: engine.addTokenInlineCalls ?? ADD_LIMITS.inlineSearchCalls, rpc }
         const results = []
         for (const { chain, result } of tokens) results.push(await addOnChain(chain, address, result.value, pool, by, budget))
         const best = results.find(r => r.pools.some(p => p.registered)) ?? results[0]
@@ -405,7 +433,7 @@ export function registerAddTokens(engine) {
       if (state !== 'found') return
       const done = poolRow.get(row.chain, row.pool)
       // An identified V4 pool given as `pool` input still needs its token check and depth before registration.
-      if (registry.markets.has('dex:' + done.chain + ':' + done.pool)) await share(done)
+      if (registry.markets.has('dex:' + done.chain + ':' + done.pool) || await identifiedLater(done)) await share(done)
     } })
 
   return { add, list, searchStep, share, limits: ADD_LIMITS }
