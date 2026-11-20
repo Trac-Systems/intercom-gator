@@ -46,9 +46,15 @@ export class RateLimited extends Error {
   }
 }
 
+/** Share of the profile budget held for price scanners (EVM seed/state/trades) for a minute after one was refused:
+ * supply, ticker and maintenance jobs spent all 240 requests of a normal node's minute at startup (11-20), so a
+ * refused seeder waited up to a minute per page while a one-second supply job took the freed slots. */
+export const SCANNER_RESERVE = 0.25
+
 /** Rolling profile limit covers every upstream request, including retries and history. */
 export class RequestBudget {
   #accounting = new AsyncLocalStorage()
+  #scanner = new AsyncLocalStorage()
   constructor(profile = 'normal', requested, clock = Date.now) {
     this.clock = clock
     this.ceiling = BUDGETS[profile] ?? BUDGETS.normal
@@ -69,14 +75,28 @@ export class RequestBudget {
   trackRequests(counter, run) {
     return this.#accounting.run(counter, run)
   }
+  /** Run a price scanner's work with access to the reserved share. */
+  scanner(run) {
+    return this.#scanner.run(true, run)
+  }
   take() {
-    if (this.used >= this.limit) throw new RateLimited(this.times[0] + 60_000)
-    this.times.push(this.clock())
+    const used = this.used, now = this.clock(), scanner = this.#scanner.getStore() === true
+    const cap = !scanner && now < (this.reserveUntil ?? 0) ? this.limit - Math.ceil(this.limit * SCANNER_RESERVE) : this.limit
+    if (used >= cap) {
+      if (scanner) this.reserveUntil = now + 60_000
+      throw new RateLimited(this.times[used - cap] + 60_000)
+    }
+    this.times.push(now)
     this.dispatches++
     const account = this.#accounting.getStore()
     if (account) account.requests++
   }
 }
+
+/** Share of an endpoint's per-minute capacity that waiting reads (risk checks) may hold. They sleep until a slot
+ * frees and so won every slot against scanner jobs, which give up after 2 s: on 11-20 Polygon's four endpoints were
+ * busy while its seeder ran once a minute. */
+export const WAITING_SHARE = 0.5
 
 /** Smooth token bucket. Charge before dispatch, including for unsuccessful responses. */
 export class EndpointBucket {
@@ -86,15 +106,21 @@ export class EndpointBucket {
     this.next = 0
     this.charges = []
     this.cost = 0
+    this.waitingCost = 0
     this.clock = clock
   }
-  take(budget, cost = 1) {
+  /** waiting: a read that sleeps for its slot; it may use at most WAITING_SHARE of the minute's capacity. */
+  take(budget, cost = 1, waiting = false) {
     const now = this.clock()
     if (now < this.next) throw new RateLimited(this.next)
     const capacity = Math.max(1, Math.floor(this.rate))
     if (!Number.isFinite(cost) || cost <= 0 || cost > capacity)
       throw new RangeError('Request exceeds endpoint capacity')
-    while (this.charges.length && this.charges[0].at <= now - 60000) this.cost -= this.charges.shift().cost
+    while (this.charges.length && this.charges[0].at <= now - 60000) {
+      const old = this.charges.shift()
+      this.cost -= old.cost
+      if (old.waiting) this.waitingCost -= old.cost
+    }
     if (this.cost + cost > capacity) {
       let available = capacity - this.cost
       for (const charge of this.charges) {
@@ -102,9 +128,19 @@ export class EndpointBucket {
         if (available >= cost) throw new RateLimited(charge.at + 60000)
       }
     }
+    const share = Math.max(cost, Math.floor(capacity * WAITING_SHARE))
+    if (waiting && this.waitingCost + cost > share) {
+      let available = share - this.waitingCost
+      for (const charge of this.charges) {
+        if (!charge.waiting) continue
+        available += charge.cost
+        if (available >= cost) throw new RateLimited(charge.at + 60000)
+      }
+    }
     budget.take()
-    this.charges.push({ at: now, cost })
+    this.charges.push({ at: now, cost, waiting })
     this.cost += cost
+    if (waiting) this.waitingCost += cost
     this.next = now + Math.ceil((cost * 60_000) / this.rate)
   }
 }
@@ -113,8 +149,9 @@ export class EndpointBucket {
 export class Scheduler {
   /** scoreTtl: reuse a market job's coverage score this long (ms); scoring every market of every job on each
    * 66 ms tick took 10% of a large node's CPU. 0 recomputes every turn. */
-  constructor({ clock = Date.now, random = Math.random, coverage, targets = TARGETS, backgroundJobs, scoreTtl = 0 }) {
-    Object.assign(this, { clock, random, coverage, scoreTtl })
+  constructor({ clock = Date.now, random = Math.random, coverage, targets = TARGETS, backgroundJobs, scoreTtl = 0,
+    scannerEvery = 8 }) {
+    Object.assign(this, { clock, random, coverage, scoreTtl, scannerEvery })
     this.backgroundJobs = backgroundJobs == null ? null : new Set(backgroundJobs)
     this.setTargets(targets)
     this.jobs = new Map()
@@ -147,6 +184,23 @@ export class Scheduler {
     // During focus one turn in eight similarly rotates through ready market jobs, independent of scores.
     this.turn++
     const fairMarket = this.turn % 8 === 2 && this.focus?.active()
+    // One turn in eight goes to the longest-waiting ready price scanner (EVM seed/state). They have no markets of
+    // their own to score and shared the every-fourth-turn rotation with ~100 supply, derivatives and names jobs:
+    // on a small node (one turn per second) Polygon's scanners got no turn in the first minutes (11-20).
+    // Waiting time counts times the job's weight (chain value, hot seeding), capped at an hour so unvisited jobs
+    // start in weight order: plain round robin over ~60 scanners revisited Polygon's seeder every few minutes.
+    // A small node ticks once a second (60 turns a minute): one in eight left 20 chains' ~60 scanners 7.5 turns a
+    // minute, so its found pools aged past their windows; it gives them one turn in four (same request budget).
+    if (this.turn % this.scannerEvery === this.scannerEvery - 2) {
+      let best = null, highest = -1
+      for (const job of this.jobs.values()) {
+        if (job.lane !== 'scanner' || (this.backgroundJobs && !this.backgroundJobs.has(job.id))) continue
+        if (job.next > now || job.ready?.() === false) continue
+        const value = Math.min(3_600_000, now - job.last) * (job.weight?.() ?? 1)
+        if (value > highest || (value === highest && job.id < best.id)) { best = job; highest = value }
+      }
+      if (best) return best
+    }
     if (this.turn % 4 === 0 || fairMarket) {
       let oldest = null
       for (const job of this.jobs.values()) {
@@ -255,7 +309,9 @@ export class Scheduler {
       const result = await withDeadline(run(), job.deadlineMs ?? JOB_DEADLINE_MS, () => { job.lastDeadline = this.clock() })
       job.lastOk = this.clock()
       job.failures = Math.max(0, job.failures - 1)
-      job.next = this.clock() + (job.interval ?? 1000) * 2 ** job.failures
+      // A job may pace itself (the EVM seeder runs faster while its most valuable probes are pending).
+      const interval = typeof job.interval === 'function' ? job.interval() : job.interval
+      job.next = this.clock() + (interval ?? 1000) * 2 ** job.failures
       return result
     } catch (error) {
       if (error instanceof RateLimited) { job.next = error.retryAt; job.lastLimited = this.clock() }

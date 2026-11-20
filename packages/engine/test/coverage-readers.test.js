@@ -71,7 +71,8 @@ test('one to three signers preserve the legacy seed plan, tracked pool prioritie
       page.push(...rows.map(p => 'dex:bsc:' + p.pool))
     }
     await source.refreshState()
-    assert.deepEqual(page, ids.slice(8 * (n - 1), 8 * n))
+    // Solo page (DESIGN 5.3): the token anchors (here one pool), then the address rotation up to 128 reads.
+    assert.deepEqual(page, ids)
   }
   peer(4)
   advance(60_000)
@@ -125,11 +126,13 @@ test('trade scans and block decoding for registered peer-origin pools stay on pu
   let pages = 0
   source.readPoolState = async () => { pages++ }
   await stateJob.run()
+  // The due state page runs before decoding (DESIGN 5.3), so the queued swap is decoded in the same turn.
   assert.equal(pages, 1)
-  // Simulate other jobs occupying the node until the next state page is also due.
+  assert.deepEqual(calls, ['eth_blockNumber', 'eth_getLogs', 'eth_getBlockByNumber'])
+  // Simulate other jobs occupying the node until the next state page is also due: one page, no new decode reads.
   advance(source.limits.period)
   await stateJob.run()
-  assert.equal(pages, 1)
+  assert.equal(pages, 2)
   assert.deepEqual(calls, ['eth_blockNumber', 'eth_getLogs', 'eth_getBlockByNumber'])
   assert.equal(observations[0][0], id)
   assert.ok(+observations[0][2] > 0)
