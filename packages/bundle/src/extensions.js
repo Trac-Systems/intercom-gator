@@ -16,6 +16,8 @@ const venueLabel = /^[A-Z0-9][A-Z0-9._]{0,31}$/;
 const assetId = /^[a-z][a-z0-9-]*:[^\s]{1,200}$/;
 const groupId = /^[a-z][a-z0-9-]*$/;
 const roles = ['issuance', 'escrow-backed'];
+// A display name: printable, no leading/trailing space, at most 64 characters.
+const displayName = /^(?=\S)[^\p{Cc}\p{Cf}]{1,64}(?<=\S)$/u;
 
 function check(ok, path, message) {
   if (!ok) throw new TypeError('release extensions ' + path + ': ' + message);
@@ -31,10 +33,11 @@ function https(value) {
 }
 
 /** Shape check of a parsed extension document. Returns it or throws a TypeError naming the bad path.
- * `{ v: 1, note?, symbolMap?: {venue: {LABEL: assetId}}, coinGroups?: [{id, source, members: {assetId: role}}] }` */
+ * `{ v: 1, note?, symbolMap?: {venue: {LABEL: assetId}}, coinGroups?: [{id, source, members: {assetId: role}}],
+ *   names?: {assetId: {name, source}} }` */
 export function validateReleaseExtensions(ext) {
   check(plain(ext), '', 'expected an object');
-  for (const key of Object.keys(ext)) check(['v', 'note', 'symbolMap', 'coinGroups'].includes(key), key, 'unknown field');
+  for (const key of Object.keys(ext)) check(['v', 'note', 'symbolMap', 'coinGroups', 'names'].includes(key), key, 'unknown field');
   check(ext.v === 1, 'v', 'expected version 1');
   if (Object.hasOwn(ext, 'note')) check(typeof ext.note === 'string', 'note', 'expected text');
   if (Object.hasOwn(ext, 'symbolMap')) {
@@ -66,6 +69,15 @@ export function validateReleaseExtensions(ext) {
       }
       check(Object.values(g.members).includes('issuance'), p + '.members', 'needs an issuance member');
     });
+  }
+  if (Object.hasOwn(ext, 'names')) {
+    check(plain(ext.names), 'names', 'expected an asset-to-name map');
+    for (const [asset, entry] of Object.entries(ext.names)) {
+      const p = 'names.' + asset;
+      check(assetId.test(asset), p, 'invalid asset ID');
+      check(plain(entry) && Object.keys(entry).length === 2 && typeof entry.name === 'string' &&
+        displayName.test(entry.name) && https(entry.source), p, 'expected name (1-64 printable characters) and https source');
+    }
   }
   return ext;
 }
@@ -142,6 +154,16 @@ export function applyReleaseExtensions(bundle, ext) {
       }
     }
     if (Object.keys(known).length) exchange.symbolMap = { ...known, ...(exchange.symbolMap ?? {}) };
+  }
+  // A display name for a token whose own (on-chain) name misleads, e.g. Binance-Peg USDT on BNB Chain reads "Tether USD"
+  // but is not issued by Tether. Display only: ids, symbols, markets and the digest are untouched.
+  for (const [asset, { name: label }] of Object.entries(ext.names ?? {})) {
+    const name = 'name:' + asset;
+    if (!tokens.has(asset)) skipped.push(name + ' (unknown ' + asset + ')');
+    else {
+      tokens.get(asset).displayName = label;
+      applied.push(name);
+    }
   }
   if (!applied.length) return { bundle, applied, skipped };
   return { bundle: freeze(next), applied, skipped };

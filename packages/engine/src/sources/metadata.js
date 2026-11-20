@@ -13,7 +13,7 @@ const NAMES_TICK_MS = 3000
 const HISTORY_PRIORITY = 2, FACTORY_PRIORITY = 3
 
 /** @typedef {{name: string|null, symbol: string|null, decimals: number|null,
- * nameStatus: 'resolved'|'pending'|'unresolvable', nameSource: 'on-chain'|'contract-uri'|'bundle'|'registry'|'reported'|null,
+ * nameStatus: 'resolved'|'pending'|'unresolvable', nameSource: 'release'|'on-chain'|'contract-uri'|'bundle'|'registry'|'reported'|null,
  * nameFlags: string[]}} AssetNameView */
 
 /** One durable queue for discovery and restart recovery. Internal addresses and signed venue aliases
@@ -94,7 +94,11 @@ export function registerNamesJob(engine) {
     const r = rowFor.get(id), seed = seeds.get(id), bundled = labels(seed, a.address)
     const contract = a.address !== 'native' && families.has(registry.chains.get(a.chain)?.family)
     let fields, nameSource = null
-    if (r?.name && r.symbol) {
+    if (seed?.displayName) {
+      // The release's display name (release-extensions.json `names`) replaces a misleading on-chain name; the symbol stays.
+      fields = { name: seed.displayName, symbol: r?.symbol ?? bundled?.symbol ?? a.symbol }
+      nameSource = 'release'
+    } else if (r?.name && r.symbol) {
       fields = { name: r.name, symbol: r.symbol }
       nameSource = r.method === 'jetton-https' ? 'contract-uri' : 'on-chain'
     } else if (bundled) {

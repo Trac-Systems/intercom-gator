@@ -103,6 +103,7 @@ export function adaptBundle(bundle) {
       address,
       symbol: t.symbol,
       name: t.name,
+      ...(t.displayName && { displayName: t.displayName }),
       decimals: t.decimals,
       stable,
       category: t.category ?? (stable ? 'Stablecoin' : null),

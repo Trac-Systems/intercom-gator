@@ -50,7 +50,9 @@ test('the shared TAP/TNK patch: chains, natives, the ERC-20 as a plain token and
   assert.equal(next.exchanges.some(e => Object.hasOwn(e, 'symbolMap')), false);
 });
 
-test('the release extension is outside the digest and only names TAP/TNK venue labels and the TAP coin group', () => {
+const bscUsdt = 'bsc:0x55d398326f99059ff775485246999027b3197955';
+
+test('the release extension is outside the digest: TAP/TNK venue labels, the TAP coin group, the Binance-Peg USDT name', () => {
   const ext = loadReleaseExtensions();
   assert.deepEqual(ext.symbolMap, {
     gate: { TAPPROTOCOL: tap, TNK: tnk },
@@ -58,15 +60,18 @@ test('the release extension is outside the digest and only names TAP/TNK venue l
   });
   assert.deepEqual(ext.coinGroups, [{ id: 'tap-protocol-tap', source: 'https://bridge.tapscope.io',
     members: { [tap]: 'issuance', [tapErc20]: 'escrow-backed' } }]);
+  assert.deepEqual(ext.names, { [bscUsdt]: { name: 'Binance-Peg USDT', source: 'https://bscscan.com/token/' + bscUsdt.slice(4) } });
   // loadBundle reads the six data files only; the extension never enters the digest.
   assert.equal(bundleDigest(loadBundle()), V010_RELEASE);
 });
 
-test('on the unpatched release every extension entry names an unknown asset and is skipped quietly', () => {
+test('on the unpatched release the TAP/TNK entries name unknown assets and are skipped quietly; the name applies', () => {
   const base = loadBundle();
   const { bundle, applied, skipped } = applyReleaseExtensions(base, loadReleaseExtensions());
-  assert.equal(bundle, base);
-  assert.deepEqual(applied, []);
+  assert.deepEqual(applied, ['name:' + bscUsdt]);
+  assert.equal(bundle.tokens.tokens.find(t => t.id === bscUsdt).displayName, 'Binance-Peg USDT');
+  assert.equal(Object.hasOwn(base.tokens.tokens.find(t => t.id === bscUsdt), 'displayName'), false);
+  assert.equal(bundleDigest(base), V010_RELEASE);
   assert.equal(skipped.length, 5);
   assert.ok(skipped.every(s => /unknown (tap-protocol|trac):native/.test(s)), skipped.join('; '));
 });
@@ -76,7 +81,7 @@ test('after the shared patch the extension maps the venue labels and groups TAP,
   const { bundle, applied, skipped } = applyReleaseExtensions(next, loadReleaseExtensions());
   assert.deepEqual(skipped, []);
   assert.deepEqual(applied, ['coinGroup:tap-protocol-tap', 'symbolMap:gate:TAPPROTOCOL', 'symbolMap:gate:TNK',
-    'symbolMap:mexc:TAP', 'symbolMap:mexc:TNK']);
+    'symbolMap:mexc:TAP', 'symbolMap:mexc:TNK', 'name:' + bscUsdt]);
   const token = id => bundle.tokens.tokens.find(t => t.id === id);
   assert.deepEqual([token(tap).coin, token(tap).coinSupply], ['tap-protocol-tap', 'issuance']);
   assert.deepEqual([token(tapErc20).coin, token(tapErc20).coinSupply], ['tap-protocol-tap', 'escrow-backed']);
@@ -114,5 +119,10 @@ test('partial knowledge: unknown venues, assets and groups are skipped, signed g
     { v: 1, coinGroups: [{ id: 'x', source: 'http://insecure.example', members: { [tap]: 'issuance', [tnk]: 'escrow-backed' } }] },
     { v: 1, coinGroups: [{ id: 'x', source: 'https://ok.example', members: { [tap]: 'escrow-backed', [tnk]: 'escrow-backed' } }] },
     { v: 1, coinGroups: [{ id: 'x', source: 'https://ok.example', members: { [tap]: 'issuance' } }] },
+    { v: 1, names: { [tap]: 'TAP' } }, { v: 1, names: { [tap]: { name: ' TAP', source: 'https://ok.example' } } },
+    { v: 1, names: { [tap]: { name: 'x'.repeat(65), source: 'https://ok.example' } } },
+    { v: 1, names: { [tap]: { name: 'TAP\u202e', source: 'https://ok.example' } } },
+    { v: 1, names: { [tap]: { name: 'TAP', source: 'http://insecure.example' } } },
+    { v: 1, names: { 'not an id': { name: 'TAP', source: 'https://ok.example' } } },
   ]) assert.throws(() => validateReleaseExtensions(bad), TypeError, JSON.stringify(bad));
 });

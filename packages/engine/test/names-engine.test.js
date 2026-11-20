@@ -242,3 +242,16 @@ test('existing registry names for assets outside contract discovery remain avail
   assert.equal(f.row('local:native'), undefined)
   assert.deepEqual(f.visited, [])
 })
+
+test('a release display name replaces a misleading on-chain name; the symbol stays the chain\'s', async t => {
+  // Binance-Peg USDT reads "Tether USD" on chain (release-extensions.json `names`, applied as displayName).
+  const seed = { id: 'sui:0x5::peg::USDT', name: 'Tether USD', symbol: 'USDT', decimals: 6, displayName: 'Binance-Peg USDT' }
+  const f = await fixture(t, { seeds: [seed], respond: () => ({ name: 'Tether USD', symbol: 'USDT', decimals: 6 }) })
+  const e = f.e
+  assert.deepEqual([e.names.display(seed.id).name, e.names.display(seed.id).nameSource], ['Binance-Peg USDT', 'release'])
+  e.scheduleMeta(seed.id)
+  await e.step()
+  assert.equal(f.row(seed.id).name, 'Tether USD', 'the chain read is still recorded')
+  assert.deepEqual([e.asset(seed.id).name, e.asset(seed.id).symbol, e.asset(seed.id).nameSource],
+    ['Binance-Peg USDT', 'USDT', 'release'])
+})

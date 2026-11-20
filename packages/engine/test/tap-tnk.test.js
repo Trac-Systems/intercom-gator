@@ -244,10 +244,11 @@ test('the TAP Protocol supply job sets a local total and the coin lists a cap fr
   assert.ok(Math.abs(page.marketCap - 21e6 * price) < 1)
 })
 
-test('without the shared patch the extension names unknown assets: it is skipped and nothing changes', async t => {
+test('without the shared patch the TAP/TNK extension entries name unknown assets: they are skipped', async t => {
   const { engine } = await engineFor(t, release)
-  // Nothing applied: the node reads the signed release itself, exactly like a v0.1.0 node.
-  assert.equal(engine.bundle, release)
+  // Only the Binance-Peg USDT display name applies; venues, coins and the digest are the signed release's own.
+  assert.deepEqual(engine.bundle.tokens.tokens.filter(token => token.displayName).map(token => token.id),
+    ['bsc:0x55d398326f99059ff775485246999027b3197955'])
   assert.equal(engine.bundle.exchanges.some(e => Object.hasOwn(e, 'symbolMap')), false)
   assert.equal(engine.registry.assets.has(tap), false)
   assert.equal(engine.registry.cex('gate', 'TAPPROTOCOL', 'USDT').base, 'unresolved:gate:TAPPROTOCOL')

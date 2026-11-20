@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "note": "Release extension, not part of the signed bundle digest. Data older release schemas reject: venue labels that differ from a coin's ticker and coin groups that only this release's code values correctly. Entries naming assets the signed bundle and root patches do not define are skipped.",
+  "note": "Release extension, not part of the signed bundle digest. Data older release schemas reject: venue labels that differ from a coin's ticker, coin groups that only this release's code values correctly, and display names for tokens whose on-chain name misleads. Entries naming assets the signed bundle and root patches do not define are skipped.",
   "symbolMap": {
     "gate": {
       "TAPPROTOCOL": "tap-protocol:native",
@@ -20,5 +20,11 @@
         "ethereum:0x5e7f6e008c6d9d7ad4c7eb75bd4ce62864cc7454": "escrow-backed"
       }
     }
-  ]
+  ],
+  "names": {
+    "bsc:0x55d398326f99059ff775485246999027b3197955": {
+      "name": "Binance-Peg USDT",
+      "source": "https://bscscan.com/token/0x55d398326f99059ff775485246999027b3197955"
+    }
+  }
 }
