@@ -2,6 +2,7 @@ import { MARKET_POLICY } from '../../../store/src/markets.js'
 import { coverageTarget } from '../scheduler/index.js'
 import { exchangeRows, trackVenueVolumes } from './venue-trust.js'
 import { marketUsdVolume } from './collisions.js'
+import { volumeOrder } from './volume-guard.js'
 import { bestState, chainLabel, contractRole, explorerUrl, linkGroups, representativeOrder, rowOrder } from './coins.js'
 
 const DAY = 86400_000
@@ -539,9 +540,11 @@ export class Queries {
           reporters: p?.agents.length ?? 0,
           baseVol24h: p?.baseVolume ?? null,
           volume24h: marketUsdVolume(p, book.snapshots),
+          // volume-guard.js: the reported number stays; it is not counted, and the reason says why.
+          volumeSuspect: book.volumeSuspects.get(m.id) ?? null,
         }
       })
-      .sort((a, b) => (b.volume24h ?? -1) - (a.volume24h ?? -1) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .sort(volumeOrder)
   }
   /** Search exposes hidden assets; a coin answers once, linked to the best member the query matched. */
   search(query, options = {}) {

@@ -178,12 +178,15 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
   const split = splitCollisions(used, { reference, pinned, dexAnchor: asset.address !== 'native' })
   if (split) used = used.filter((e) => !split.excluded.has(e))
   const weigh = () => {
-    const totalVolume = used.reduce((sum, e) => sum + e.volume, 0)
+    const totalVolume = used.reduce((sum, e) => sum + (e.suspect ? 0 : e.volume), 0)
+    // An implausible venue volume (volume-guard.js) weighs no more than the largest counted one.
+    const counted = used.reduce((max, e) => (e.suspect ? max : Math.max(max, e.volume || 0)), 0)
+    const weightOf = e => (e.suspect && counted > 0 ? Math.min(e.volume, counted) : e.volume)
     // A provisional venue (or an unverified quote currency) cannot buy control of the
     // USD median with invented turnover. Keep zero-volume supported prices as anchors.
     const supportedVolume = used.some(e => e.proven && e.volume > 0)
     const weights = used.map(e => ({ value: e.priceText, proven: e.proven,
-      weight: (e.proven && !supportedVolume) || !totalVolume ? 1 : e.volume }))
+      weight: (e.proven && !supportedVolume) || !totalVolume ? 1 : weightOf(e) }))
     const capped = capUnproven(capVenues(used, weights))
     return { totalVolume, capped, priceText: medianPrice(capped) }
   }
@@ -287,7 +290,10 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     provenAgents: provenAgents.size,
     provenSources: provenSources.size,
     ownSources: ownSources.size,
-    provenVolume24h: used.reduce((sum, e) => sum + (e.proven ? e.volume : 0), 0),
+    provenVolume24h: used.reduce((sum, e) => sum + (e.proven && !e.suspect ? e.volume : 0), 0),
+    // Flagged proven turnover (volume-guard.js): not a total or a rank, but evidence that the market trades.
+    ...(used.some(e => e.suspect) && {
+      suspectVolume24h: used.reduce((sum, e) => sum + (e.proven && e.suspect ? e.volume : 0), 0) }),
     exchanges: exchanges.size,
     pools: pools.size,
     independentSources: sources.size,
@@ -322,7 +328,7 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
  * (default: the fresh references).
  */
 export function aggregateAssets(assets, markets, now, references = new Map(),
-  { pinned, collisions, referencePrices, dayRatio } = {}) {
+  { pinned, collisions, referencePrices, dayRatio, suspects } = {}) {
   const byBase = new Map()
   for (const m of markets) {
     if (!byBase.has(m.base)) byBase.set(m.base, [])
@@ -354,6 +360,8 @@ export function aggregateAssets(assets, markets, now, references = new Map(),
         priceText,
         // The market's own USD price (market price × quote rate), never the asset's aggregate price.
         volume: market.usdVolume ?? market.baseVolume * price,
+        // volume-guard.js: the reported volume stays out of the asset's 24 h volume and caps its median weight.
+        suspect: suspects?.has(market.id) === true,
         fxAt: rate.at,
         fxStale: rate.why.stale,
         fxFresh: rate.why.fresh,

@@ -429,7 +429,7 @@ export class Registry {
     }
     return market
   }
-  rankMarkets(snapshots, prices, now) {
+  rankMarkets(snapshots, prices, now, suspects = new Map()) {
     this.pinned = new Set(
       this.db
         .prepare('SELECT asset FROM watchlist UNION SELECT asset FROM portfolio')
@@ -473,8 +473,10 @@ export class Registry {
       // Value base turnover at the market's own price and a supported quote rate, never the asset's price.
       const fx = snapshots.get(p.quote)
       const rate = p.quote === 'fiat:USD' ? 1 : fx?.why.provenSources || fx?.why.referenceProviders?.length ? fx.price : 0
-      const volume = p.usdVolume ?? p.baseVolume * p.price * rate
-      this.active.set(p.id, (volume > 0 || p.baseVolume > 0) && now - p.at <= 3600000)
+      const reported = p.usdVolume ?? p.baseVolume * p.price * rate
+      this.active.set(p.id, (reported > 0 || p.baseVolume > 0) && now - p.at <= 3600000)
+      // An implausible venue volume (volume-guard.js) never picks the main market.
+      const volume = suspects.has(p.id) ? 0 : reported
       const best = this.main.get(p.base)
       if (!best || volume > best.volume || (volume === best.volume && p.id < best.id))
         this.main.set(p.base, { id: p.id, volume })

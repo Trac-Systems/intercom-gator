@@ -48,7 +48,7 @@ export function trackVenueVolumes({ store, book, registry }) {
     book.refresh()
     const totals = new Map()
     for (const m of registry.markets.values()) {
-      if (m.exchange == null || unresolved(m)) continue
+      if (m.exchange == null || unresolved(m) || book.volumeSuspects?.has(m.id)) continue
       const amount = marketUsdVolume(book.marketPrices.get(m.id), book.snapshots)
       totals.set(m.exchange, addVolume(totals.get(m.exchange) ?? null, amount))
     }
@@ -95,6 +95,7 @@ class Venue {
   markets = 0
   volume24h = null
   unresolvedVolume24h = null
+  suspectVolume24h = null
   freshMarkets = 0
   freshVolume = 0
   deviations = []
@@ -105,11 +106,14 @@ class Venue {
     this.markets++
     const p = book.marketPrices.get(market.id), base = book.snapshots.get(market.base)
     const volume = marketUsdVolume(p, book.snapshots)
-    if (unresolved(market)) this.unresolvedVolume24h = addVolume(this.unresolvedVolume24h, volume)
+    // Implausible venue volume (volume-guard.js) is reported apart and never ranks the venue.
+    const suspect = book.volumeSuspects?.has(market.id)
+    if (suspect) this.suspectVolume24h = addVolume(this.suspectVolume24h, volume)
+    else if (unresolved(market)) this.unresolvedVolume24h = addVolume(this.unresolvedVolume24h, volume)
     else this.volume24h = addVolume(this.volume24h, volume)
     if (!p || p.at < now - p.window) return
     this.freshMarkets++
-    if (!unresolved(market)) this.freshVolume += volume ?? 0
+    if (!unresolved(market) && !suspect) this.freshVolume += volume ?? 0
     if (quote) this.spreads.push({ id: market.id, volume: volume ?? 0, value: quote.spread })
     if (!comparable(base)) return
     const fx = book.snapshots.get(market.quote)
@@ -159,7 +163,8 @@ export function exchangeRows(engine, now) {
   return Array.from(venues, ([id, v]) => ({
     id, name: registry.venues.get(id)?.name ?? id, kind: v.kind,
     ...(v.chains.size ? { chain: [...v.chains].sort().join(', ') } : {}),
-    markets: v.markets, volume24h: v.volume24h ?? 0, unresolvedVolume24h: v.unresolvedVolume24h ?? 0, reporters: reporters.get(id)?.all.size ?? 0,
+    markets: v.markets, volume24h: v.volume24h ?? 0, unresolvedVolume24h: v.unresolvedVolume24h ?? 0,
+    suspectVolume24h: v.suspectVolume24h ?? 0, reporters: reporters.get(id)?.all.size ?? 0,
     change24h: previous.get(id) > 0 && v.volume24h != null ? (v.volume24h / previous.get(id) - 1) * 100 : null,
     ...v.score(reporters.get(id)?.proven.size ?? 0),
   })).sort((a, b) => b.volume24h - a.volume24h || a.id.localeCompare(b.id))
