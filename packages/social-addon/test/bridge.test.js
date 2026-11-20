@@ -92,14 +92,14 @@ test('bridge mode uses the host peer key over SC-Bridge', async t => {
   assert.equal(addon.mode, 'bridge');
   assert.equal(addon.publicKey, HOST);
   assert.equal(existsSync(join(dir, 'data', 'keys')), false); // no own key in bridge mode
-  assert.deepEqual([...host.joined].sort(), ['soc/dir', 'soc/official', 'soc/p/reset', 'soc/pr/reset',
+  assert.deepEqual([...host.joined].sort(), ['soc/all', 'soc/dir', 'soc/official', 'soc/p/reset', 'soc/pr/reset',
     'soc/r/' + HOST, 'soc/u/' + HOST].sort());
   await until(() => addon.status().peers === 3);
 
   const post = await addon.tools.find(x => x.name === 'feed_post').call({ text: 'RESET round 12 is live' });
   assert.equal(post.value.sent, true);
   assert.match(post.value.note, /Bridge mode/);
-  await until(() => host.sent.length);
+  await until(() => host.sent.some(e => e.message.t === 'post'));
   assert.deepEqual(host.sent.at(-1), { channel: 'soc/u/' + HOST, message: { t: 'post', v: 1, text: 'RESET round 12 is live' } });
 
   host.push(rootFrame('soc/official', { t: 'notice', v: 1, text: 'Signed by root' }));

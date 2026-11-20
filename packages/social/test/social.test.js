@@ -36,7 +36,8 @@ async function fixture(t) {
 test('profile discovery, subscriptions, posts, cross-channel interactions and unfollow', async t => {
   const { hub, peer } = await fixture(t);
   const a = await peer(), b = await peer({ product: ['dex', 'dmw'] }), c = await peer();
-  assert.equal(b.net.channels().length, 8);
+  assert.equal(b.net.channels().length, 9);
+  assert.deepEqual(b.net.policies.get('soc/all'), { verifySignature: true, maxReceiveBytes: 4096, powDifficulty: 12 });
   assert.equal(b.net.policies.get('soc/dir').powDifficulty, 16);
   assert.equal(b.net.policies.get('soc/r/' + b.key).powDifficulty, 12);
   assert.equal(b.net.policies.get('soc/u/' + b.key).ownerKey, b.key);
@@ -229,10 +230,10 @@ test('small, normal and large profiles cap concurrent follows and preserve state
     const outcomes = await Promise.allSettled(keys.map(k => a.social.follow(k)));
     assert.equal(outcomes.filter(r => r.status === 'fulfilled' && r.value).length, cap);
     assert.match(outcomes.at(-1).reason.message, /cap/);
-    assert.equal(a.net.channels().length, cap + 6);
+    assert.equal(a.net.channels().length, cap + 7);
     await a.social.unfollow(keys[0]);
     await a.social.follow(keys.at(-1));
-    assert.equal(a.net.channels().length, cap + 6);
+    assert.equal(a.net.channels().length, cap + 7);
   }
 });
 
@@ -386,12 +387,12 @@ test('a lowered machine profile restores only the active cap and retains saved s
   await a.social.close();
   a.social = new Social({ ...a.args, limits: { profile: 'small' } });
   await a.social.ready;
-  assert.equal(a.net.channels().length, 106);
+  assert.equal(a.net.channels().length, 107);
   assert.ok(!a.net.channels().includes('soc/u/' + keys[100]));
   assert.equal(a.db.prepare('SELECT count(*) n FROM follows').get().n, 101);
   await a.social.unfollow(keys[0]);
   assert.ok(a.net.channels().includes('soc/u/' + keys[100]));
-  assert.equal(a.net.channels().length, 106);
+  assert.equal(a.net.channels().length, 107);
 });
 
 test('signed echoes share one canonical reply and reject conflicting contents and extra envelope ids', async t => {

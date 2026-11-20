@@ -187,6 +187,10 @@ export class FeedStore {
   visibleEnvelope(ref) {
     return this.sql(`SELECT envelope FROM ${visiblePosts} WHERE key=? AND id=?`).get(ref.key, ref.id);
   }
+  recentPublicPosts(since) {
+    return this.sql(`SELECT key,id,envelope FROM ${visiblePosts} WHERE t='post' AND channel='soc/u/' || key
+      AND ts>=? ORDER BY ts DESC,id DESC,key DESC LIMIT 20`).all(since);
+  }
   revoked(id) {
     return !!this.sql('SELECT 1 FROM social_revocations WHERE root=? AND id=?').get(this.rootKey, id);
   }
@@ -246,7 +250,8 @@ export class FeedStore {
   receive(e, now, rates, lane) {
     // Keep root control traffic independent of notice history. All limits use the wire lane, including mention wrappers.
     if (['revoke', 'mutes', 'net'].includes(e.message.t)) lane = 'control';
-    if (e.from === this.key) return this.record(e, now, rates, lane);
+    // Anyone can rewrap even our own signed posts. Public receipts share one inbound budget.
+    if (e.from === this.key && lane !== 'public') return this.record(e, now, rates, lane);
     const receipt = this.retention.admit(lane, now);
     if (!receipt) return;
     // A protected card may grow when the lane already contains only retained cards.
@@ -336,6 +341,11 @@ export class FeedStore {
       ON CONFLICT(slot) DO UPDATE SET envelope=excluded.envelope,last_sent=excluded.last_sent,ts=excluded.ts
       WHERE excluded.ts>social_outbox.ts OR (excluded.ts=social_outbox.ts AND
         json_extract(excluded.envelope,'$.id')>=json_extract(social_outbox.envelope,'$.id'))`).run(slot, JSON.stringify(e), now, e.ts);
+  }
+  saveShare(wrapper, now) {
+    const id = wrapper.message.original.id;
+    this.sql(`INSERT OR IGNORE INTO social_outbox(slot,envelope,last_sent,ts)
+      SELECT ?,?,?,ts FROM social_outbox WHERE slot=?`).run('share/' + id, JSON.stringify(wrapper), now, 'post/' + id);
   }
   ref(input) {
     if (input && typeof input === 'object') {
@@ -442,5 +452,7 @@ export class FeedStore {
     this.sql("DELETE FROM posts WHERE channel<>'soc/official' AND ts<?").run(now - 30 * DAY);
     this.sql('DELETE FROM likes WHERE ts<?').run(now - 30 * DAY);
     this.sql("DELETE FROM social_outbox WHERE slot LIKE 'post/%' AND (ts<? OR slot NOT IN (SELECT slot FROM social_outbox WHERE slot LIKE 'post/%' ORDER BY ts DESC,slot DESC LIMIT 100))").run(now - 7 * DAY);
+    this.sql(`DELETE FROM social_outbox AS share WHERE slot LIKE 'share/%' AND NOT EXISTS
+      (SELECT 1 FROM social_outbox WHERE slot='post/' || substr(share.slot,7))`).run();
   }
 }

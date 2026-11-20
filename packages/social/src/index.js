@@ -20,6 +20,9 @@ export { IDENTITY_FORMAT, identityDocument, readIdentityDocument } from './ident
 // identity is live in another process (another machine or harness). The network key is never on the wire
 // (R-APP-15), so the signature is the evidence; old replays and our own copies do not count.
 const ELSEWHERE_WINDOW = 10 * 60000;
+const WANT_INTERVAL = 30 * 60000;
+const ANSWER_INTERVAL = 10 * 60000;
+const PUBLIC_SEEN_CAP = 1024;
 
 /**
  * @typedef {{id:string, key:string}} PostRef
@@ -62,6 +65,8 @@ export class Social extends EventEmitter {
   #fixed;
   #sending = 0;
   #elsewhere = null;
+  #answer;
+  #onFirstPeer;
 
   /**
    * @param {{transport:Transport, db:Store|Database, rootKey:string, product?:string|string[], dataDir:string,
@@ -103,7 +108,7 @@ export class Social extends EventEmitter {
     this.#inbox = 'soc/r/' + this.publicKey;
     const products = Array.isArray(product) ? product : [product];
     if (products.some(p => !PRODUCTS.includes(p))) throw new TypeError('Unknown product');
-    this.#fixed = ['soc/official', this.#own, this.#inbox, 'soc/dir', ...products.flatMap(p => ['soc/p/' + p, 'soc/pr/' + p])];
+    this.#fixed = ['soc/official', this.#own, this.#inbox, 'soc/dir', 'soc/all', ...products.flatMap(p => ['soc/p/' + p, 'soc/pr/' + p])];
     this.#onMessage = (channel, envelope) => this.#receive(channel, envelope);
     transport.on('message', this.#onMessage);
     this.ready = this.#enqueue(async () => {
@@ -115,8 +120,19 @@ export class Social extends EventEmitter {
           this.#store.retention.initialize();
         });
         await this.#sync();
+        // A broadcast to zero peers has only a local echo. Wait for discovery on an isolated start.
+        if (!this.#closed && transport.peerCount?.() === 0) {
+          this.#onFirstPeer = count => {
+            if (!count) return;
+            transport.off('peer', this.#onFirstPeer);
+            this.#enqueue(() => this.#requestPosts()).catch(err => this.#warn(err));
+          };
+          transport.on('peer', this.#onFirstPeer);
+        } else if (!this.#closed) await this.#requestPosts();
       } catch (err) {
         transport.off('message', this.#onMessage);
+        clearTimeout(this.#answer?.timer);
+        this.#answer = null;
         for (const channel of this.#joined.keys()) await this.#leave(channel);
         throw err;
       }
@@ -184,14 +200,35 @@ export class Social extends EventEmitter {
     const fresh = e => e.ts <= now + 5 * 60000 && (e.channel === 'soc/official' ||
       ['card', 'announce'].includes(e.message.t) || e.ts >= now - 30 * DAY);
     if (!fresh(envelope)) return;
-    if (envelope.from === this.publicKey) this.#noticeElsewhere(envelope, now);
+    if (envelope.from === this.publicKey && channel !== 'soc/all') this.#noticeElsewhere(envelope, now);
     let e = envelope;
-    if (e.message.t === 'mention') {
+    if (e.message.t === 'want') {
+      if (e.from !== this.publicKey && !this.#store.hidden(e.from) &&
+          this.#store.transaction(() => this.#store.retention.admit('public', now))) {
+        this.#scheduleAnswer(now, e.message.since);
+      }
+      return;
+    }
+    if (e.message.t === 'share') {
+      e = e.message.original;
+    } else if (e.message.t === 'mention') {
       if (channel !== this.#inbox || !this.#store.mayMention(envelope.from, now) || !this.#store.mentionsMe(e.message.original.message.text)) return;
       e = e.message.original;
     }
     if (!fresh(e) || (e.message.original && !fresh(e.message.original))) return;
-    const result = this.#store.transaction(() => this.#store.receive(e, now, this.#rates(), lane(channel)));
+    if (envelope.message.t === 'share' && this.#answer) {
+      const seen = this.#answer.seen;
+      const key = e.from + '/' + e.id;
+      seen.delete(key);
+      seen.set(key, now);
+      if (seen.size > PUBLIC_SEEN_CAP) seen.delete(seen.keys().next().value);
+    }
+    const result = this.#store.transaction(() => {
+      if (envelope.message.t === 'share' && envelope.from === this.publicKey && e.from === this.publicKey) {
+        this.#store.saveShare(envelope, now);
+      }
+      return this.#store.receive(e, now, this.#rates(), lane(channel));
+    });
     if (result?.settingsChanged) {
       this.#settings = settingsFor(e.message);
       this.#enqueue(() => this.#sync()).catch(err => this.#warn(err));
@@ -205,7 +242,10 @@ export class Social extends EventEmitter {
     const row = this.#store.sql('SELECT * FROM posts WHERE key=? AND id=?').get(result.ref.key, result.ref.id);
     if (!row) return; // The inbound lane can be smaller than one post.
     // Queue forwarding before notifying consumers. Only the author's first, signed own-lane copy fans out.
-    if (e.channel === this.#own) this.#enqueue(() => this.#fanout(e, result.mentioned)).catch(err => this.#warn(err));
+    if (channel === this.#own) {
+      if (this.#sending && e.message.t === 'post') this.#enqueue(() => this.#share(e)).catch(err => this.#warn(err));
+      this.#enqueue(() => this.#fanout(e, result.mentioned)).catch(err => this.#warn(err));
+    }
     const post = this.#store.present(row);
     this.emit('post', post);
     if (e.message.t === 'notice') this.emit('notice', post);
@@ -273,6 +313,41 @@ export class Social extends EventEmitter {
         if (!await this.#send('soc/r/' + key, { t: 'mention', v: 1, original: e }, true)) this.#warn(new Error('Mention send failed: ' + key));
       }
     }
+  }
+  async #share(original) {
+    try {
+      if (!await this.#send('soc/all', { t: 'share', v: 1, original }, true)) this.#warn(new Error('Public share send failed'));
+    } catch (err) { this.#warn(err); }
+  }
+  async #requestPosts() {
+    const now = this.now();
+    if (now - (this.#store.state('publicWantAt') ?? -Infinity) < WANT_INTERVAL) return;
+    try {
+      if (await this.#send('soc/all', { t: 'want', v: 1 }, true)) this.#store.setState('publicWantAt', now);
+    } catch (err) { this.#warn(err); }
+  }
+  #scheduleAnswer(at, since = 0) {
+    if (this.#answer || at - (this.#store.state('publicAnswerAt') ?? -Infinity) < ANSWER_INTERVAL) return;
+    const answer = { seen: new Map() };
+    this.#answer = answer;
+    answer.timer = setTimeout(() => {
+      this.#enqueue(async () => {
+        try {
+          const now = this.now();
+          if (this.#closed || now - at >= HOUR) return;
+          let answering = false;
+          for (const row of this.#store.recentPublicPosts(Math.max(since, now - 7 * DAY))) {
+            if (this.#closed || answer.seen.get(row.key + '/' + row.id) >= at) continue;
+            if (!answering) {
+              this.#store.setState('publicAnswerAt', now);
+              answering = true;
+            }
+            await this.#share(JSON.parse(row.envelope));
+          }
+        } finally { this.#answer = null; }
+      }).catch(err => this.#warn(err));
+    }, 2000 + Math.floor(Math.random() * 10001));
+    answer.timer.unref();
   }
   async #publish(fn) {
     await this.ready;
@@ -446,6 +521,9 @@ export class Social extends EventEmitter {
   close() {
     if (!this.#closing) {
       this.#closed = true;
+      if (this.#onFirstPeer) this.transport.off('peer', this.#onFirstPeer);
+      clearTimeout(this.#answer?.timer);
+      this.#answer = null;
       this.#proofs.close();
       this.transport.off('message', this.#onMessage);
       this.#closing = this.#queue.then(async () => {

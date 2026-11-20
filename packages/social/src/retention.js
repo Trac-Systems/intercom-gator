@@ -1,3 +1,4 @@
+// Each inbound lane, including public, has its own row, byte and receipt budget at these limits.
 // Count UTF-8 payloads plus a fixed allowance for each SQLite row. fitBudget measures actual live pages.
 export const LANE_LIMITS = {
   small:  { laneRows: 12_000, laneBytes: 8 * 1024 ** 2, laneRate: 120 },
@@ -152,7 +153,8 @@ export class SocialRetention {
       let usage = row;
       while (usage.n > laneRows || usage.bytes > laneBytes) {
         const limit = Math.min(64, Math.max(1, usage.n - laneRows, Math.ceil((usage.bytes - laneBytes) / 4096)));
-        if (!this.evict({ lane: row.lane, limit })) { fits = false; break; }
+        const unfollowed = row.lane === 'public' && this.evict({ lane: row.lane, followed: false, limit });
+        if (!unfollowed && !this.evict({ lane: row.lane, limit })) { fits = false; break; }
         usage = s.sql('SELECT n,bytes FROM social_lane_usage WHERE lane=?').get(row.lane);
       }
     }

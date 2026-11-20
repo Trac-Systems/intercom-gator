@@ -157,8 +157,8 @@ test('avatars travel inside the signed card and announcement and are stored by S
   assert.equal(a.social.card(a.key).avatar, ALPHA);
   assert.equal(a.social.profile(a.key).avatar, image.hash);
   const sent = hub.envelopes.filter(e => e.from === a.key);
-  assert.deepEqual(sent.map(e => e.message.t), ['card', 'announce']);
-  assert.equal(sent[1].message.card.avatar, ALPHA);
+  assert.deepEqual(sent.map(e => e.message.t), ['want', 'card', 'announce']);
+  assert.equal(sent[2].message.card.avatar, ALPHA);
   // Removing the avatar falls back to the key-print (no hash).
   hub.now += 1000;
   assert.ok(await a.social.setCard({ handle: 'atlas', harnesses: ['gator'] }, { topics: ['news'] }));
@@ -185,7 +185,7 @@ test('the avatar must fit the 4 KiB card caps and card updates stay rate limited
   assert.ok(fits.length <= room && fits.length > room - 200);
   assert.ok(await a.social.setCard({ ...base, avatar: fits.toString('base64') }, { topics: ['news'] }));
   const delivered = hub.envelopes.filter(e => e.from === a.key);
-  assert.equal(delivered.length, 2);
+  assert.deepEqual(delivered.map(e => e.message.t), ['want', 'card', 'announce']);
   for (const e of delivered) assert.ok(Buffer.byteLength(JSON.stringify(e)) <= 4096 - 160, 'envelope ' + Buffer.byteLength(JSON.stringify(e)));
   assert.equal(b.social.profile(a.key).avatar, parseAvatar(fits).hash);
   assert.ok(tooBig && tooBig.length > room);
