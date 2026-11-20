@@ -75,6 +75,11 @@ function capVenues(entries, weights) {
   return weights.map((w, i) => scale.get(venueOf(entries[i])) === 1 ? w : { ...w, weight: w.weight * scale.get(venueOf(entries[i])) })
 }
 
+/** Prices are compared for the 1% (yellow) line only when read within this time of each other, the same +-30 s as a
+ * peer spot check: a 1.5% move in a few minutes made reads minutes apart look like disagreement (ETH yellow on a calm
+ * market, owner node 11-20). The 3% (red) line still compares every core and reporter price. */
+export const ALIGN_MS = 30_000
+
 /** rows contains the latest sample per distinct, eligible reporter for this market. */
 export function marketMedian(market, rows, now) {
   if (!rows.length) return null
@@ -100,10 +105,16 @@ export function marketMedian(market, rows, now) {
   if (!(price > 0)) return null
   // Disagreement is measured among own/proven reporters when the market has them, so an unproven key cannot turn
   // a locally checked market red with one invented price (it still triggers a spot check elsewhere).
-  const extremes = (proven.length ? proven : recent).reduce(
+  const judged = proven.length ? proven : recent
+  const extremes = judged.reduce(
     ([low, high], r) => [Math.min(low, +r.price), Math.max(high, +r.price)],
     [Infinity, 0]
   )
+  let aligned = 0
+  for (let i = 0; i < judged.length; i++)
+    for (let j = i + 1; j < judged.length; j++)
+      if (Math.abs(judged[i].srcTs - judged[j].srcTs) <= ALIGN_MS)
+        aligned = Math.max(aligned, Math.abs(judged[i].price - judged[j].price) / price)
   return {
     ...market,
     at,
@@ -116,6 +127,7 @@ export function marketMedian(market, rows, now) {
     provenAgents: proven.map(r => r.reporter),
     ownFresh: !!own,
     spread: (extremes[1] - extremes[0]) / price,
+    alignedSpread: aligned,
   }
 }
 
@@ -165,9 +177,6 @@ function outliers(used, weights, price, pinned = () => false) {
   return out.size && agree.size >= 2 && agree.size >= 2 * outSources.size && agreeing * 3 >= total * 2 ? out : null
 }
 
-// CEX tickers are polled every 15 seconds. Compare venues within one poll interval for the 1% threshold.
-const ALIGN_MS = 15_000
-
 function summarize(asset, entries, now, { reference, pinned, collisions, dayRatio } = {}) {
   const current = entries.filter((e) => now - e.market.at <= 3 * e.market.window && !e.fxStale)
   const timely = current.length ? current : entries
@@ -213,6 +222,7 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     pools = new Set(),
     sources = new Set()
   let alignedSpread = 0,
+    fullSpread = 0,
     low = Infinity,
     high = 0,
     provenLow = Infinity,
@@ -239,7 +249,8 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
       for (const key of market.provenAgents) provenAgents.add(key)
       if (market.ownFresh) ownSources.add(source)
     }
-    alignedSpread = Math.max(alignedSpread, market.spread, fxSpread)
+    fullSpread = Math.max(fullSpread, market.spread, fxSpread)
+    alignedSpread = Math.max(alignedSpread, market.alignedSpread ?? market.spread, fxSpread)
     low = Math.min(low, usd)
     high = Math.max(high, usd)
     if (proven) [provenLow, provenHigh] = [Math.min(provenLow, usd), Math.max(provenHigh, usd)]
@@ -271,7 +282,7 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     collisions?.set(asset.id, { ...record, guard: { low: guardLow, high: guardHigh, price, ratio: factor } })
     return null
   }
-  const allCoreSpread = Math.max(alignedSpread, (high - low) / price)
+  const allCoreSpread = Math.max(fullSpread, alignedSpread, (high - low) / price)
   const depegs = [...new Set([...core].flatMap((e) => e.depegs))].sort()
   // The venues' own 24 h move (last / open) over the core markets, weighted like the price; checks change24h.
   const days = dayRatio ? used.flatMap((e, i) => {

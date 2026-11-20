@@ -72,8 +72,22 @@ test('a 1.5% rise across ten staggered venue reads stays green (previously yello
   })
   const result = aggregateAssets(assets, markets, now).get('coin')
   assert.equal(result.trust, 'green')
-  // A 15-second window covers at most two price steps, about 0.33%.
-  assert.ok(result.why.spreadPct > 0.3 && result.why.spreadPct < 0.4)
+  // A 30-second window covers at most four price steps, about 0.67%.
+  assert.ok(result.why.spreadPct > 0.6 && result.why.spreadPct < 0.7)
+})
+
+test('within one market, a peer read minutes before ours is not a disagreement, a same-time one is', () => {
+  // Rank 100: ten-minute window, so a peer row five minutes old still counts as current (ETH yellow, calm, 11-20).
+  const pair = (peerPrice, peerAge) => marketMedian({ id: 'Acoin', kind: 'cex', rank: 100, exchange: 'A', base: 'coin', quote: 'fiat:USD' }, [
+    { reporter: '1', price: '98.5', weight: 1, proven: true, own: true, srcTs: now, baseVol24h: 500, quoteVol24hUsd: null },
+    { reporter: '2', price: String(peerPrice), weight: 1, proven: true, srcTs: now - peerAge, baseVol24h: 500, quoteVol24hUsd: null },
+  ], now)
+  const other = market('B', 'coin', 'fiat:USD', 98.5, ['3', '4', '5'])
+  const trust = (m) => aggregateAssets(assets, [m, other], now).get('coin')
+  assert.equal(pair(100, 300_000).alignedSpread, 0)
+  assert.equal(trust(pair(100, 300_000)).trust, 'green', 'was yellow: 1.5% against a five-minute-old read')
+  assert.equal(trust(pair(99.7, 10_000)).trust, 'yellow', 'two reads ten seconds apart, 1.2% apart')
+  assert.equal(trust(pair(102.1, 300_000)).trust, 'red', 'any reporter more than 3% away still counts for red')
 })
 
 test('two venues read in the same second 1.2% apart are yellow', () => {
@@ -95,18 +109,18 @@ test('a core venue 3.5% off two minutes earlier still turns the asset red', () =
   assert.ok(Math.abs(result.why.spreadPct - 3.5) < 1e-10)
 })
 
-test('the FX timestamp determines whether a converted quote is within 15 seconds', () => {
+test('the FX timestamp determines whether a converted quote is within 30 seconds', () => {
   const direct = market('A', 'coin', 'fiat:USD', 100, ['1', '2', '3'])
   const cross = market('B', 'coin', 'usdc', 101.2, ['4', '5'])
   const withFx = (age, prices) => aggregateAssets(assets, [
     direct, cross, market('C', 'usdc', 'fiat:USD', prices, ['1', '2'], 500, age),
   ], now).get('coin')
-  assert.equal(withFx(15_000, 1).trust, 'yellow')
-  const apart = withFx(15_001, 1)
+  assert.equal(withFx(30_000, 1).trust, 'yellow')
+  const apart = withFx(30_001, 1)
   assert.equal(apart.trust, 'green')
   assert.equal(apart.why.spreadPct, 0)
   // The FX market's own reporter spread still counts, even without an aligned venue pair.
-  const noisyFx = withFx(15_001, [0.994, 1.006])
+  const noisyFx = withFx(30_001, [0.994, 1.006])
   assert.equal(noisyFx.trust, 'yellow')
   assert.ok(Math.abs(noisyFx.why.spreadPct - 1.2) < 1e-10)
 })
