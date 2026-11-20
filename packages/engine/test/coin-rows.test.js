@@ -101,6 +101,25 @@ test('the markets list shows a coin once, ranked by its group cap and linked to 
   assert.equal(engine.asset(ethUsdt).rank, 2)
 })
 
+test('disagreeing references never become a conversion rate (DexScreener USDT $7.63 vs llama $0.999)', async t => {
+  const { engine, store, request, trade } = await tether(t)
+  // Like FDUSD on the owner's node: a stablecoin with its own reference that trades against USDT, and BTC quoted in it.
+  trade('USDC', 'USDT', 1, 1e6)
+  trade('BTC', 'USDC', 100_000, 1)
+  const reference = store.writer.prepare('INSERT OR REPLACE INTO engine_references VALUES (?,?,?,?)')
+  reference.run(ethUsdt, 'llama-prices', 0.99886, engine.clock())
+  reference.run(ethUsdt, 'dexscreener', 7.63, engine.clock())
+  engine.book.dirty = true
+  const usdt = await request('GET', '/assets/' + encodeURIComponent(ethUsdt))
+  assert.ok(Math.abs(usdt.price - 1) < 0.01, 'USDT ' + usdt.price)
+  const usdc = await request('GET', '/assets/' + encodeURIComponent(ethUsdc))
+  assert.ok(Math.abs(usdc.price - 1) < 0.01, 'USDC ' + usdc.price)
+  const bitcoin = await request('GET', '/assets/' + encodeURIComponent(btc))
+  assert.ok(Math.abs(bitcoin.price / 100_000 - 1) < 0.01, 'BTC ' + bitcoin.price)
+  assert.notEqual(bitcoin.trust, 'red')
+  assert.deepEqual(bitcoin.why.depegs, [])
+})
+
 test('paging counters cover the collapsed list and sorting keeps one row per coin', async t => {
   const { request } = await tether(t)
   const all = await request('GET', '/markets')

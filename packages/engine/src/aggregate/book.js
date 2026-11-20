@@ -7,6 +7,9 @@ import { zeroTickerBook, marketHalts } from '../sources/cex.js'
 import { marketUsdVolume, quoteRate } from './collisions.js'
 import { volumeSuspects } from './volume-guard.js'
 
+/** Largest spread between an asset's references that still makes one anchor (stablecoins: their 1% de-peg rule x2). */
+export const REFERENCE_AGREEMENT = Object.freeze({ stable: 0.02, other: 0.1 })
+
 const DAY = 86400_000
 // change24h from the node's hourly history must agree with the venues' own 24 h move within this factor. History
 // written while another listing set the price (INDEX at $0.0046 before Coinbase's $0.209; CTX at HTX's $0.54) would
@@ -396,9 +399,14 @@ export class MarketBook {
     }
     const anchors = new Map()
     for (const [asset, refs] of references) {
-      const price = weightedMedian(refs.map((r) => ({ value: r.price, weight: 1 })))
       const token = this.registry.assets.get(asset),
         at = Math.min(...refs.map((r) => r.at))
+      // References that disagree say nothing: their median is neither, and an anchor is a conversion rate for every
+      // market quoted in the asset (11-20: DexScreener USDT $7.63 vs llama $0.999 made USDT $4.31 and turned BTC red).
+      // The asset then resolves from its own markets like any other.
+      const low = Math.min(...refs.map((r) => r.price)), high = Math.max(...refs.map((r) => r.price))
+      if (high > low * (token?.stable ? 1 + REFERENCE_AGREEMENT.stable : 1 + REFERENCE_AGREEMENT.other)) continue
+      const price = weightedMedian(refs.map((r) => ({ value: r.price, weight: 1 })))
       anchors.set(asset, {
         asset,
         at,
