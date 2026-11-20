@@ -1,12 +1,12 @@
 {
   "name": "@gator/net",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "type": "module",
   "main": "src/index.js",
   "license": "MIT",
   "dependencies": {
-    "@gator/bundle": "0.1.3",
+    "@gator/bundle": "0.1.4",
     "b4a": "1.8.1",
     "blind-relay": "1.6.1",
     "compact-encoding": "2.18.0",
