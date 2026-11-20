@@ -85,7 +85,7 @@ export async function fetchSolana(options, page = 1, after = null) {
   recordSolanaPools(options, solanaPools(source, json))
   const cursor = json?.meta?.cursor?.next
   const listed = source.id === 'raydium' ? json?.data?.data : json?.data
-  return { more: listed?.length >= 100, cursor: typeof cursor === 'string' && cursor.length <= 512 ? cursor : null }
+  return { count: listed?.length ?? 0, cursor: typeof cursor === 'string' && cursor.length <= 512 ? cursor : null }
 }
 
 export function recordSolanaPools({ source, registry, publish, discover, clock, chain, fromHint = false }, pools) {

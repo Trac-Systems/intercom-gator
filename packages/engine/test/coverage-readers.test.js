@@ -361,3 +361,19 @@ test('an expired in-memory hint can be recovered from stored announcements throu
   assert.equal(engine.registry.markets.has(id(own)), false)
   assert.equal(job.ready(), false)
 })
+
+test('a signer outside the Orca cursor stream spends its discovery turn on a registered pool', async t => {
+  const { engine } = node(t, 3, 7), reader = engine.solanaReaders.get('orca')
+  assert.equal(engine.dexCoverage.members().priority('directory:orca:cursor'), null)
+  const pool = 'S'.repeat(32), token0 = 'A'.repeat(32), token1 = 'B'.repeat(32)
+  engine.registry.pool({ chain: 'solana', pool, token0, token1, kind: 'pool', dex: 'orca', firstSeen: start })
+  let lists = 0, exact = 0
+  reader.options.http = {
+    get: async () => { lists++; return { data: [], meta: { cursor: { next: 'cursor' } } } },
+    getPublic: async url => { exact++; assert.ok(url.endsWith('/' + pool)); return { data: null } },
+  }
+  await reader.run()
+  await reader.run()
+  assert.equal(lists, 1)
+  assert.equal(exact, 1)
+})

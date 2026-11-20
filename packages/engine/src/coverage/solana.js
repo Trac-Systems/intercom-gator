@@ -61,24 +61,35 @@ export class SolanaCoverage {
 
   async collect(roster, saved, turn) {
     const { source, chain } = this.options, { profile, dexCoverage } = this.engine
-    if (turn % 4 >= 2) {
+    const discover = turn % 4 === 1
+    if (discover && source.url.includes('{page}')) {
+      // A short page establishes an upper bound. Let nodes without a page inside it spend
+      // their next discovery turn on known pools. Recheck the bound as the directory grows.
+      let page = saved.page ?? 2
+      const ceiling = saved.until > this.engine.clock() ? saved.last : Infinity
+      const end = Math.min(ceiling, page + 63)
+      while (page <= end && roster.priority('directory:' + source.id + ':' + page) === null) page++
+      if (page <= end) {
+        const { count } = await fetchSolana(this.options, page)
+        if (count < 100) {
+          saved.last = count ? page : page - 1
+          saved.until = this.engine.clock() + 30 * 60_000
+        }
+        saved.page = count === 100 ? page + 1 : 2
+        return
+      }
+      saved.page = page > ceiling ? 2 : page
+    }
+    // Only the owners of the Orca cursor stream walk its opaque cursor chain. Other signers
+    // use that turn for their pool IDs. Everyone still reads the shared first page.
+    const walkCursor = discover && source.id === 'orca' && roster.priority('directory:orca:cursor') !== null
+    if (turn % 4 !== 0 && !walkCursor) {
       const limit = source.id === 'raydium' ? BATCH[profile] : 1
       const read = await dexCoverage.readPage(chain, source.id, p => p.dex === source.id, limit,
         rows => readSolanaPools(this.options, rows))
       if (read) return
     }
-    if (turn % 4 === 1 && source.id !== 'orca' && source.url.includes('{page}')) {
-      // Skip unassigned discovery pages as well as spreading exact reads once a market is known.
-      let page = saved.page ?? 2
-      const end = page + 64
-      while (page < end && roster.priority('directory:' + source.id + ':' + page) === null) page++
-      const result = await fetchSolana(this.options, page)
-      saved.page = result.more ? page + 1 : 2
-    } else {
-      // Orca's opaque cursor is relative to the preceding page. Keep it across shared page-one reads.
-      const after = source.id === 'orca' && turn % 4 === 1 ? saved.cursor : null
-      const result = await fetchSolana(this.options, 1, after)
-      if (after || !saved.cursor) saved.cursor = result.cursor
-    }
+    const result = await fetchSolana(this.options, 1, walkCursor ? saved.cursor : null)
+    if (walkCursor || !saved.cursor) saved.cursor = result.cursor
   }
 }
