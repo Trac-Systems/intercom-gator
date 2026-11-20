@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fitBudget } from '../src/prune.js';
+import { PROFILE_LIMITS } from '../src/profile.js';
 import { fixture } from './fixture.js';
 
 const minute = 60_000, day = 24 * 60 * minute;
@@ -47,28 +48,29 @@ test('retention windows preserve boundary buckets, daily history and official po
   assert.equal(s.insertObservations([observation(99 * day - 1)]), 0);
 });
 
-test('small retains top 100 histories by views plus watched and held assets; other snapshots survive', t => {
+test('small retains its top kept-asset histories by views plus watched and held assets; other snapshots survive', t => {
   const s = fixture(t);
+  const K = PROFILE_LIMITS.small.keptAssets;
   s.transaction(() => {
-    for (let rank = 1; rank <= 104; rank++) {
+    for (let rank = 1; rank <= K + 4; rank++) {
       const id = 'test:' + rank;
       register(s, id, rank);
       s.upsertPrice({ asset: id, price: '3', at: 1 });
       s.writer.prepare("INSERT INTO candles VALUES (?, '1d',0,'1','1','1','1',1,0,1,0,1)").run(id);
     }
-    s.recordView('test:104');
-    s.watch('test:103');
-    s.setHolding({ asset: 'test:102', amount: '1' });
-    s.setHolding({ asset: 'test:101', amount: '1' });
-    s.setHolding({ asset: 'test:101', amount: '0' });
+    s.recordView('test:' + (K + 4));
+    s.watch('test:' + (K + 3));
+    s.setHolding({ asset: 'test:' + (K + 2), amount: '1' });
+    s.setHolding({ asset: 'test:' + (K + 1), amount: '1' });
+    s.setHolding({ asset: 'test:' + (K + 1), amount: '0' });
   });
   assert.equal(s.prune({ now: day, profile: 'normal' }).candles, 0);
   assert.equal(s.prune({ now: day, profile: 'small' }).candles, 2);
   const hasDaily = rank => s.candles({ asset: 'test:' + rank, tf: '1d' }).length;
-  assert.deepEqual([99,100,101,102,103,104].map(hasDaily), [1,0,0,1,1,1]);
-  assert.equal(s.getPrice('test:100').price, '3');
-  assert.equal(s.getAsset('test:101').rank, 101);
-  s.unwatch('test:103');
+  assert.deepEqual([K - 1, K, K + 1, K + 2, K + 3, K + 4].map(hasDaily), [1,0,0,1,1,1]);
+  assert.equal(s.getPrice('test:' + K).price, '3');
+  assert.equal(s.getAsset('test:' + (K + 1)).rank, K + 1);
+  s.unwatch('test:' + (K + 3));
   assert.equal(s.prune({ now: day }).candles, 1);
 });
 

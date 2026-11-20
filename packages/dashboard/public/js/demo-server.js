@@ -7,9 +7,9 @@ import { tickers as textTickers, isKey, addressKind, validHandle, validUrl } fro
 import { h32 } from './lib/keyprint.js';
 
 export const PROFILES = Object.freeze({
-  small: { budgetPerMin: 60, storageCapMB: 250, follows: 100 },
-  normal: { budgetPerMin: 240, storageCapMB: 1024, follows: 300 },
-  large: { budgetPerMin: 900, storageCapMB: 4096, follows: 500 },
+  small: { budgetPerMin: 60, storageCapMB: 1500, follows: 100 },
+  normal: { budgetPerMin: 240, storageCapMB: 4000, follows: 300 },
+  large: { budgetPerMin: 900, storageCapMB: 10240, follows: 500 },
 });
 const ORDER = ['small', 'normal', 'large'];
 

@@ -261,7 +261,7 @@ export function buildSample(now = Date.now()) {
 
   const network = {
     harnessesOnline: 1284, harnessesSeen24h: 3940, agents24h: 4212,
-    myReportsPerHour: 1240, myBudgetUsed: 0.62, storageUsedMB: 186, storageCapMB: 1024,
+    myReportsPerHour: 1240, myBudgetUsed: 0.62, storageUsedMB: 186, storageCapMB: 4000,
     coverage: { underCovered: 412, items: 18300 },
     lastUpdate: now - 2000, peers: 37,
   };
@@ -279,7 +279,7 @@ export function buildSample(now = Date.now()) {
     ],
     bundle: { version: '2026.11.18', endpoints: 1240, healthy: 1181, patch: 7, verified: true },
     profile: 'normal', profileDetected: 'normal',
-    budgetPerMin: 240, storageCapMB: 1024,
+    budgetPerMin: 240, storageCapMB: 4000,
     agent: { agentPosting: false, agentReplies: false, agentFollow: false, filesHourly: true },
     officialMutes: true,
     theme: 'system',
