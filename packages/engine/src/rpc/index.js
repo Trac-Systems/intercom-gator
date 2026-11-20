@@ -192,7 +192,7 @@ export class RpcClient {
         if (!available.length)
           throw new RateLimited(Math.min(...endpoints.map(availableAt)))
         const bucket = available[0].bucket
-        bucket.take(this.budget, cost)
+        bucket.take(this.budget, cost, wait && !idleOnly)
         // A lightly provisioned public endpoint can be much tighter than the profile budget.
         if (idleOnly) bucket.nextIdle = now + 4 * (bucket.next - now)
         return available[0]

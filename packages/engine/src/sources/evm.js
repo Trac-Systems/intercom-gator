@@ -7,10 +7,24 @@ import { logWindow } from './bundle-adapter.js'
 import { RateLimited } from '../scheduler/index.js'
 
 // One address/ID chunk per trade job. Reserve queue capacity for factory discoveries.
+// seed: probes per seed page (one Multicall3 eth_call per 128 lookups, so a page costs the same RPCs at any size);
+// hot: tokens (by seed value) whose pairs form the plan's priority prefix, probed every hotInterval instead of every
+// period. 24 probes per 300 s on small needed ~61 h for Polygon's 17,542 probes and ~2.3 h on large (11-20).
 const LIMITS = {
-  small: { tracked: 32, chunk: 8, seed: 24, tokens: 100, blocks: 2, period: 300_000 },
-  normal: { tracked: 128, chunk: 16, seed: 64, tokens: 300, blocks: 4, period: 90_000 },
-  large: { tracked: 256, chunk: 32, seed: 96, tokens: 300, blocks: 8, period: 45_000 },
+  small: { tracked: 32, chunk: 8, seed: 256, hot: 25, hotInterval: 60_000, deepInterval: 120_000, tokens: 100, blocks: 2, period: 300_000 },
+  normal: { tracked: 128, chunk: 16, seed: 256, hot: 40, hotInterval: 10_000, deepInterval: 60_000, tokens: 300, blocks: 4, period: 90_000 },
+  large: { tracked: 256, chunk: 32, seed: 256, hot: 60, hotInterval: 5_000, deepInterval: 30_000, tokens: 300, blocks: 8, period: 45_000 },
+}
+// Pools per state refresh: one Multicall3 eth_call carries up to 128 reads (4 per concentrated pool).
+const REFRESH_POOLS = 32
+// Hot seed pages of all chains together may spend this share of the profile's minute budget.
+export const SEED_SHARE = 0.25
+const seedSpend = new WeakMap()
+function recentSeedSpend(rpc, now) {
+  const log = seedSpend.get(rpc) ?? []
+  while (log.length && log[0] <= now - 60_000) log.shift()
+  seedSpend.set(rpc, log)
+  return log
 }
 const USD_QUOTE = /^(?:USDC(?:\.E)?|USDBC|USDT0?|USD₮0|DAI|USDG|USDB|BUSD|CUSD)$/i
 const DAY = 86400_000
@@ -36,6 +50,26 @@ export function variants(d) {
   }
 }
 
+/** Seed order of signed assets: the asset's own rank, else the best rank among signed assets of its coin group or
+ * ticker (a W-prefixed wrapper also takes its unwrapped ticker's). A chain deployment such as Polygon WBTC has no
+ * price, so no rank, until its first pool is found; sorted by address it waited behind ~180 tokens (11-20). */
+export function seedValue(registry) {
+  const best = new Map()
+  const note = (key, rank) => { if (rank > 0 && !(best.get(key) <= rank)) best.set(key, rank) }
+  for (const a of registry.catalog.assets) {
+    const rank = registry.assets.get(a.id)?.rank ?? a.rank
+    if (!(rank > 0)) continue
+    note('s:' + a.symbol?.toUpperCase(), rank)
+    if (a.coin) note('c:' + a.coin, rank)
+  }
+  return (a) => {
+    const symbol = a.symbol?.toUpperCase() ?? ''
+    return Math.min(a.rank > 0 ? a.rank : Infinity, (a.coin && best.get('c:' + a.coin)) || Infinity,
+      best.get('s:' + symbol) ?? Infinity,
+      symbol.length > 2 && symbol[0] === 'W' ? best.get('s:' + symbol.slice(1)) ?? Infinity : Infinity)
+  }
+}
+
 /** Plan currency pairs and deployment methods separately so each job builds only one page of calldata. */
 export function seedPlan(source) {
   const { chain, registry } = source
@@ -50,10 +84,12 @@ export function seedPlan(source) {
   }
   const quotes = [...source.quotes.values()]
     .sort((a, b) => quoteOrder(a) - quoteOrder(b) || a.address.localeCompare(b.address)).map(q => q.address)
+  const value = seedValue(registry)
   const assets = registry.catalog.assets.filter(a => a.id.startsWith(chain.id + ':') && address(a.address))
     .map(a => registry.assets.get(a.id) ?? a)
     .filter(a => !a.rank || a.rank <= max)
-    .sort((a,b) => (a.rank ?? Infinity) - (b.rank ?? Infinity) || a.address.localeCompare(b.address))
+    .map(a => ({ a, v: value(a) }))
+    .sort((x, y) => x.v - y.v || x.a.address.localeCompare(y.a.address)).map(x => x.a)
   // Signed coin-group deployments are probed regardless of the rank cutoff: one may be its coin's only on-chain
   // market (TAP on Ethereum beside the CEX-only TAP Protocol native) and cannot earn a rank without a price.
   const members = registry.catalog.assets.filter(a => a.coin && a.id.startsWith(chain.id + ':') && address(a.address))
@@ -63,16 +99,28 @@ export function seedPlan(source) {
   const pairs = new Map()
   const nativePairs = chain.deployments.some(d => d.kind === 'v4') && native
   const counterparts = nativePairs ? [...quotes, ZERO] : quotes
-  for (const a of currencies) {
+  // The quotes and the most valuable tokens come first; their pairs form the priority prefix.
+  const hotCurrencies = quotes.length + (source.limits.hot ?? 0)
+  let hotPairs = 0
+  for (const [i, a] of currencies.entries()) {
     for (const b of counterparts) {
       if (a === b) continue
       const pair = [a, b].sort()
       pairs.set(pair.join(':'), pair)
     }
+    if (i < hotCurrencies) hotPairs = pairs.size
   }
   const methods = chain.deployments.flatMap(d => variants(d).map(args => ({ d, args })))
   const ordered = [...pairs.values()]
-  return { pairs: roster?.split ? roster.seedPairs(chain.id, ordered, source.clock()) : ordered, methods }
+  const ranked = assets.filter(a => value(a) < Infinity).length
+  if (!roster?.split) return { pairs: ordered, methods, hot: hotPairs * methods.length, ranked }
+  // Split (DESIGN 5.3): this node's assigned pairs, the shared first pair and a repair sample. The priority-prefix
+  // pairs among them stay first, so value-ordered hot seeding also applies to the node's slice.
+  const hotKeys = new Set(ordered.slice(0, hotPairs).map(p => p.join(':')))
+  const mine = roster.seedPairs(chain.id, ordered, source.clock())
+  const first = mine.filter(p => hotKeys.has(p.join(':')))
+  return { pairs: first.concat(mine.filter(p => !hotKeys.has(p.join(':')))), methods, hot: first.length * methods.length,
+    ranked }
 }
 
 export function probe(pair, method) {
@@ -186,9 +234,15 @@ export class EvmSource {
     this.expireSeed = db.prepare('DELETE FROM engine_seed_attempts WHERE chain=? AND retryAt<=?')
     this.assetPrice = db.prepare('SELECT priceReal,trust FROM prices WHERE asset=? AND at>=? AND priceReal>0')
     this.saveDepth = db.prepare('UPDATE pools SET liquidity=? WHERE chain=? AND pool=?')
+    this.deepest = db.prepare(`SELECT p.*,k.spacing,k.stable FROM pools p JOIN engine_market_data d
+      ON d.market='dex:'||p.chain||':'||p.pool LEFT JOIN engine_pool_parameters k USING(chain,pool)
+      WHERE p.chain=? AND d.fromHint=0 AND p.kind IN ('v2','v3','v4','pancake-v3','slipstream','velodrome-v2','solidly-v1')
+      AND p.liquidity>=? ORDER BY p.liquidity DESC,p.pool LIMIT ?`)
     this.refreshAt = 0
-    this.decodeNext = false
     this.nextPool = 0
+    this.nextDeep = 0
+    this.deepAt = 0
+    this.seedHot = true
     this.adoptQueue()
   }
   adoptQueue() {
@@ -327,6 +381,8 @@ export class EvmSource {
     const tracked = this.coverage?.trades(this) ?? this.tracked.all(this.clock() - DAY, this.clock() - MARKET_POLICY.maxPriceAge, chain, this.limits.tracked)
     // Keep priority order among equally overdue pools, and visit the least recently polled group first.
     tracked.sort((a, b) => (a.polled ?? -1) - (b.polled ?? -1))
+    // A tracked pool without any swap scan leaves its token without 24 h turnover, which hides it as dust.
+    this.tradesBacklog = tracked.length > this.tradeChunk && tracked.some(p => p.polled == null)
     const group = [], topics = new Set()
     let emitter
     for (const p of tracked) {
@@ -581,17 +637,22 @@ export class EvmSource {
     return !!query.get(this.chain.id)
   }
   stateReady() {
-    return !!this.pending.get(this.chain.id) || (this.refreshAt <= this.clock() && this.hasPools())
+    const now = this.clock()
+    return !!this.pending.get(this.chain.id) ||
+      ((this.refreshAt <= now || (this.chain.multicall && this.deepAt <= now)) && this.hasPools())
   }
   async scheduledState() {
-    const pending = this.pending.get(this.chain.id)
-    // A busy scheduler may revisit this chain less often than its refresh period. Give
-    // queued swaps and creations a turn even if the state page is always overdue.
-    if (!pending || (!this.decodeNext && this.coverage?.members().split && this.refreshAt <= this.clock())) {
-      this.decodeNext = true
-      return this.refreshState()
+    // A chain with a constant stream of launchpad creations always had queued logs, so its pools were never
+    // refreshed (robinhood: 1,236 stored pools, no live token, 11-20). The refresh is one call per period and runs
+    // before decoding, so an always-overdue state page and queued swaps both get their turn.
+    if (!this.pending.get(this.chain.id)) return this.refreshState()
+    try {
+      await this.refreshState()
+    } catch (error) {
+      // A failing refresh must not hold up decoding; it waits a period before the next attempt.
+      if (error instanceof RateLimited) throw error
+      this.refreshAt = this.clock() + this.limits.period
     }
-    this.decodeNext = false
     for (let i = 0; i < this.limits.blocks; i++) {
       await this.state()
       if (!this.pending.get(this.chain.id)) break
@@ -782,14 +843,39 @@ export class EvmSource {
     }
     return this.seedWake <= this.clock()
   }
+  /** Trades job pacing: at hotInterval while tracked pools have never been scanned for swaps, else per period. */
+  tradesDelay() {
+    return this.tradesBacklog && this.limits.hotInterval ? Math.max(15_000, this.limits.hotInterval) : this.limits.period
+  }
+  /** Seed job pacing: the priority prefix (quotes and the most valuable tokens) runs at hotInterval while all
+   * chains' seed pages spent less than SEED_SHARE of the profile minute budget; otherwise, and after the prefix,
+   * once per period. A busy node (the owner's: 570 of 900 per minute) still gets its share. */
+  seedDelay() {
+    if (!this.seedHot || !this.limits.hotInterval) return this.limits.period
+    const limit = this.rpc?.budget?.limit
+    if (!limit || !this.rpc) return this.limits.hotInterval
+    const now = this.clock(), log = recentSeedSpend(this.rpc, now), share = Math.max(1, Math.floor(limit * SEED_SHARE))
+    if (log.length < share) return this.limits.hotInterval
+    // Over the share: wait until it frees (a whole period stalled every chain's seeder at once).
+    return Math.min(this.limits.period, Math.max(this.limits.hotInterval, log[log.length - share] + 60_000 - now))
+  }
   nextProbes() {
     this.seedReady()
-    this.plan ??= seedPlan(this)
+    const now = this.clock()
+    let restart = false
+    // Ranks arrive with the first CEX prices, after a fresh node built its plan in address order. Rebuild once more
+    // tokens can be valued and start over: answered probes are memoized, so the walk costs no requests.
+    if (this.plan && now - this.plan.at >= 60_000 && this.seedHot) {
+      const fresh = seedPlan(this)
+      if (fresh.ranked > this.plan.ranked) { this.plan = { ...fresh, at: now }; restart = true }
+      else this.plan.at = now
+    }
+    this.plan ??= { ...seedPlan(this), at: now }
     const { pairs, methods } = this.plan
     const total = pairs.length * methods.length
     const saved = this.store.getSetting(this.seedCursor) ?? {}
-    let pos = (saved.layout ?? 'solo') === this.planVersion && saved.next < total ? saved.next : 0
-    const batch = [], now = this.clock(), limit = this.chain.multicall ? this.limits.seed : 1
+    let pos = !restart && (saved.layout ?? 'solo') === this.planVersion && saved.next < total ? saved.next : 0
+    const batch = [], limit = this.chain.multicall ? this.limits.seed : 1
     // Keep CPU/SQLite work bounded too, including when a rank change leaves a cached page in front of us.
     let visited = 0
     if (!total) this.seedWake = Infinity
@@ -799,6 +885,7 @@ export class EvmSource {
       const p = probe(pair, method)
       if (p && !(this.seedMemo.get(this.chain.id, p.key)?.retryAt > now)) batch.push(p)
     }
+    this.seedHot = pos < this.plan.hot
     return { batch, next: pos % total, end: pos === total, layout: this.planVersion }
   }
   /** Resolve deterministic factory/manager probes at one block and read the found pools' state.
@@ -839,6 +926,7 @@ export class EvmSource {
         const out = []
         for (let i = 0; i < calls.length; i += 128) {
           const chunk = calls.slice(i, i + 128)
+          if (!work.cache.has(JSON.stringify(chunk))) recentSeedSpend(this.rpc, this.clock()).push(this.clock())
           try {
             out.push(...await readOnce(work.cache, JSON.stringify(chunk), () => multiRead(this.rpc, this.chain, chunk, hex(tip))))
           } catch (error) {
@@ -881,21 +969,43 @@ export class EvmSource {
     })
     this.seedWork = null
   }
+  /** One multicall per period: half the deepest funded pools (the tracked-set size, in rotation), half the
+   * address-ordered rotation of all pools. Address order alone took 40 min on large (and hours on normal and
+   * small) to revisit BSC's 1,701 pools, so its main pools went stale between visits (11-20). */
   async refreshState() {
-    if (this.refreshAt > this.clock()) return
-    const limit = this.chain.multicall ? this.limits.chunk : 1
+    const now = this.clock(), chain = this.chain.id
+    const limit = this.chain.multicall ? REFRESH_POOLS : 1
+    // The 16 deepest funded pools are also read every deepInterval: a top asset's market goes stale after three
+    // one-minute windows, and BSC's $31.7M USDT/USDC pool was read once in 17 min (normal run, 11-20).
+    const fixed = this.chain.multicall && this.deepAt <= now
+      ? this.deepest.all(chain, MARKET_POLICY.minPoolLiquidityUsd, limit / 2) : []
+    if (fixed.length || this.deepAt <= now) this.deepAt = now + (this.limits.deepInterval ?? this.limits.period)
+    if (this.refreshAt > now) {
+      if (fixed.length) await this.readPoolState(fixed, this.rpc)
+      return
+    }
     if (this.coverage?.members().split) {
+      // Split: the deepest funded pools keep every node's cadence (like the shared core); the page is the slice.
+      if (fixed.length) await this.readPoolState(fixed, this.rpc)
       await this.coverage.state(this, limit)
       this.refreshAt = this.clock() + this.limits.period
       return
     }
-    const pools = this.store.reader.prepare(`SELECT p.*,k.spacing,k.stable FROM pools p JOIN engine_market_data d
+    const deep = this.chain.multicall
+      ? this.deepest.all(chain, MARKET_POLICY.minPoolLiquidityUsd, this.limits.tracked) : []
+    if (this.nextDeep >= deep.length) this.nextDeep = 0
+    const rotating = deep.slice(this.nextDeep, this.nextDeep + limit / 2)
+    this.nextDeep += rotating.length
+    const picked = fixed.length ? fixed : rotating
+    const chosen = new Set(picked.map(p => p.pool))
+    const rest = this.store.reader.prepare(`SELECT p.*,k.spacing,k.stable FROM pools p JOIN engine_market_data d
       ON d.market='dex:'||p.chain||':'||p.pool LEFT JOIN engine_pool_parameters k USING(chain,pool)
       WHERE p.chain=? AND d.fromHint=0 AND p.kind IN
       ('v2','v3','v4','pancake-v3','slipstream','velodrome-v2','solidly-v1') ORDER BY p.pool LIMIT ? OFFSET ?`)
-      .all(this.chain.id, limit, this.nextPool)
+      .all(chain, limit - picked.length, this.nextPool)
+    const pools = [...picked, ...rest.filter(p => !chosen.has(p.pool))]
     if (pools.length) await this.readPoolState(pools, this.rpc)
-    this.nextPool = pools.length < limit ? 0 : this.nextPool + pools.length
+    this.nextPool = rest.length < limit - picked.length ? 0 : this.nextPool + rest.length
     this.refreshAt = this.clock() + this.limits.period
   }
   async spotCheck(market, rpc, reads = new Map()) {
