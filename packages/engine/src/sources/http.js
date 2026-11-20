@@ -12,7 +12,7 @@ export class HttpSources {
   }
   // Mirrors wrap get(). Peer-triggered work uses the original signed bundle URL. `timeout` (ms) can only shorten
   // the configured one (venue history uses a hard cap).
-  async getPublic(url, rpm, cost = 1, body = null, timeout) {
+  async getPublic(url, rpm, cost = 1, body = null, timeout, onHeaders) {
     const origin = new URL(url).origin
     let bucket = this.hosts.get(origin)
     if (!bucket) this.hosts.set(origin, (bucket = new EndpointBucket(rpm, this.clock)))
@@ -28,7 +28,7 @@ export class HttpSources {
     const limit = Math.min(...[this.timeout, timeout].filter((n) => Number.isFinite(n) && n > 0).map(Math.ceil))
     const started = this.clock()
     try {
-      const result = await fetchJson(this.fetch, url, init, { timeout: Number.isFinite(limit) ? limit : undefined })
+      const result = await fetchJson(this.fetch, url, init, { timeout: Number.isFinite(limit) ? limit : undefined, onHeaders })
       this.record?.({ origin, ok: true, latency: this.clock() - started, at: started })
       return result
     } catch (error) {

@@ -1,0 +1,41 @@
+{
+  "pool": "0x925660b8618394809f89f8002e2926600c775221f43bf1919782b297a79400d8",
+  "accountTransaction": {
+    "transaction_version": 8132618447,
+    "user_transaction": {
+      "timestamp": "2026-11-20T01:23:45.585382"
+    }
+  },
+  "tx": {
+    "type": "user_transaction",
+    "success": true,
+    "hash": "0x1011147ef099f24d82aad3df89ac31dfceac55ea09ba19e3084e9359b6d1e1a3",
+    "timestamp": "1795137825585382",
+    "version": "8132618447",
+    "events": [
+      {
+        "type": "0x8b4a2c4bb53857c718a04c020b98f8c2e1f99a68b0f57389a8bf5434cd22e05c::pool_v3::SwapEventV3",
+        "data": {
+          "active_liquidity": "1122883858344",
+          "amount_in": "283511",
+          "amount_out": "69631960",
+          "current_tick": {
+            "bits": 4294912251
+          },
+          "fee_amount": "142",
+          "from_token": {
+            "inner": "0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b"
+          },
+          "pool_id": "0x925660b8618394809f89f8002e2926600c775221f43bf1919782b297a79400d8",
+          "pool_reserve_a": "15514730658268",
+          "pool_reserve_b": "13140206960",
+          "protocol_fee_amount": "28",
+          "sqrt_price": "1176830440245314691",
+          "to_token": {
+            "inner": "0xa"
+          }
+        }
+      }
+    ]
+  }
+}
