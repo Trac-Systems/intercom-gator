@@ -226,8 +226,10 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
 - Price references (`api:llama-prices`, one request per 30 s): 32 assets of the rotation (stables first), the 8 top
   assets without a market of their own, and 24 of the best 192 assets without an own or proven price by seed value
   (own rank, else coin/ticker rank: chain deployments such as Polygon WBTC), rotating, so each is re-read every
-  ~4 min. A reference anchors a price for one measured rotation plus 10 min (a provider timestamp may lag that much
-  on arrival), at least 10 min and at most 1 h. With 10 min against a ~23 min rotation, reference-only rows flipped
+  ~4 min. The job takes a price-scanner turn when due (weight 24): as a job without markets it waited behind ~1,000
+  maintenance jobs (one run in 22 min on a fresh normal node). A reference anchors a price for one rotation at the
+  observed cadence (batches × average gap between runs) plus 10 min (a provider timestamp may lag that much on
+  arrival), at least 10 min and at most 1 h. With 10 min against a ~23 min rotation, reference-only rows flipped
   live/stale, and a chain whose USD quote was reference-only (BSC USDT, Base/Optimism USDC) lost every DEX price
   when that reference lapsed.
 - History import (`history:seed`): top 30/100/300 assets by profile get 8 days of 1 h bars from the asset's main
@@ -235,7 +237,7 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   is skipped for non-stable assets. Local bars from the aggregated price always win.
 - Choice: candidates below target weighted by relevance × gap × random(0.5–1.5); ~10% exploration (rarely covered
   exchanges/chains, spot checks of popular items); one turn in eight (small: four, it ticks once a second) goes to the ready price scanner
-  (`evm:<chain>:seed`, `:state`, `:trades`) with the largest waiting time (capped at 1 h) × weight, weight =
+  (`evm:<chain>:seed`, `:state`, `:trades`, and the general price reference) with the largest waiting time (capped at 1 h) × weight, weight =
   1 + log2(1 + signed tokens on the chain), doubled for a seeder in its priority prefix. Budget per profile; after a price scanner is refused by the budget,
   other jobs may use at most 75% of it for one minute (the scanners' reserve); per-endpoint token buckets at ≤ 50% of the
   bundle's documented limit, else of a code default for keyless public gateways (publicnode, dRPC, Pocket 120/min,
