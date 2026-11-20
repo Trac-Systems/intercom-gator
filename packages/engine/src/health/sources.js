@@ -175,6 +175,13 @@ export function sourcesReport(engine) {
       { lagBlocks, lagSeconds, lastGap: gaps(chain), lastOk, failures,
         state: sourceState({ ...sum, lastSuccess: lastOk ?? sum.lastSuccess }, { failures, lagSeconds, now, enabled: ids.some(allowed) }) }))
   }
+  const tron = engine.tron?.client.endpoint
+  if (tron && allowed('tron:sunswap')) {
+    const sum = httpSum(tron.url), info = jobInfo(jobs.get('tron:sunswap'), now)
+    used.add(origin(tron.url))
+    scanners.push(item({ id: 'tron:sunswap', kind: 'tron-scanner', name: 'SunSwap', chain: 'tron', host: host(tron.url) },
+      sum, { ...info, state: sourceState(sum, { failures: info.failures, now }) }))
+  }
   for (const [id, job] of jobs) {
     if (!id.startsWith('sol:')) continue
     const api = engine.catalog.apis.find((a) => a.id === id.slice(4))

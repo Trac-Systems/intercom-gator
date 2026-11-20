@@ -373,4 +373,15 @@ export const migrations = [
       CREATE INDEX engine_announced_pools_due ON engine_announced_pools(checkAt,chain);`)
     },
   },
+  {
+    id: 'engine-tron-pools-v1',
+    up(db) {
+      db.exec(`CREATE TABLE engine_tron_candidates (
+        pool TEXT PRIMARY KEY, dex TEXT NOT NULL, kind TEXT NOT NULL, token0 TEXT NOT NULL, token1 TEXT NOT NULL,
+        fee INTEGER NOT NULL, block INTEGER, tx TEXT, firstSeen INTEGER NOT NULL, due INTEGER NOT NULL,
+        funded INTEGER NOT NULL DEFAULT 0, fromHint INTEGER NOT NULL DEFAULT 0
+      ) STRICT, WITHOUT ROWID;
+      CREATE INDEX engine_tron_due ON engine_tron_candidates(due,pool);`)
+    },
+  },
 ]

@@ -140,12 +140,12 @@ export function engineData(engine) {
     isMuted: key => engine.book.muted(key),
     isProven: key => engine.book.isProven(key),
     isFollowed: key => engine.book.followed(key),
-    isKnownAsset: id => quoted.has(id) || id.endsWith(':native'),
+    isKnownAsset: id => quoted.has(id) || id.endsWith(':native') || (id.startsWith('tron:') && registry.seedIds.has(id)),
     resolveAssets(m) {
       const market = m.t === 'pool' ? 'dex:' + m.chain + ':' + (isAddress(m.pool) ? m.pool.toLowerCase() : m.pool)
         : 'cex:' + m.exchange + ':' + m.symbol;
       const known = registry.markets.get(market);
-      return known ? [known.base] : undefined;
+      return known ? [known.base] : m.chain === 'tron' ? [] : undefined;
     },
     resolveSymbol(sym) {
       const ids = registry.symbols.get(sym);

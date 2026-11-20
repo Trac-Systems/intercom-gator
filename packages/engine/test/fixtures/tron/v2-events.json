@@ -1,0 +1,54 @@
+{
+  "success": true,
+  "data": [
+    {
+      "contract_address": "TKWJdrQkqHisa1X8HUdHEfREvTzw4pMAaY",
+      "event_name": "PairCreated",
+      "event_index": 0,
+      "event": "PairCreated(address indexed token0, address indexed token1, address pair, uint256 )",
+      "block_number": 88153112,
+      "block_timestamp": 1795133421000,
+      "transaction_id": "f33dcbd1740f01396cb064241c89616a492eff20a84419d3a4fa16b454b50ce2",
+      "result": {
+        "0": "0x6f411f936e10847c1ea4c72845d486f9f9d0a799",
+        "1": "0xa614f803b6fd780986a42c78ec9c7f77e6ded13c",
+        "2": "0x163ab2a5aa9cfcab43b579aa9202c9a56a6e2b92",
+        "3": "5400"
+      }
+    },
+    {
+      "contract_address": "TKWJdrQkqHisa1X8HUdHEfREvTzw4pMAaY",
+      "event_name": "PairCreated",
+      "event_index": 0,
+      "event": "PairCreated(address indexed token0, address indexed token1, address pair, uint256 )",
+      "block_number": 88126142,
+      "block_timestamp": 1795052487000,
+      "transaction_id": "b4f51f3bf42ad9ec61fc46041122231280d6cd2a8f12f64ee34873150ded33f1",
+      "result": {
+        "0": "0xea09611b57e89d67fbb33a516eb90508ca95a3e5",
+        "1": "0xfe4c2f9ca52583dd9a2e4864aa97cc711250ad81",
+        "2": "0xb70b6c80aafd8a1ac24ad58f59bcf93ca0384660",
+        "3": "5399"
+      }
+    },
+    {
+      "contract_address": "TKWJdrQkqHisa1X8HUdHEfREvTzw4pMAaY",
+      "event_name": "PairCreated",
+      "event_index": 0,
+      "event": "PairCreated(address indexed token0, address indexed token1, address pair, uint256 )",
+      "block_number": 88126071,
+      "block_timestamp": 1795052274000,
+      "transaction_id": "8b332b05623d291fb6cc2f4cc24e20be2e7d6d92ebb0aef7c87869d3d3315843",
+      "result": {
+        "0": "0xe8b1c87cf0a74cb00c177191b627c818a7c84a3a",
+        "1": "0xea09611b57e89d67fbb33a516eb90508ca95a3e5",
+        "2": "0xd640eb4b24c82d8e29ee3075759a7bb25d233be2",
+        "3": "5398"
+      }
+    }
+  ],
+  "meta": {
+    "page_size": 3,
+    "fingerprint": "Aqfmm2xLiF2dm1qcYBDR8X3VkSZrDPA859Xd3iSba8tsr2W9paskgsEoiHy5iGNqUkEYjyz6YE8keXQa1N5HWmaTvoTrr9DNdkkiMxcU3rCdio3JsVijYwC1mnP1TWiyXtT6XW8T7uqWfbuB9Ev3M4M275GKgEcJj557F4t1AztSLewBHpdUor1jf2Z6uhSQWUc2f7RVcdH7WSyw4uyH4p2Bh56GMptq1HotV9sZt8ZypSE"
+  }
+}

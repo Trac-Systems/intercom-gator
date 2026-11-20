@@ -101,7 +101,15 @@ export function createIntel(options) {
       case 'placement':
         if (!placements || !validMessage(channel, envelope, 'gator/new', 'placement') || envelope.ts > now()) return false;
         return placements.receive(envelope.message, envelope.from);
-      case 'pool': case 'listing': return newTokens.consume(channel, envelope);
+      case 'pool': {
+        const m = envelope.message;
+        if (m.chain === 'tron') {
+          const local = typeof m.pool === 'string' && m.pool.length === 34 && options.engine?.tron?.pool.get(m.pool);
+          if (!local?.tx || ['tx','block','token0','token1','dex','kind'].some(k => local[k] !== m[k])) return false;
+        }
+        return newTokens.consume(channel, envelope);
+      }
+      case 'listing': return newTokens.consume(channel, envelope);
       case 'risk': {
         const accepted = risk.consume(channel, envelope);
         if (accepted && envelope.from !== transport?.publicKey) queue(envelope.message.asset, false);
