@@ -16,6 +16,7 @@ import { fetchTickers, loadNextSymbol } from './sources/cex.js'
 import { registerVenueContracts } from './sources/venue-contracts/index.js'
 import { PendingDexQuotes } from './coverage/seed-identity.js'
 import { StoredDiscoveries } from './coverage/discoveries.js'
+import { FactoryBackfill } from './coverage/backfill.js'
 import { DexCoverage } from './coverage/dex.js'
 import { registerMove } from './sources/move/source.js'
 import { assetAddress, moveChain } from './sources/move/identity.js'
@@ -169,6 +170,7 @@ export class Engine extends EventEmitter {
     this.installJobs()
     this.catchup = new PoolCatchup(this)
     this.dexCoverage.installBacklogJob()
+    this.backfill = new FactoryBackfill(this)
   }
   installJobs() {
     const { registry, store, clock, http } = this
@@ -421,7 +423,10 @@ export class Engine extends EventEmitter {
       !this.discoveryQuota.take(env.from, 1)
     )
       return
-    if (msg.t === 'pool') this.hints.receive(msg, env.from)
+    if (msg.t === 'pool') {
+      this.hints.receive(msg, env.from)
+      this.backfill?.heard(msg, env.from)
+    }
     if (
       msg.t === 'listing' &&
       this.registry.venues.has(msg.exchange) &&
@@ -443,9 +448,14 @@ export class Engine extends EventEmitter {
     if (pool) this.pendingDexQuotes.flush('dex:' + chain + ':' + pool)
     this.emit('discovery', msg, data.firstSeen, fromHint, historyReporter)
     if (historyReporter && chain !== 'tron' && !moveChain(chain)) return
+    const archivedHint = pool && fromHint && this.evm.has(chain) && firstSeen < this.clock() - 7 * 86400_000
     const share = pool ? (chain !== 'tron' && !moveChain(chain)) || !!tx : this.registry.venues.get(exchange)?.publishMarketData
-    if (share && !historyReporter) this.transport.send('gator/new', msg)
-    if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + (moveChain(chain) ? assetAddress(chain, address) : address), fromHint)
+    if (share && !historyReporter && !archivedHint) this.transport.send('gator/new', msg)
+    if (pool) for (const address of [token0, token1]) {
+      const id = chain + ':' + (moveChain(chain) ? assetAddress(chain, address) : address)
+      if (archivedHint) this.names.enqueueFactory(id, true)
+      else this.scheduleMeta(id, fromHint)
+    }
   }
   /** What this node reads: an effective signed bundle plus the release extension (venue labels, coin groups).
    * The digest, `obs.b` and every patch check use the signed bundle alone. A failing extension is left out. */
@@ -538,7 +548,7 @@ export class Engine extends EventEmitter {
               // A full catalog can have a due maintenance job on every tick. Reuse an
               // unspent turn only after it finishes and another slot is free for prices.
               if (this.active && this.inflight.size < slots && dispatches === this.budget.dispatches)
-                return this.catchup.unusedTurn()
+                return this.catchup.unusedTurn() ?? this.backfill.unusedTurn()
             })
             .catch((err) => {
               if (this.active && !(err instanceof RateLimited))

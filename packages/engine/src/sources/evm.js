@@ -702,7 +702,12 @@ export class EvmSource {
     if (history && !creation) return false
     const decimals = await this.readDecimals([pool], block, read)
     // A live receipt or independent scan can finish during these public reads.
-    if (history && (!history.wanted() || this.registry.markets.has('dex:' + chain + ':' + hint.pool))) return null
+    const known = this.registry.markets.has('dex:' + chain + ':' + hint.pool)
+    if (history && (!history.wanted() || known)) return null
+    // Catch-up can also deliver an old creation after a recent independent verification.
+    const archival = !known && at < this.clock() - 7 * DAY && this.historyRetention
+    // The node has finished its independent checks. Capacity is inconclusive for the sender.
+    if (archival && !archival.canRetainRemote()) return null
     const registered = this.store.transaction(() => {
       const market = this.registry.pool(pool, {
         token0: { decimals: decimals.get(pool.token0) }, token1: { decimals: decimals.get(pool.token1) },
@@ -710,6 +715,7 @@ export class EvmSource {
       if (market) {
         this.saveParameters(pool)
         if (creation) this.saveCreation.run(chain, pool.pool, at)
+        if (archival) archival.retainRemote.run(chain, pool.pool)
         history?.onRegistered(pool)
       }
       return market
@@ -902,7 +908,7 @@ export class EvmSource {
       return this.usd('native')
     return null
   }
-  async snapshots(pools, read) {
+  async snapshots(pools, read, decimals) {
     const groups = pools.map(poolStateCalls)
     const values = await read(groups.flat())
     let offset = 0
@@ -910,7 +916,7 @@ export class EvmSource {
       const part = values.slice(offset, offset + groups[i].length)
       offset += groups[i].length
       if (p.slot0) part.unshift(p.slot0)
-      const state = poolStateValue(p, part, [p.token0, p.token1].map(a => this.metadata(a)?.decimals))
+      const state = poolStateValue(p, part, [p.token0, p.token1].map(a => decimals?.get(a) ?? this.metadata(a)?.decimals))
       if (!state || state.empty) return state
       const usd0 = this.usd(p.token0), usd1 = this.usd(p.token1)
       let depth = null

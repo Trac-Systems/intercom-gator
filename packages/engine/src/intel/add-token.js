@@ -14,6 +14,10 @@ export const ADD_LIMITS = Object.freeze({ perHour: 12, perDay: 60, inlineSearchC
 /** Lookups a search for an unknown contract address starts by itself (see `lookup`). */
 export const LOOKUP_LIMITS = Object.freeze({ perHour: 20, perDay: 100, negativeMs: DAY, negativeKept: 500, retryMs: 2 * 60_000,
   maxQueued: 4 })
+// The hourly re-announcer owns funded pools of added tokens, including pools found by factory history.
+export const FUNDED_ADDED_POOL = `(p.liquidity >= ${MARKET_POLICY.minPoolLiquidityUsd}
+  AND EXISTS (SELECT 1 FROM engine_added_tokens t WHERE t.asset IN (m.base,m.quote)))`
+
 const TOKEN = /^0x[0-9a-f]{40}$/i, POOL = /^0x(?:[0-9a-f]{40}|[0-9a-f]{64})$/i
 const isWord = raw => typeof raw === 'string' && /^0x[0-9a-f]{64}$/i.test(raw)
 const hex = n => '0x' + n.toString(16)

@@ -1,0 +1,4743 @@
+{
+  "measured": "2026-11-20 UTC",
+  "chains": [
+    {
+      "id": "ethereum",
+      "head": 26452646,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          179715,
+          181762,
+          {}
+        ],
+        [
+          2849927,
+          2851974,
+          {}
+        ],
+        [
+          3921302,
+          3923349,
+          {}
+        ],
+        [
+          6593126,
+          6595173,
+          {}
+        ],
+        [
+          7561300,
+          7563347,
+          {}
+        ],
+        [
+          8580267,
+          8582314,
+          {}
+        ],
+        [
+          11302886,
+          11304933,
+          {}
+        ],
+        [
+          12323265,
+          12325312,
+          {}
+        ],
+        [
+          13291440,
+          13293487,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 3
+          }
+        ],
+        [
+          15987451,
+          15989498,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 1
+          }
+        ],
+        [
+          17007237,
+          17009284,
+          {
+            "0xbaceb8ec6b9355dfc0269c18bac9d6e2bdc29c4f": 1
+          }
+        ],
+        [
+          19730663,
+          19732710,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 4
+          }
+        ],
+        [
+          20750437,
+          20752484,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 18,
+            "0xbaceb8ec6b9355dfc0269c18bac9d6e2bdc29c4f": 1
+          }
+        ],
+        [
+          21717805,
+          21719852,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 6,
+            "0x000000000004444c5dc75cb358380d2e3de08a90": 2
+          }
+        ],
+        [
+          24388823,
+          24390870,
+          {
+            "0x000000000004444c5dc75cb358380d2e3de08a90": 27,
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 11
+          }
+        ],
+        [
+          25461205,
+          25463252,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 158,
+            "0x000000000004444c5dc75cb358380d2e3de08a90": 63
+          }
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+          "name": "pancakeswap-v3",
+          "kind": "pancake-v3",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 1592,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 1593,
+          "fullQuery": 1592,
+          "funded": 0.08333333333333333,
+          "depthMethod": "sample",
+          "rateSample": 96,
+          "ratePassed": 8,
+          "sample": 96,
+          "above100": 8,
+          "above1k": 5,
+          "above10k": 2,
+          "empty": 49,
+          "unpriced": 11,
+          "knownFunded": 6,
+          "knownAbove1k": 6,
+          "knownAbove10k": 6
+        },
+        {
+          "address": "0xc0aee478e3658e2610c5f7a4a2e1777ce9e4f2ac",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 4822,
+          "funded": 0.2,
+          "depthMethod": "sample",
+          "rateSample": 70,
+          "ratePassed": 14,
+          "sample": 70,
+          "above100": 14,
+          "above1k": 7,
+          "above10k": 3,
+          "empty": 2,
+          "unpriced": 12,
+          "knownFunded": 6,
+          "knownAbove1k": 5,
+          "knownAbove10k": 3
+        },
+        {
+          "address": "0xbaceb8ec6b9355dfc0269c18bac9d6e2bdc29c4f",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 974,
+          "observed": 2,
+          "firstBlock": 0,
+          "nonce": 975,
+          "fullQuery": 974,
+          "funded": 0.04081632653061224,
+          "depthMethod": "sample",
+          "rateSample": 98,
+          "ratePassed": 4,
+          "sample": 98,
+          "above100": 4,
+          "above1k": 3,
+          "above10k": 0,
+          "empty": 65,
+          "unpriced": 11,
+          "knownFunded": 8,
+          "knownAbove1k": 5,
+          "knownAbove10k": 4
+        },
+        {
+          "address": "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 528297,
+          "funded": 0.080078125,
+          "depthMethod": "sample",
+          "rateSample": 512,
+          "ratePassed": 41,
+          "sample": 512,
+          "above100": 41,
+          "above1k": 31,
+          "above10k": 8,
+          "empty": 17,
+          "unpriced": 9,
+          "knownFunded": 6,
+          "knownAbove1k": 6,
+          "knownAbove10k": 6
+        },
+        {
+          "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 74726,
+          "observed": 201,
+          "firstBlock": 0,
+          "nonce": 74727,
+          "funded": 0.026041666666666668,
+          "depthMethod": "sample",
+          "rateSample": 192,
+          "ratePassed": 5,
+          "sample": 192,
+          "above100": 5,
+          "above1k": 1,
+          "above10k": 0,
+          "empty": 17,
+          "unpriced": 2,
+          "knownFunded": 21,
+          "knownAbove1k": 19,
+          "knownAbove10k": 18
+        },
+        {
+          "address": "0x000000000004444c5dc75cb358380d2e3de08a90",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 192709,
+          "observed": 92,
+          "firstBlock": 21673607,
+          "deploymentBracket": [
+            21673607,
+            21699438
+          ],
+          "managerWindows": 12,
+          "managerCreations": 1982,
+          "managerBlocks": 49152,
+          "initializations": [
+            [
+              21716505,
+              21720600,
+              3
+            ],
+            [
+              22302624,
+              22306719,
+              30
+            ],
+            [
+              22494676,
+              22498771,
+              39
+            ],
+            [
+              23080217,
+              23084312,
+              26
+            ],
+            [
+              23272281,
+              23276376,
+              92
+            ],
+            [
+              23956939,
+              23961034,
+              30
+            ],
+            [
+              24148227,
+              24152322,
+              147
+            ],
+            [
+              24734533,
+              24738628,
+              103
+            ],
+            [
+              24926591,
+              24930686,
+              480
+            ],
+            [
+              25511945,
+              25516040,
+              99
+            ],
+            [
+              25802543,
+              25806638,
+              307
+            ],
+            [
+              26388848,
+              26392943,
+              626
+            ]
+          ],
+          "funded": 0.026595744680851064,
+          "depthMethod": "sample",
+          "rateSample": 188,
+          "ratePassed": 5,
+          "sample": 188,
+          "above100": 5,
+          "above1k": 2,
+          "above10k": 0,
+          "empty": 144,
+          "unpriced": 10
+        }
+      ]
+    },
+    {
+      "id": "bsc",
+      "head": 134598979,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 4096,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          7018655,
+          7020702,
+          {}
+        ],
+        [
+          12354125,
+          12356172,
+          {}
+        ],
+        [
+          21595006,
+          21597053,
+          {}
+        ],
+        [
+          26922264,
+          26924311,
+          {
+            "0xdb1d10011ad0ff90774d0c6bb92e5c5c8b4461f7": 2
+          }
+        ],
+        [
+          36688801,
+          36690848,
+          {
+            "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865": 4
+          }
+        ],
+        [
+          50434660,
+          50436707,
+          {
+            "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df": 2,
+            "0xdb1d10011ad0ff90774d0c6bb92e5c5c8b4461f7": 1
+          }
+        ],
+        [
+          51265153,
+          51267200,
+          {
+            "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865": 27
+          }
+        ],
+        [
+          65003825,
+          65005872,
+          {
+            "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865": 5,
+            "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df": 1
+          }
+        ],
+        [
+          73751909,
+          73753956,
+          {
+            "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df": 7,
+            "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865": 1
+          }
+        ],
+        [
+          79054535,
+          79056582,
+          {
+            "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df": 4
+          }
+        ],
+        [
+          88591158,
+          88593205,
+          {
+            "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df": 2
+          }
+        ],
+        [
+          93622737,
+          93624784,
+          {
+            "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df": 7
+          }
+        ],
+        [
+          103159296,
+          103161343,
+          {
+            "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df": 13,
+            "0xdb1d10011ad0ff90774d0c6bb92e5c5c8b4461f7": 1,
+            "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865": 1
+          }
+        ],
+        [
+          117135126,
+          117137173,
+          {
+            "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df": 7
+          }
+        ],
+        [
+          118261304,
+          118263351,
+          {
+            "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df": 27
+          }
+        ],
+        [
+          131735099,
+          131737146,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0xca143ce32fe78f1f7019d7d551a6402fc5350c73",
+          "name": "pancakeswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 3734240,
+          "funded": 0.041015625,
+          "depthMethod": "sample",
+          "rateSample": 512,
+          "ratePassed": 21,
+          "sample": 512,
+          "above100": 21,
+          "above1k": 11,
+          "above10k": 2,
+          "empty": 150,
+          "unpriced": 16,
+          "knownFunded": 8,
+          "knownAbove1k": 7,
+          "knownAbove10k": 5
+        },
+        {
+          "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+          "name": "pancakeswap-v3",
+          "kind": "pancake-v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 154088,
+          "observed": 38,
+          "firstBlock": 0,
+          "nonce": 154089,
+          "funded": 0.0000973469705622761,
+          "depthMethod": "sample",
+          "rateSample": 38,
+          "ratePassed": 0,
+          "sample": 38,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 26,
+          "unpriced": 9,
+          "knownFunded": 15,
+          "knownAbove1k": 15,
+          "knownAbove10k": 11
+        },
+        {
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 3162,
+          "funded": 0.017543859649122806,
+          "depthMethod": "sample",
+          "rateSample": 57,
+          "ratePassed": 1,
+          "sample": 57,
+          "above100": 1,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 2,
+          "unpriced": 14,
+          "knownFunded": 5,
+          "knownAbove1k": 2,
+          "knownAbove10k": 2
+        },
+        {
+          "address": "0x126555dd55a39328f69400d6ae4f782bd4c34abb",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 1302,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 1303,
+          "funded": 0.25,
+          "depthMethod": "same kind on chain",
+          "rateSample": 4,
+          "ratePassed": 1,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 3,
+          "knownAbove1k": 2,
+          "knownAbove10k": 1
+        },
+        {
+          "address": "0x8909dc15e40173ff4699343b6eb8132c65e18ec6",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 9425,
+          "funded": 0.01020408163265306,
+          "depthMethod": "sample",
+          "rateSample": 98,
+          "ratePassed": 1,
+          "sample": 98,
+          "above100": 1,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 2,
+          "unpriced": 9,
+          "knownFunded": 2,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0xdb1d10011ad0ff90774d0c6bb92e5c5c8b4461f7",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 19471,
+          "observed": 4,
+          "firstBlock": 0,
+          "nonce": 19472,
+          "funded": 0.25,
+          "depthMethod": "sample",
+          "rateSample": 4,
+          "ratePassed": 1,
+          "sample": 4,
+          "above100": 1,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 3,
+          "unpriced": 0,
+          "knownFunded": 21,
+          "knownAbove1k": 16,
+          "knownAbove10k": 7
+        },
+        {
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 303259,
+          "observed": 70,
+          "firstBlock": 45874068,
+          "deploymentBracket": [
+            45874068,
+            46005511
+          ],
+          "managerWindows": 12,
+          "managerCreations": 168,
+          "managerBlocks": 49152,
+          "initializations": [
+            [
+              46618414,
+              46622509,
+              2
+            ],
+            [
+              57654176,
+              57658271,
+              5
+            ],
+            [
+              61062263,
+              61066358,
+              2
+            ],
+            [
+              72083620,
+              72087715,
+              11
+            ],
+            [
+              75498696,
+              75502791,
+              5
+            ],
+            [
+              88374653,
+              88378748,
+              9
+            ],
+            [
+              91775438,
+              91779533,
+              9
+            ],
+            [
+              102811313,
+              102815408,
+              54
+            ],
+            [
+              106219286,
+              106223381,
+              16
+            ],
+            [
+              117240981,
+              117245076,
+              16
+            ],
+            [
+              122496365,
+              122500460,
+              25
+            ],
+            [
+              133532241,
+              133536336,
+              14
+            ]
+          ],
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 166,
+          "ratePassed": 0,
+          "sample": 166,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 112,
+          "unpriced": 10
+        }
+      ]
+    },
+    {
+      "id": "base",
+      "head": 59720052,
+      "strata": 16,
+      "blocks": 11648,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          2280860,
+          2282907,
+          {}
+        ],
+        [
+          4648512,
+          4650559,
+          {}
+        ],
+        [
+          10613762,
+          10615809,
+          {
+            "0x33128a8fc17869897dce68ed026d694621f6fdfd": 3
+          }
+        ],
+        [
+          12981642,
+          12983689,
+          {
+            "0x33128a8fc17869897dce68ed026d694621f6fdfd": 17
+          }
+        ],
+        [
+          15245581,
+          15247628,
+          {
+            "0x33128a8fc17869897dce68ed026d694621f6fdfd": 21
+          }
+        ],
+        [
+          21345068,
+          21345195,
+          {
+            "0x33128a8fc17869897dce68ed026d694621f6fdfd": 1
+          }
+        ],
+        [
+          23579092,
+          23579219,
+          {
+            "0x33128a8fc17869897dce68ed026d694621f6fdfd": 10
+          }
+        ],
+        [
+          29670899,
+          29671026,
+          {
+            "0x33128a8fc17869897dce68ed026d694621f6fdfd": 58,
+            "0x498581ff718922c3f8e6a244956af099b2652b2b": 1
+          }
+        ],
+        [
+          31919503,
+          31919630,
+          {
+            "0x33128a8fc17869897dce68ed026d694621f6fdfd": 6,
+            "0x498581ff718922c3f8e6a244956af099b2652b2b": 17
+          }
+        ],
+        [
+          34242714,
+          34242841,
+          {
+            "0x498581ff718922c3f8e6a244956af099b2652b2b": 306,
+            "0x33128a8fc17869897dce68ed026d694621f6fdfd": 9
+          }
+        ],
+        [
+          40340301,
+          40340428,
+          {
+            "0x498581ff718922c3f8e6a244956af099b2652b2b": 179
+          }
+        ],
+        [
+          42576261,
+          42576388,
+          {
+            "0x498581ff718922c3f8e6a244956af099b2652b2b": 274
+          }
+        ],
+        [
+          44941502,
+          44941629,
+          {
+            "0x498581ff718922c3f8e6a244956af099b2652b2b": 43
+          }
+        ],
+        [
+          50938769,
+          50938896,
+          {
+            "0x498581ff718922c3f8e6a244956af099b2652b2b": 4,
+            "0x33128a8fc17869897dce68ed026d694621f6fdfd": 1
+          }
+        ],
+        [
+          53304010,
+          53304137,
+          {
+            "0x498581ff718922c3f8e6a244956af099b2652b2b": 6,
+            "0x33128a8fc17869897dce68ed026d694621f6fdfd": 1
+          }
+        ],
+        [
+          59279180,
+          59279307,
+          {
+            "0x498581ff718922c3f8e6a244956af099b2652b2b": 2
+          }
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0x420dd381b31aef6683db6b902084cb0ffece40da",
+          "name": "aerodrome",
+          "kind": "velodrome-v2",
+          "mode": "index",
+          "method": "array",
+          "population": 30025,
+          "funded": 0.040229885057471264,
+          "depthMethod": "sample",
+          "rateSample": 174,
+          "ratePassed": 7,
+          "sample": 174,
+          "above100": 7,
+          "above1k": 6,
+          "above10k": 2,
+          "empty": 3,
+          "unpriced": 25,
+          "knownFunded": 10,
+          "knownAbove1k": 6,
+          "knownAbove10k": 2
+        },
+        {
+          "address": "0x5e7bb104d84c7cb9b682aac2f3d509f5f406809a",
+          "name": "aerodrome-slipstream",
+          "kind": "slipstream",
+          "mode": "index",
+          "method": "array",
+          "population": 3684,
+          "funded": 0.06557377049180328,
+          "depthMethod": "sample",
+          "rateSample": 61,
+          "ratePassed": 4,
+          "sample": 61,
+          "above100": 4,
+          "above1k": 3,
+          "above10k": 1,
+          "empty": 25,
+          "unpriced": 15,
+          "knownFunded": 7,
+          "knownAbove1k": 5,
+          "knownAbove10k": 4
+        },
+        {
+          "address": "0x9592cd9b267748cbfbde90ac9f7df3c437a6d51b",
+          "name": "aerodrome-slipstream",
+          "kind": "slipstream",
+          "mode": "index",
+          "method": "array",
+          "population": 22,
+          "funded": 0.09090909090909091,
+          "depthMethod": "sample",
+          "rateSample": 22,
+          "ratePassed": 2,
+          "sample": 22,
+          "above100": 2,
+          "above1k": 1,
+          "above10k": 0,
+          "empty": 20,
+          "unpriced": 0
+        },
+        {
+          "address": "0xade65c38cd4849adba595a4323a8c7ddfe89716a",
+          "name": "aerodrome-slipstream",
+          "kind": "slipstream",
+          "mode": "index",
+          "method": "array",
+          "population": 2318,
+          "funded": 0.02040816326530612,
+          "depthMethod": "sample",
+          "rateSample": 49,
+          "ratePassed": 1,
+          "sample": 49,
+          "above100": 1,
+          "above1k": 1,
+          "above10k": 1,
+          "empty": 27,
+          "unpriced": 4,
+          "knownFunded": 1,
+          "knownAbove1k": 0,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0xf8f2eb4940cfe7d13603dddd87f123820fc061ef",
+          "name": "aerodrome-slipstream",
+          "kind": "slipstream",
+          "mode": "index",
+          "method": "array",
+          "population": 5730,
+          "funded": 0.00034904013961605586,
+          "depthMethod": "sample",
+          "rateSample": 76,
+          "ratePassed": 0,
+          "sample": 76,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 21,
+          "unpriced": 43,
+          "knownFunded": 2,
+          "knownAbove1k": 2,
+          "knownAbove10k": 1
+        },
+        {
+          "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+          "name": "pancakeswap-v3",
+          "kind": "pancake-v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 3881,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 3882,
+          "funded": 0.05925925925925926,
+          "depthMethod": "same kind across chains",
+          "rateSample": 135,
+          "ratePassed": 8,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 15,
+          "knownAbove1k": 12,
+          "knownAbove10k": 3
+        },
+        {
+          "address": "0x71524b4f93c58fcbf659783284e38825f0622859",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 6152,
+          "funded": 0.05063291139240506,
+          "depthMethod": "sample",
+          "rateSample": 79,
+          "ratePassed": 4,
+          "sample": 79,
+          "above100": 4,
+          "above1k": 4,
+          "above10k": 0,
+          "empty": 9,
+          "unpriced": 13,
+          "knownFunded": 2,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 4585,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 4586,
+          "funded": 0.031496062992125984,
+          "depthMethod": "same kind on chain",
+          "rateSample": 127,
+          "ratePassed": 4,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 9,
+          "knownAbove1k": 4,
+          "knownAbove10k": 1
+        },
+        {
+          "address": "0x8909dc15e40173ff4699343b6eb8132c65e18ec6",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 3079253,
+          "funded": 0.0009191176470588235,
+          "depthMethod": "sample",
+          "rateSample": 1088,
+          "ratePassed": 1,
+          "sample": 1088,
+          "above100": 1,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 14,
+          "unpriced": 3,
+          "demoUnpricedOrEmpty": 38,
+          "knownFunded": 3,
+          "knownAbove1k": 1,
+          "knownAbove10k": 1
+        },
+        {
+          "address": "0x33128a8fc17869897dce68ed026d694621f6fdfd",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 1885841,
+          "observed": 127,
+          "firstBlock": 0,
+          "nonce": 1885842,
+          "funded": 0.031496062992125984,
+          "depthMethod": "sample",
+          "rateSample": 127,
+          "ratePassed": 4,
+          "sample": 127,
+          "above100": 4,
+          "above1k": 1,
+          "above10k": 0,
+          "empty": 76,
+          "unpriced": 18,
+          "knownFunded": 20,
+          "knownAbove1k": 16,
+          "knownAbove10k": 8
+        },
+        {
+          "address": "0x498581ff718922c3f8e6a244956af099b2652b2b",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 13598695,
+          "observed": 832,
+          "firstBlock": 25311040,
+          "deploymentBracket": [
+            25311040,
+            25369360
+          ],
+          "managerWindows": 12,
+          "managerCreations": 2373,
+          "managerBlocks": 9596,
+          "initializations": [
+            [
+              27371104,
+              27375199,
+              2
+            ],
+            [
+              28783253,
+              28783752,
+              1
+            ],
+            [
+              32972365,
+              32972864,
+              158
+            ],
+            [
+              34388285,
+              34388784,
+              550
+            ],
+            [
+              38576720,
+              38577219,
+              289
+            ],
+            [
+              39987047,
+              39987546,
+              808
+            ],
+            [
+              44181015,
+              44181514,
+              449
+            ],
+            [
+              45591336,
+              45591835,
+              50
+            ],
+            [
+              49779688,
+              49780187,
+              34
+            ],
+            [
+              51195522,
+              51196021,
+              25
+            ],
+            [
+              56817327,
+              56817826,
+              4
+            ],
+            [
+              58227654,
+              58228153,
+              3
+            ]
+          ],
+          "funded": 0.03125,
+          "depthMethod": "sample",
+          "rateSample": 288,
+          "ratePassed": 9,
+          "sample": 288,
+          "above100": 9,
+          "above1k": 1,
+          "above10k": 0,
+          "empty": 133,
+          "unpriced": 93
+        }
+      ]
+    },
+    {
+      "id": "optimism",
+      "head": 159767747,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 8192,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          6435027,
+          6437074,
+          {}
+        ],
+        [
+          10272347,
+          10274394,
+          {}
+        ],
+        [
+          28767944,
+          28769991,
+          {}
+        ],
+        [
+          32604655,
+          32606702,
+          {}
+        ],
+        [
+          41662794,
+          41664841,
+          {}
+        ],
+        [
+          55483569,
+          55485616,
+          {}
+        ],
+        [
+          63995750,
+          63997797,
+          {}
+        ],
+        [
+          77797596,
+          77799643,
+          {}
+        ],
+        [
+          86933741,
+          86935788,
+          {}
+        ],
+        [
+          90693056,
+          90695103,
+          {}
+        ],
+        [
+          109500674,
+          109502721,
+          {}
+        ],
+        [
+          113025402,
+          113027449,
+          {}
+        ],
+        [
+          121849545,
+          121851592,
+          {}
+        ],
+        [
+          135904288,
+          135906335,
+          {}
+        ],
+        [
+          144728441,
+          144730488,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 2
+          }
+        ],
+        [
+          158215906,
+          158217953,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0xfbc12984689e5f15626bad03ad60160fe98b303c",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 119,
+          "funded": 0.041666666666666664,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 1,
+          "sample": 24,
+          "above100": 1,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 1,
+          "unpriced": 6,
+          "knownFunded": 1,
+          "knownAbove1k": 0,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x9c6522117e2ed1fe5bdb72bb0ed5e3f2bde7dbe0",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 451,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 452,
+          "funded": 0.011086474501108648,
+          "depthMethod": "same kind on chain",
+          "rateSample": 2,
+          "ratePassed": 0,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 5,
+          "knownAbove1k": 2,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x0c3c1c532f1e39edf36be9fe0be1410313e074bf",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 13461,
+          "funded": 0.00014857737166629523,
+          "depthMethod": "sample",
+          "rateSample": 117,
+          "ratePassed": 0,
+          "sample": 117,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 2,
+          "unpriced": 32,
+          "knownFunded": 2,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 29019,
+          "observed": 2,
+          "firstBlock": 0,
+          "nonce": 29020,
+          "funded": 0.001033805437816603,
+          "depthMethod": "sample",
+          "rateSample": 2,
+          "ratePassed": 0,
+          "sample": 2,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 2,
+          "unpriced": 0,
+          "knownFunded": 30,
+          "knownAbove1k": 24,
+          "knownAbove10k": 13
+        },
+        {
+          "address": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 4698,
+          "observed": 0,
+          "firstBlock": 130903459,
+          "deploymentBracket": [
+            130903459,
+            131059481
+          ],
+          "managerWindows": 12,
+          "managerCreations": 8,
+          "managerBlocks": 49152,
+          "initializations": [
+            [
+              132514499,
+              132518594,
+              1
+            ],
+            [
+              133665155,
+              133669250,
+              0
+            ],
+            [
+              137514298,
+              137518393,
+              0
+            ],
+            [
+              138659092,
+              138663187,
+              1
+            ],
+            [
+              142210349,
+              142214444,
+              0
+            ],
+            [
+              143058503,
+              143062598,
+              0
+            ],
+            [
+              146605125,
+              146609220,
+              0
+            ],
+            [
+              147754609,
+              147758704,
+              0
+            ],
+            [
+              151603752,
+              151607847,
+              2
+            ],
+            [
+              152749792,
+              152753887,
+              0
+            ],
+            [
+              157199250,
+              157203345,
+              2
+            ],
+            [
+              158348734,
+              158352829,
+              2
+            ]
+          ],
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 8,
+          "ratePassed": 0,
+          "sample": 8,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 7,
+          "unpriced": 1
+        },
+        {
+          "address": "0xcc0bddb707055e04e497ab22a59c2af4391cd12f",
+          "name": "velodrome-slipstream",
+          "kind": "slipstream",
+          "mode": "index",
+          "method": "array",
+          "population": 136,
+          "funded": 0.16666666666666666,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 4,
+          "sample": 24,
+          "above100": 4,
+          "above1k": 4,
+          "above10k": 0,
+          "empty": 7,
+          "unpriced": 5,
+          "knownFunded": 4,
+          "knownAbove1k": 3,
+          "knownAbove10k": 1
+        },
+        {
+          "address": "0xf1046053aa5682b4f9a81b5481394da16be5ff5a",
+          "name": "velodrome-v2",
+          "kind": "velodrome-v2",
+          "mode": "index",
+          "method": "array",
+          "population": 1397,
+          "funded": 0.02631578947368421,
+          "depthMethod": "sample",
+          "rateSample": 38,
+          "ratePassed": 1,
+          "sample": 38,
+          "above100": 1,
+          "above1k": 1,
+          "above10k": 0,
+          "empty": 3,
+          "unpriced": 16,
+          "knownFunded": 8,
+          "knownAbove1k": 3,
+          "knownAbove10k": 1
+        }
+      ]
+    },
+    {
+      "id": "polygon",
+      "head": 97619223,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          1264964,
+          1267011,
+          {}
+        ],
+        [
+          9704855,
+          9706902,
+          {}
+        ],
+        [
+          14907378,
+          14909425,
+          {}
+        ],
+        [
+          23353227,
+          23355274,
+          {}
+        ],
+        [
+          28889285,
+          28891332,
+          {}
+        ],
+        [
+          31230012,
+          31232059,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 1
+          }
+        ],
+        [
+          42531674,
+          42533721,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 1
+          }
+        ],
+        [
+          44866471,
+          44868518,
+          {}
+        ],
+        [
+          49687783,
+          49689830,
+          {}
+        ],
+        [
+          58080028,
+          58082075,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 3
+          }
+        ],
+        [
+          63473170,
+          63475217,
+          {
+            "0x917933899c6a5f8e37f31e19f92cdbff7e8ff0e2": 1,
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 2
+          }
+        ],
+        [
+          71728422,
+          71730469,
+          {}
+        ],
+        [
+          77121541,
+          77123588,
+          {}
+        ],
+        [
+          79605229,
+          79607276,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 1
+          }
+        ],
+        [
+          91097492,
+          91099539,
+          {
+            "0x917933899c6a5f8e37f31e19f92cdbff7e8ff0e2": 1
+          }
+        ],
+        [
+          93241664,
+          93243711,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 11097,
+          "funded": 0.02830188679245283,
+          "depthMethod": "sample",
+          "rateSample": 106,
+          "ratePassed": 3,
+          "sample": 106,
+          "above100": 3,
+          "above1k": 1,
+          "above10k": 0,
+          "empty": 11,
+          "unpriced": 33,
+          "knownFunded": 9,
+          "knownAbove1k": 9,
+          "knownAbove10k": 7
+        },
+        {
+          "address": "0x917933899c6a5f8e37f31e19f92cdbff7e8ff0e2",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 3853,
+          "observed": 2,
+          "firstBlock": 0,
+          "nonce": 3854,
+          "fullQuery": 3853,
+          "funded": 0.01020408163265306,
+          "depthMethod": "sample",
+          "rateSample": 98,
+          "ratePassed": 1,
+          "sample": 98,
+          "above100": 1,
+          "above1k": 1,
+          "above10k": 0,
+          "empty": 63,
+          "unpriced": 14,
+          "knownFunded": 10,
+          "knownAbove1k": 4,
+          "knownAbove10k": 3
+        },
+        {
+          "address": "0x9e5a52f57b3038f1b8eee45f28b3c1967e22799c",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 49936,
+          "funded": 0.004807692307692308,
+          "depthMethod": "sample",
+          "rateSample": 832,
+          "ratePassed": 4,
+          "sample": 832,
+          "above100": 4,
+          "above1k": 2,
+          "above10k": 0,
+          "empty": 5,
+          "unpriced": 8,
+          "demoUnpricedOrEmpty": 1,
+          "knownFunded": 4,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 39139,
+          "observed": 8,
+          "firstBlock": 0,
+          "nonce": 39140,
+          "fullQuery": 39139,
+          "funded": 0.0009708985921970413,
+          "depthMethod": "sample",
+          "rateSample": 8,
+          "ratePassed": 0,
+          "sample": 8,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 5,
+          "unpriced": 0,
+          "knownFunded": 38,
+          "knownAbove1k": 26,
+          "knownAbove10k": 15
+        },
+        {
+          "address": "0x67366782805870060151383f4bbff9dab53e5cd6",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 20234,
+          "observed": 0,
+          "firstBlock": 66922555,
+          "fullQuery": 20234,
+          "deploymentBracket": [
+            66922555,
+            67017885
+          ],
+          "managerWindows": 12,
+          "managerCreations": 24,
+          "managerBlocks": 49152,
+          "initializations": [
+            [
+              67385048,
+              67389143,
+              8
+            ],
+            [
+              71080869,
+              71084964,
+              3
+            ],
+            [
+              72621787,
+              72625882,
+              0
+            ],
+            [
+              76473499,
+              76477594,
+              6
+            ],
+            [
+              77695173,
+              77699268,
+              1
+            ],
+            [
+              81071749,
+              81075844,
+              0
+            ],
+            [
+              82298421,
+              82302516,
+              2
+            ],
+            [
+              86155111,
+              86159206,
+              0
+            ],
+            [
+              87696030,
+              87700125,
+              2
+            ],
+            [
+              91386872,
+              91390967,
+              1
+            ],
+            [
+              93566280,
+              93570375,
+              0
+            ],
+            [
+              97422971,
+              97427066,
+              1
+            ]
+          ],
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 0,
+          "sample": 24,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 17,
+          "unpriced": 3
+        }
+      ]
+    },
+    {
+      "id": "arbitrum",
+      "head": 525769723,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          7639065,
+          7641112,
+          {}
+        ],
+        [
+          52609810,
+          52611857,
+          {}
+        ],
+        [
+          82032705,
+          82034752,
+          {}
+        ],
+        [
+          127003451,
+          127005498,
+          {}
+        ],
+        [
+          154372685,
+          154374732,
+          {}
+        ],
+        [
+          166484872,
+          166486919,
+          {}
+        ],
+        [
+          228766326,
+          228768373,
+          {}
+        ],
+        [
+          240810324,
+          240812371,
+          {}
+        ],
+        [
+          268307912,
+          268309959,
+          {
+            "0x1f98431c8ad98523631ae4a59f267346ea31f984": 2
+          }
+        ],
+        [
+          313663719,
+          313665766,
+          {
+            "0x360e68faccca8ca495c1b759fd9eee466db9fb32": 1
+          }
+        ],
+        [
+          342188138,
+          342190185,
+          {}
+        ],
+        [
+          388057359,
+          388059406,
+          {}
+        ],
+        [
+          416581778,
+          416583825,
+          {
+            "0x360e68faccca8ca495c1b759fd9eee466db9fb32": 1
+          }
+        ],
+        [
+          427538780,
+          427540827,
+          {}
+        ],
+        [
+          488921758,
+          488923805,
+          {}
+        ],
+        [
+          501992586,
+          501994633,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+          "name": "pancakeswap-v3",
+          "kind": "pancake-v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 975,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 976,
+          "funded": 0.05925925925925926,
+          "depthMethod": "same kind across chains",
+          "rateSample": 135,
+          "ratePassed": 8,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 9,
+          "knownAbove1k": 7,
+          "knownAbove10k": 4
+        },
+        {
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 32975,
+          "funded": 0.01098901098901099,
+          "depthMethod": "sample",
+          "rateSample": 182,
+          "ratePassed": 2,
+          "sample": 182,
+          "above100": 2,
+          "above1k": 2,
+          "above10k": 0,
+          "empty": 28,
+          "unpriced": 4,
+          "knownFunded": 7,
+          "knownAbove1k": 7,
+          "knownAbove10k": 5
+        },
+        {
+          "address": "0x1af415a1eba07a4986a52b6f2e7de7003d82231e",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 1387,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 1388,
+          "funded": 0.005767844268204758,
+          "depthMethod": "same kind on chain",
+          "rateSample": 2,
+          "ratePassed": 0,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 8,
+          "knownAbove1k": 5,
+          "knownAbove10k": 3
+        },
+        {
+          "address": "0xf1d7cc64fb4452f05c498126312ebe29f30fbcf9",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 8893,
+          "funded": 0.010526315789473684,
+          "depthMethod": "sample",
+          "rateSample": 95,
+          "ratePassed": 1,
+          "sample": 95,
+          "above100": 1,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 2,
+          "unpriced": 12,
+          "knownFunded": 6,
+          "knownAbove1k": 5,
+          "knownAbove10k": 4
+        },
+        {
+          "address": "0x1f98431c8ad98523631ae4a59f267346ea31f984",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 26672,
+          "observed": 2,
+          "firstBlock": 0,
+          "nonce": 26673,
+          "funded": 0.001274745050989802,
+          "depthMethod": "sample",
+          "rateSample": 2,
+          "ratePassed": 0,
+          "sample": 2,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 2,
+          "unpriced": 0,
+          "knownFunded": 34,
+          "knownAbove1k": 26,
+          "knownAbove10k": 14
+        },
+        {
+          "address": "0x360e68faccca8ca495c1b759fd9eee466db9fb32",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 21394,
+          "observed": 2,
+          "firstBlock": 262884862,
+          "deploymentBracket": [
+            262884862,
+            394327292
+          ],
+          "managerWindows": 12,
+          "managerCreations": 4,
+          "managerBlocks": 49152,
+          "initializations": [
+            [
+              272102219,
+              272106314,
+              0
+            ],
+            [
+              304429973,
+              304434068,
+              1
+            ],
+            [
+              317614344,
+              317618439,
+              0
+            ],
+            [
+              349995593,
+              349999688,
+              0
+            ],
+            [
+              360420034,
+              360424129,
+              0
+            ],
+            [
+              390031305,
+              390035400,
+              0
+            ],
+            [
+              400413324,
+              400417419,
+              0
+            ],
+            [
+              432752104,
+              432756199,
+              0
+            ],
+            [
+              445936144,
+              445940239,
+              1
+            ],
+            [
+              478306361,
+              478310456,
+              1
+            ],
+            [
+              486014657,
+              486018752,
+              0
+            ],
+            [
+              518353437,
+              518357532,
+              1
+            ]
+          ],
+          "funded": 0.16666666666666666,
+          "depthMethod": "sample",
+          "rateSample": 6,
+          "ratePassed": 1,
+          "sample": 6,
+          "above100": 1,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 1,
+          "unpriced": 0
+        }
+      ]
+    },
+    {
+      "id": "linea",
+      "head": 32657376,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 8192,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          869789,
+          871836,
+          {}
+        ],
+        [
+          3693139,
+          3695186,
+          {}
+        ],
+        [
+          4413794,
+          4415841,
+          {
+            "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865": 1
+          }
+        ],
+        [
+          7237144,
+          7239191,
+          {}
+        ],
+        [
+          9980906,
+          9982953,
+          {}
+        ],
+        [
+          10765226,
+          10767273,
+          {}
+        ],
+        [
+          13524919,
+          13526966,
+          {}
+        ],
+        [
+          14309480,
+          14311527,
+          {}
+        ],
+        [
+          17324052,
+          17326099,
+          {}
+        ],
+        [
+          20131472,
+          20133519,
+          {}
+        ],
+        [
+          20915854,
+          20917901,
+          {}
+        ],
+        [
+          23675484,
+          23677531,
+          {}
+        ],
+        [
+          26498897,
+          26500944,
+          {}
+        ],
+        [
+          27203559,
+          27205606,
+          {}
+        ],
+        [
+          30026971,
+          30029018,
+          {
+            "0x31fafd4889fa1269f7a13a66ee0fb458f27d72a9": 1
+          }
+        ],
+        [
+          30747322,
+          30749369,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+          "name": "pancakeswap-v3",
+          "kind": "pancake-v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 233,
+          "observed": 1,
+          "firstBlock": 0,
+          "nonce": 234,
+          "funded": 0.03862660944206009,
+          "depthMethod": "sample",
+          "rateSample": 1,
+          "ratePassed": 0,
+          "sample": 1,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 9,
+          "knownAbove1k": 4,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0xfbc12984689e5f15626bad03ad60160fe98b303c",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 28,
+          "funded": 0.08333333333333333,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 2,
+          "sample": 24,
+          "above100": 2,
+          "above1k": 2,
+          "above10k": 0,
+          "empty": 7,
+          "unpriced": 1,
+          "knownFunded": 1,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 63,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 64,
+          "funded": 0.031746031746031744,
+          "depthMethod": "same kind on chain",
+          "rateSample": 1,
+          "ratePassed": 0,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 2,
+          "knownAbove1k": 2,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x114a43df6c5f54ebb8a9d70cd1951d3dd68004c7",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 3,
+          "funded": 0.3333333333333333,
+          "depthMethod": "sample",
+          "rateSample": 3,
+          "ratePassed": 1,
+          "sample": 3,
+          "above100": 1,
+          "above1k": 1,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 1,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x31fafd4889fa1269f7a13a66ee0fb458f27d72a9",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 48,
+          "observed": 1,
+          "firstBlock": 0,
+          "nonce": 49,
+          "funded": 0.041666666666666664,
+          "depthMethod": "sample",
+          "rateSample": 1,
+          "ratePassed": 0,
+          "sample": 1,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 1,
+          "unpriced": 0,
+          "knownFunded": 2,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x248083fb965359d82b06c1f5322480dcfc1ad857",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 75,
+          "observed": 0,
+          "firstBlock": 28957909,
+          "deploymentBracket": [
+            28957909,
+            28989800
+          ],
+          "managerWindows": 12,
+          "managerCreations": 1,
+          "managerBlocks": 49152,
+          "initializations": [
+            [
+              29116398,
+              29120493,
+              1
+            ],
+            [
+              29279700,
+              29283795,
+              0
+            ],
+            [
+              29747126,
+              29751221,
+              0
+            ],
+            [
+              29910280,
+              29914375,
+              0
+            ],
+            [
+              30377697,
+              30381792,
+              0
+            ],
+            [
+              30540999,
+              30545094,
+              0
+            ],
+            [
+              31009609,
+              31013704,
+              0
+            ],
+            [
+              31172767,
+              31176862,
+              0
+            ],
+            [
+              31640188,
+              31644283,
+              0
+            ],
+            [
+              31803505,
+              31807600,
+              0
+            ],
+            [
+              32270926,
+              32275021,
+              0
+            ],
+            [
+              32434085,
+              32438180,
+              0
+            ]
+          ],
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 1,
+          "ratePassed": 0,
+          "sample": 1,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0
+        }
+      ]
+    },
+    {
+      "id": "avalanche",
+      "head": 100824056,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          4289297,
+          4291344,
+          {}
+        ],
+        [
+          6598998,
+          6601045,
+          {}
+        ],
+        [
+          18382478,
+          18384525,
+          {}
+        ],
+        [
+          20692180,
+          20694227,
+          {}
+        ],
+        [
+          26176211,
+          26178258,
+          {}
+        ],
+        [
+          34785356,
+          34787403,
+          {}
+        ],
+        [
+          40269392,
+          40271439,
+          {}
+        ],
+        [
+          48878537,
+          48880584,
+          {}
+        ],
+        [
+          55125398,
+          55127445,
+          {}
+        ],
+        [
+          57459701,
+          57461748,
+          {}
+        ],
+        [
+          69218574,
+          69220621,
+          {}
+        ],
+        [
+          71552883,
+          71554930,
+          {}
+        ],
+        [
+          77012300,
+          77014347,
+          {}
+        ],
+        [
+          85646064,
+          85648111,
+          {
+            "0x740b1c1de25031c31ff4fc9a62f554a55cdc1bad": 2,
+            "0x06380c0e0912312b5150364b9dc4542ba0dbbc85": 7
+          }
+        ],
+        [
+          91105488,
+          91107535,
+          {}
+        ],
+        [
+          99716171,
+          99718218,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 555,
+          "funded": 0.0018018018018018018,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 0,
+          "sample": 24,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 3,
+          "unpriced": 5,
+          "knownFunded": 1,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x3e603c14af37ebdad31709c4f848fc6ad5bec715",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 146,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 147,
+          "funded": 0,
+          "depthMethod": "same kind on chain",
+          "rateSample": 2,
+          "ratePassed": 0,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0
+        },
+        {
+          "address": "0x9e5a52f57b3038f1b8eee45f28b3c1967e22799c",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 12264,
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 111,
+          "ratePassed": 0,
+          "sample": 111,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 3
+        },
+        {
+          "address": "0x740b1c1de25031c31ff4fc9a62f554a55cdc1bad",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 3284,
+          "observed": 2,
+          "firstBlock": 0,
+          "nonce": 3285,
+          "funded": 0.0018270401948842874,
+          "depthMethod": "sample",
+          "rateSample": 2,
+          "ratePassed": 0,
+          "sample": 2,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 1,
+          "unpriced": 0,
+          "knownFunded": 6,
+          "knownAbove1k": 5,
+          "knownAbove10k": 2
+        },
+        {
+          "address": "0x06380c0e0912312b5150364b9dc4542ba0dbbc85",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 1819,
+          "observed": 7,
+          "firstBlock": 56122767,
+          "deploymentBracket": [
+            56122767,
+            56221227
+          ],
+          "managerWindows": 12,
+          "managerCreations": 2,
+          "managerBlocks": 49152,
+          "initializations": [
+            [
+              57739765,
+              57743860,
+              0
+            ],
+            [
+              63118471,
+              63122566,
+              0
+            ],
+            [
+              65362163,
+              65366258,
+              0
+            ],
+            [
+              70982513,
+              70986608,
+              2
+            ],
+            [
+              72757340,
+              72761435,
+              0
+            ],
+            [
+              77674544,
+              77678639,
+              0
+            ],
+            [
+              79456693,
+              79460788,
+              0
+            ],
+            [
+              85069833,
+              85073928,
+              0
+            ],
+            [
+              87313471,
+              87317566,
+              0
+            ],
+            [
+              92699383,
+              92703478,
+              0
+            ],
+            [
+              94012774,
+              94016869,
+              0
+            ],
+            [
+              99625908,
+              99630003,
+              0
+            ]
+          ],
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 9,
+          "ratePassed": 0,
+          "sample": 9,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 8,
+          "unpriced": 0
+        }
+      ]
+    },
+    {
+      "id": "scroll",
+      "head": 35789889,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          1177801,
+          1179848,
+          {}
+        ],
+        [
+          2557260,
+          2559307,
+          {}
+        ],
+        [
+          6171535,
+          6173582,
+          {}
+        ],
+        [
+          7548675,
+          7550722,
+          {}
+        ],
+        [
+          9085270,
+          9087317,
+          {}
+        ],
+        [
+          12699545,
+          12701592,
+          {}
+        ],
+        [
+          14079004,
+          14081051,
+          {}
+        ],
+        [
+          17695598,
+          17697645,
+          {}
+        ],
+        [
+          19214734,
+          19216781,
+          {}
+        ],
+        [
+          20611652,
+          20613699,
+          {}
+        ],
+        [
+          24225927,
+          24227974,
+          {}
+        ],
+        [
+          25603067,
+          25605114,
+          {}
+        ],
+        [
+          26982523,
+          26984570,
+          {}
+        ],
+        [
+          30753938,
+          30755985,
+          {}
+        ],
+        [
+          32133397,
+          32135444,
+          {}
+        ],
+        [
+          35749991,
+          35752038,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0xb45e53277a7e0f1d35f2a77160e91e25507f1763",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 105,
+          "funded": 0.01904761904761905,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 0,
+          "sample": 24,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 5,
+          "unpriced": 2,
+          "knownFunded": 2,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x46b3fdf7b5cde91ac049936bf0bdb12c5d22202e",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 116,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 117,
+          "fullQuery": 116,
+          "funded": 0.08333333333333333,
+          "depthMethod": "sample",
+          "rateSample": 96,
+          "ratePassed": 8,
+          "sample": 96,
+          "above100": 8,
+          "above1k": 3,
+          "above10k": 0,
+          "empty": 44,
+          "unpriced": 4,
+          "knownFunded": 5,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        }
+      ]
+    },
+    {
+      "id": "blast",
+      "head": 43140577,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 5000,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          269926,
+          271973,
+          {}
+        ],
+        [
+          4674717,
+          4676764,
+          {}
+        ],
+        [
+          6373507,
+          6375554,
+          {}
+        ],
+        [
+          10775832,
+          10777879,
+          {
+            "0x792edade80af5fc680d96a2ed80a44247d2cf6fd": 3
+          }
+        ],
+        [
+          12306234,
+          12308281,
+          {}
+        ],
+        [
+          14016793,
+          14018840,
+          {}
+        ],
+        [
+          18409826,
+          18411873,
+          {}
+        ],
+        [
+          20117579,
+          20119626,
+          {}
+        ],
+        [
+          21658509,
+          21660556,
+          {}
+        ],
+        [
+          26052773,
+          26054820,
+          {}
+        ],
+        [
+          27762077,
+          27764124,
+          {}
+        ],
+        [
+          32153877,
+          32155924,
+          {}
+        ],
+        [
+          33863192,
+          33865239,
+          {}
+        ],
+        [
+          35394831,
+          35396878,
+          {}
+        ],
+        [
+          39798386,
+          39800433,
+          {}
+        ],
+        [
+          41506149,
+          41508196,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0x5c346464d33f90babaf70db6388507cc889c1070",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 151,
+          "funded": 0.08333333333333333,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 2,
+          "sample": 24,
+          "above100": 2,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 3,
+          "unpriced": 3,
+          "knownFunded": 1,
+          "knownAbove1k": 0,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x792edade80af5fc680d96a2ed80a44247d2cf6fd",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 3157,
+          "observed": 3,
+          "firstBlock": 0,
+          "nonce": 3158,
+          "nonceBlock": 43142477,
+          "funded": 0.0006335128286347799,
+          "depthMethod": "sample",
+          "rateSample": 3,
+          "ratePassed": 0,
+          "sample": 3,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 3,
+          "unpriced": 0,
+          "knownFunded": 2,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x1631559198a9e474033433b2958dabc135ab6446",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 0,
+          "observed": 0,
+          "firstBlock": 0,
+          "deploymentBracket": [
+            0,
+            43140577
+          ],
+          "managerWindows": 12,
+          "managerCreations": 0,
+          "managerBlocks": 49152,
+          "initializations": [
+            [
+              2526854,
+              2530949,
+              0
+            ],
+            [
+              4410361,
+              4414456,
+              0
+            ],
+            [
+              9435069,
+              9439164,
+              0
+            ],
+            [
+              11323819,
+              11327914,
+              0
+            ],
+            [
+              16797403,
+              16801498,
+              0
+            ],
+            [
+              18232034,
+              18236129,
+              0
+            ],
+            [
+              23712641,
+              23716736,
+              0
+            ],
+            [
+              25594396,
+              25598491,
+              0
+            ],
+            [
+              30619103,
+              30623198,
+              0
+            ],
+            [
+              32509607,
+              32513702,
+              0
+            ],
+            [
+              39329797,
+              39333892,
+              0
+            ],
+            [
+              41211545,
+              41215640,
+              0
+            ]
+          ],
+          "funded": 0.017329255861365953,
+          "depthMethod": "same kind across chains",
+          "rateSample": 981,
+          "ratePassed": 17,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0
+        }
+      ]
+    },
+    {
+      "id": "berachain",
+      "head": 29059806,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 32768,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          220476,
+          222523,
+          {}
+        ],
+        [
+          3157529,
+          3159576,
+          {}
+        ],
+        [
+          4281281,
+          4283328,
+          {}
+        ],
+        [
+          7220105,
+          7222152,
+          {}
+        ],
+        [
+          8329681,
+          8331728,
+          {}
+        ],
+        [
+          9452548,
+          9454595,
+          {}
+        ],
+        [
+          12390485,
+          12392532,
+          {}
+        ],
+        [
+          13511359,
+          13513406,
+          {}
+        ],
+        [
+          14635108,
+          14637155,
+          {}
+        ],
+        [
+          17586334,
+          17588381,
+          {}
+        ],
+        [
+          18710086,
+          18712133,
+          {}
+        ],
+        [
+          21648910,
+          21650957,
+          {}
+        ],
+        [
+          22772663,
+          22774710,
+          {}
+        ],
+        [
+          23881353,
+          23883400,
+          {}
+        ],
+        [
+          26819291,
+          26821338,
+          {}
+        ],
+        [
+          27940607,
+          27942654,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0x5e705e184d233ff2a7cb1553793464a9d0c3028f",
+          "name": "kodiak-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 2697,
+          "funded": 0.038461538461538464,
+          "depthMethod": "sample",
+          "rateSample": 52,
+          "ratePassed": 2,
+          "sample": 52,
+          "above100": 2,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 4,
+          "unpriced": 2,
+          "knownFunded": 1,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0xd84cbf0b02636e7f53db9e5e45a616e05d710990",
+          "name": "kodiak-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 1695,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 1696,
+          "funded": 0.028862478777589132,
+          "depthMethod": "same kind across chains",
+          "rateSample": 1178,
+          "ratePassed": 34,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0
+        }
+      ]
+    },
+    {
+      "id": "sonic",
+      "head": 82827758,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          5140420,
+          5142467,
+          {}
+        ],
+        [
+          7038243,
+          7040290,
+          {}
+        ],
+        [
+          14130817,
+          14132864,
+          {}
+        ],
+        [
+          16028324,
+          16030371,
+          {}
+        ],
+        [
+          23120889,
+          23122936,
+          {}
+        ],
+        [
+          30193408,
+          30195455,
+          {
+            "0xcd2d0637c94fe77c2896bbcbb174ceffb08de6d7": 1
+          }
+        ],
+        [
+          32111285,
+          32113332,
+          {}
+        ],
+        [
+          39183488,
+          39185535,
+          {}
+        ],
+        [
+          46255839,
+          46257886,
+          {}
+        ],
+        [
+          48173876,
+          48175923,
+          {}
+        ],
+        [
+          55246237,
+          55248284,
+          {}
+        ],
+        [
+          57163957,
+          57166004,
+          {}
+        ],
+        [
+          64236318,
+          64238365,
+          {}
+        ],
+        [
+          71329040,
+          71331087,
+          {}
+        ],
+        [
+          73226705,
+          73228752,
+          {}
+        ],
+        [
+          80300171,
+          80302218,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0xcd2d0637c94fe77c2896bbcbb174ceffb08de6d7",
+          "name": "shadow-exchange-concentrated-liquidity",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 3413,
+          "observed": 1,
+          "firstBlock": 0,
+          "nonce": 1,
+          "fullQuery": 3413,
+          "funded": 0.010309278350515464,
+          "depthMethod": "sample",
+          "rateSample": 97,
+          "ratePassed": 1,
+          "sample": 97,
+          "above100": 1,
+          "above1k": 1,
+          "above10k": 1,
+          "empty": 58,
+          "unpriced": 35
+        },
+        {
+          "address": "0xb45e53277a7e0f1d35f2a77160e91e25507f1763",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 149,
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 0,
+          "sample": 24,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 13,
+          "unpriced": 10
+        },
+        {
+          "address": "0x46b3fdf7b5cde91ac049936bf0bdb12c5d22202e",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 181,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 182,
+          "fullQuery": 181,
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 96,
+          "ratePassed": 0,
+          "sample": 96,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 68,
+          "unpriced": 25
+        }
+      ]
+    },
+    {
+      "id": "mantle",
+      "head": 103502009,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          1502834,
+          1504881,
+          {}
+        ],
+        [
+          10337716,
+          10339763,
+          {}
+        ],
+        [
+          16169494,
+          16171541,
+          {}
+        ],
+        [
+          25003980,
+          25006027,
+          {}
+        ],
+        [
+          30381053,
+          30383100,
+          {}
+        ],
+        [
+          32749108,
+          32751155,
+          {}
+        ],
+        [
+          45047711,
+          45049758,
+          {}
+        ],
+        [
+          47428001,
+          47430048,
+          {}
+        ],
+        [
+          52830341,
+          52832388,
+          {}
+        ],
+        [
+          61741000,
+          61743047,
+          {}
+        ],
+        [
+          67345428,
+          67347475,
+          {}
+        ],
+        [
+          76407264,
+          76409311,
+          {}
+        ],
+        [
+          82011691,
+          82013738,
+          {}
+        ],
+        [
+          84152396,
+          84154443,
+          {}
+        ],
+        [
+          96223645,
+          96225692,
+          {}
+        ],
+        [
+          98807603,
+          98809650,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0x25780dc8fc3cfbd75f33bfdab65e969b603b2035",
+          "name": "agni-finance",
+          "kind": "pancake-v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 474,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 475,
+          "funded": 0.05925925925925926,
+          "depthMethod": "same kind across chains",
+          "rateSample": 135,
+          "ratePassed": 8,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0
+        },
+        {
+          "address": "0xe5020961fa51ffd3662cdf307def18f9a87cce7c",
+          "name": "fusionx-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 355,
+          "funded": 0.005633802816901409,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 0,
+          "sample": 24,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 21,
+          "knownFunded": 2,
+          "knownAbove1k": 0,
+          "knownAbove10k": 0
+        }
+      ]
+    },
+    {
+      "id": "gnosis",
+      "head": 49368137,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          2483311,
+          2485358,
+          {}
+        ],
+        [
+          4391889,
+          4393936,
+          {}
+        ],
+        [
+          7842109,
+          7844156,
+          {}
+        ],
+        [
+          9747675,
+          9749722,
+          {}
+        ],
+        [
+          13197889,
+          13199936,
+          {}
+        ],
+        [
+          18189922,
+          18191969,
+          {}
+        ],
+        [
+          18556675,
+          18558722,
+          {}
+        ],
+        [
+          23545331,
+          23547378,
+          {}
+        ],
+        [
+          27380978,
+          27383025,
+          {}
+        ],
+        [
+          29289556,
+          29291603,
+          {}
+        ],
+        [
+          32739764,
+          32741811,
+          {}
+        ],
+        [
+          34645331,
+          34647378,
+          {}
+        ],
+        [
+          38095550,
+          38097597,
+          {}
+        ],
+        [
+          43087588,
+          43089635,
+          {}
+        ],
+        [
+          43454342,
+          43456389,
+          {}
+        ],
+        [
+          48443739,
+          48445786,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 1767,
+          "funded": 0.001697792869269949,
+          "depthMethod": "sample",
+          "rateSample": 43,
+          "ratePassed": 0,
+          "sample": 43,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 1,
+          "unpriced": 29,
+          "knownFunded": 3,
+          "knownAbove1k": 1,
+          "knownAbove10k": 1
+        },
+        {
+          "address": "0xf78031cbca409f2fb6876bdfdbc1b2df24cf9bef",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 314,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 315,
+          "fullQuery": 314,
+          "funded": 0.07291666666666667,
+          "depthMethod": "sample",
+          "rateSample": 96,
+          "ratePassed": 7,
+          "sample": 96,
+          "above100": 7,
+          "above1k": 3,
+          "above10k": 0,
+          "empty": 62,
+          "unpriced": 15,
+          "knownFunded": 1,
+          "knownAbove1k": 1,
+          "knownAbove10k": 0
+        }
+      ]
+    },
+    {
+      "id": "zksync",
+      "head": 73027450,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          3998254,
+          4000301,
+          {}
+        ],
+        [
+          5740597,
+          5742644,
+          {}
+        ],
+        [
+          12065148,
+          12067195,
+          {}
+        ],
+        [
+          13811947,
+          13813994,
+          {}
+        ],
+        [
+          20136506,
+          20138553,
+          {}
+        ],
+        [
+          26441025,
+          26443072,
+          {}
+        ],
+        [
+          28203417,
+          28205464,
+          {}
+        ],
+        [
+          34512931,
+          34514978,
+          {}
+        ],
+        [
+          40819669,
+          40821716,
+          {}
+        ],
+        [
+          42508550,
+          42510597,
+          {}
+        ],
+        [
+          48815262,
+          48817309,
+          {}
+        ],
+        [
+          50579881,
+          50581928,
+          {}
+        ],
+        [
+          56886611,
+          56888658,
+          {}
+        ],
+        [
+          63208942,
+          63210989,
+          {}
+        ],
+        [
+          64953513,
+          64955560,
+          {}
+        ],
+        [
+          71263045,
+          71265092,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0x1bb72e0cbbea93c08f535fc7856e0338d7f7a8ab",
+          "name": "pancakeswap-v3",
+          "kind": "pancake-v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 327,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 328,
+          "fullQuery": 0,
+          "funded": 0.05925925925925926,
+          "depthMethod": "same kind across chains",
+          "rateSample": 135,
+          "ratePassed": 8,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 10,
+          "knownAbove1k": 7,
+          "knownAbove10k": 3
+        },
+        {
+          "address": "0x8fda5a7a8dca67bbcdd10f02fa0649a937215422",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 328,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 329,
+          "fullQuery": 2,
+          "funded": 0.027439024390243903,
+          "depthMethod": "sample",
+          "rateSample": 2,
+          "ratePassed": 0,
+          "sample": 2,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 1,
+          "unpriced": 0,
+          "knownFunded": 9,
+          "knownAbove1k": 3,
+          "knownAbove10k": 1
+        }
+      ]
+    },
+    {
+      "id": "celo",
+      "head": 83233637,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 4096,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          593858,
+          595905,
+          {}
+        ],
+        [
+          9089910,
+          9091957,
+          {}
+        ],
+        [
+          12225785,
+          12227832,
+          {}
+        ],
+        [
+          20721836,
+          20723883,
+          {}
+        ],
+        [
+          23817091,
+          23819138,
+          {}
+        ],
+        [
+          27113108,
+          27115155,
+          {}
+        ],
+        [
+          35449038,
+          35451085,
+          {}
+        ],
+        [
+          38744400,
+          38746447,
+          {}
+        ],
+        [
+          41880276,
+          41882323,
+          {}
+        ],
+        [
+          50335706,
+          50337753,
+          {}
+        ],
+        [
+          53634064,
+          53636111,
+          {}
+        ],
+        [
+          61967613,
+          61969660,
+          {}
+        ],
+        [
+          65265991,
+          65268038,
+          {}
+        ],
+        [
+          68358861,
+          68360908,
+          {}
+        ],
+        [
+          76857298,
+          76859345,
+          {}
+        ],
+        [
+          79991448,
+          79993495,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 257,
+          "funded": 0.007782101167315175,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 0,
+          "sample": 24,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 3,
+          "knownFunded": 2,
+          "knownAbove1k": 0,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x79a530c8e2fa8748b7b40dd3629c0520c2ccf03f",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 0,
+          "funded": 0,
+          "depthMethod": "same kind on chain",
+          "rateSample": 24,
+          "ratePassed": 0,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0
+        },
+        {
+          "address": "0xafe208a311b21f13ef87e33a90049fc17a7acdec",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 689,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 690,
+          "funded": 0.028862478777589132,
+          "depthMethod": "same kind across chains",
+          "rateSample": 1178,
+          "ratePassed": 34,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 7,
+          "knownAbove1k": 6,
+          "knownAbove10k": 3
+        },
+        {
+          "address": "0x288dc841a52fca2707c6947b3a777c5e56cd87bc",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 0,
+          "observed": 0,
+          "firstBlock": 43974023,
+          "deploymentBracket": [
+            43974023,
+            44055305
+          ],
+          "managerWindows": 12,
+          "managerCreations": 0,
+          "managerBlocks": 37248,
+          "initializations": [
+            [
+              46845201,
+              46849296,
+              0
+            ],
+            [
+              53642572,
+              53646667,
+              0
+            ],
+            [
+              60232538,
+              60236633,
+              0
+            ],
+            [
+              61233596,
+              61237691,
+              0
+            ],
+            [
+              67823561,
+              67827656,
+              0
+            ],
+            [
+              72806135,
+              72810230,
+              0
+            ],
+            [
+              74620745,
+              74624840,
+              0
+            ],
+            [
+              78786428,
+              78790523,
+              0
+            ],
+            [
+              80397010,
+              80401105,
+              0
+            ],
+            [
+              48661667,
+              48661794,
+              0
+            ],
+            [
+              66216155,
+              66216282,
+              0
+            ],
+            [
+              56504493,
+              56504620,
+              0
+            ]
+          ],
+          "funded": 0.017329255861365953,
+          "depthMethod": "same kind across chains",
+          "rateSample": 981,
+          "ratePassed": 17,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0
+        }
+      ]
+    },
+    {
+      "id": "unichain",
+      "head": 64386035,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          2506661,
+          2508708,
+          {}
+        ],
+        [
+          4995414,
+          4997461,
+          {}
+        ],
+        [
+          11490652,
+          11492699,
+          {}
+        ],
+        [
+          13979405,
+          13981452,
+          {
+            "0x1f98400000000000000000000000000000000003": 2
+          }
+        ],
+        [
+          16452568,
+          16454615,
+          {
+            "0x1f98400000000000000000000000000000000003": 1
+          }
+        ],
+        [
+          22963392,
+          22965439,
+          {}
+        ],
+        [
+          25436557,
+          25438604,
+          {}
+        ],
+        [
+          31940019,
+          31942066,
+          {}
+        ],
+        [
+          34428895,
+          34430942,
+          {}
+        ],
+        [
+          36964779,
+          36966826,
+          {}
+        ],
+        [
+          43475757,
+          43477804,
+          {}
+        ],
+        [
+          45948801,
+          45950848,
+          {}
+        ],
+        [
+          48437670,
+          48439717,
+          {}
+        ],
+        [
+          54932791,
+          54934838,
+          {}
+        ],
+        [
+          57421664,
+          57423711,
+          {}
+        ],
+        [
+          63925124,
+          63927171,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0x1f98400000000000000000000000000000000002",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 1046224,
+          "funded": 9.558182568933612e-7,
+          "depthMethod": "sample",
+          "rateSample": 512,
+          "ratePassed": 0,
+          "sample": 512,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 1,
+          "knownAbove1k": 0,
+          "knownAbove10k": 0
+        },
+        {
+          "address": "0x1f98400000000000000000000000000000000003",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 5786,
+          "observed": 3,
+          "firstBlock": 0,
+          "nonce": 5787,
+          "funded": 0.0005184929139301763,
+          "depthMethod": "sample",
+          "rateSample": 3,
+          "ratePassed": 0,
+          "sample": 3,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 2,
+          "unpriced": 0,
+          "knownFunded": 3,
+          "knownAbove1k": 3,
+          "knownAbove10k": 2
+        },
+        {
+          "address": "0x1f98400000000000000000000000000000000004",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 3930,
+          "observed": 0,
+          "firstBlock": 0,
+          "deploymentBracket": [
+            0,
+            62876
+          ],
+          "managerWindows": 12,
+          "managerCreations": 3,
+          "managerBlocks": 49152,
+          "initializations": [
+            [
+              4644109,
+              4648204,
+              0
+            ],
+            [
+              7124417,
+              7128512,
+              0
+            ],
+            [
+              14959575,
+              14963670,
+              0
+            ],
+            [
+              17761876,
+              17765971,
+              3
+            ],
+            [
+              25602282,
+              25606377,
+              0
+            ],
+            [
+              29417693,
+              29421788,
+              0
+            ],
+            [
+              37247582,
+              37251677,
+              0
+            ],
+            [
+              40060357,
+              40064452,
+              0
+            ],
+            [
+              47895517,
+              47899612,
+              0
+            ],
+            [
+              50365349,
+              50369444,
+              0
+            ],
+            [
+              56860165,
+              56864260,
+              0
+            ],
+            [
+              59672933,
+              59677028,
+              0
+            ]
+          ],
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 3,
+          "ratePassed": 0,
+          "sample": 3,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 1,
+          "unpriced": 2
+        }
+      ]
+    },
+    {
+      "id": "fantom",
+      "head": 124139415,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          2619582,
+          2621629,
+          {}
+        ],
+        [
+          15157154,
+          15159201,
+          {}
+        ],
+        [
+          16090009,
+          16092056,
+          {}
+        ],
+        [
+          28627581,
+          28629628,
+          {}
+        ],
+        [
+          37801907,
+          37803954,
+          {}
+        ],
+        [
+          42582829,
+          42584876,
+          {}
+        ],
+        [
+          51272367,
+          51274414,
+          {}
+        ],
+        [
+          56067458,
+          56069505,
+          {}
+        ],
+        [
+          64241906,
+          64243953,
+          {}
+        ],
+        [
+          76809773,
+          76811820,
+          {}
+        ],
+        [
+          77712303,
+          77714350,
+          {}
+        ],
+        [
+          90280170,
+          90282217,
+          {}
+        ],
+        [
+          98939394,
+          98941441,
+          {}
+        ],
+        [
+          104235392,
+          104237439,
+          {}
+        ],
+        [
+          112894627,
+          112896674,
+          {}
+        ],
+        [
+          117689752,
+          117691799,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0x3faab499b519fdc5819e3d7ed0c26111904cbc28",
+          "name": "solidly-v1",
+          "kind": "solidly-v1",
+          "mode": "index",
+          "method": "array",
+          "population": 609,
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 25,
+          "ratePassed": 0,
+          "sample": 25,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 25
+        },
+        {
+          "address": "0x7928a2c48754501f3a8064765ecae541dae5c3e6",
+          "name": "spookyswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 1739,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 1740,
+          "fullQuery": 1739,
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 96,
+          "ratePassed": 0,
+          "sample": 96,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 77,
+          "unpriced": 19
+        },
+        {
+          "address": "0xc35dadb65012ec5796536bd9864ed8773abc74c4",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 2034,
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 46,
+          "ratePassed": 0,
+          "sample": 46,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 12,
+          "unpriced": 34
+        },
+        {
+          "address": "0x7770978eed668a3ba661d51a773d3a992fc9ddcb",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "full log query",
+          "population": 407,
+          "observed": 0,
+          "firstBlock": 0,
+          "nonce": 408,
+          "fullQuery": 407,
+          "funded": 0,
+          "depthMethod": "same kind on chain",
+          "rateSample": 96,
+          "ratePassed": 0,
+          "sample": 0,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0
+        }
+      ]
+    },
+    {
+      "id": "robinhood",
+      "head": 118637986,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          5786234,
+          5788281,
+          {
+            "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": 27,
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 7
+          }
+        ],
+        [
+          10355181,
+          10357228,
+          {
+            "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": 81,
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 24
+          }
+        ],
+        [
+          18630544,
+          18632591,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 27,
+            "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": 15
+          }
+        ],
+        [
+          23206729,
+          23208776,
+          {
+            "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": 16,
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 22
+          }
+        ],
+        [
+          31945394,
+          31947441,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 22,
+            "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": 3
+          }
+        ],
+        [
+          43927167,
+          43929214,
+          {
+            "0xe51960f1b45f1c9fb6d166e6a884f866fc70433b": 1,
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 8,
+            "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": 2
+          }
+        ],
+        [
+          44789702,
+          44791749,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 10
+          }
+        ],
+        [
+          56779622,
+          56781669,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 33
+          }
+        ],
+        [
+          65518283,
+          65520330,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 52,
+            "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": 2
+          }
+        ],
+        [
+          70203058,
+          70205105,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 22
+          }
+        ],
+        [
+          78478418,
+          78480465,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 17,
+            "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": 1
+          }
+        ],
+        [
+          83054607,
+          83056654,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 11,
+            "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": 1
+          }
+        ],
+        [
+          91329968,
+          91332015,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 23,
+            "0x1f7d7550b1b028f7571e69a784071f0205fd2efa": 1
+          }
+        ],
+        [
+          103775042,
+          103777089,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 12
+          }
+        ],
+        [
+          104637579,
+          104639626,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 5
+          }
+        ],
+        [
+          116625686,
+          116627733,
+          {
+            "0x8366a39cc670b4001a1121b8f6a443a643e40951": 8
+          }
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0xe52abd50ad151ecdf56427effd715e703696a6b1",
+          "name": "sushiswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 68,
+          "funded": 0,
+          "depthMethod": "sample",
+          "rateSample": 24,
+          "ratePassed": 0,
+          "sample": 24,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 3,
+          "unpriced": 5
+        },
+        {
+          "address": "0xe51960f1b45f1c9fb6d166e6a884f866fc70433b",
+          "name": "sushiswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 11354,
+          "observed": 1,
+          "firstBlock": 0,
+          "nonce": 11355,
+          "funded": 0.00017614937466971993,
+          "depthMethod": "sample",
+          "rateSample": 1,
+          "ratePassed": 0,
+          "sample": 1,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 0,
+          "unpriced": 0,
+          "knownFunded": 2,
+          "knownAbove1k": 2,
+          "knownAbove10k": 2
+        },
+        {
+          "address": "0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f",
+          "name": "uniswap-v2",
+          "kind": "v2",
+          "mode": "index",
+          "method": "array",
+          "population": 151113,
+          "funded": 0.005141388174807198,
+          "depthMethod": "sample",
+          "rateSample": 389,
+          "ratePassed": 2,
+          "sample": 389,
+          "above100": 2,
+          "above1k": 1,
+          "above10k": 0,
+          "empty": 307,
+          "unpriced": 2,
+          "knownFunded": 1,
+          "knownAbove1k": 1,
+          "knownAbove10k": 1
+        },
+        {
+          "address": "0x1f7d7550b1b028f7571e69a784071f0205fd2efa",
+          "name": "uniswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 451219,
+          "observed": 149,
+          "firstBlock": 0,
+          "nonce": 451220,
+          "funded": 0.020134228187919462,
+          "depthMethod": "sample",
+          "rateSample": 149,
+          "ratePassed": 3,
+          "sample": 149,
+          "above100": 3,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 17,
+          "unpriced": 0,
+          "knownFunded": 4,
+          "knownAbove1k": 4,
+          "knownAbove10k": 3
+        },
+        {
+          "address": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+          "name": "uniswap-v4",
+          "kind": "v4",
+          "mode": "logs",
+          "method": "manager lifespan sample",
+          "population": 1279259,
+          "observed": 303,
+          "firstBlock": 0,
+          "deploymentBracket": [
+            0,
+            115857
+          ],
+          "managerWindows": 12,
+          "managerCreations": 530,
+          "managerBlocks": 49152,
+          "initializations": [
+            [
+              3766574,
+              3770669,
+              2
+            ],
+            [
+              19138887,
+              19142982,
+              99
+            ],
+            [
+              24317728,
+              24321823,
+              42
+            ],
+            [
+              39072437,
+              39076532,
+              47
+            ],
+            [
+              44251259,
+              44255354,
+              36
+            ],
+            [
+              57152990,
+              57157085,
+              97
+            ],
+            [
+              62293106,
+              62297201,
+              111
+            ],
+            [
+              77047918,
+              77052013,
+              21
+            ],
+            [
+              82226609,
+              82230704,
+              5
+            ],
+            [
+              97598515,
+              97602610,
+              23
+            ],
+            [
+              100306587,
+              100310682,
+              18
+            ],
+            [
+              115061418,
+              115065513,
+              29
+            ]
+          ],
+          "funded": 0.006944444444444444,
+          "depthMethod": "sample",
+          "rateSample": 288,
+          "ratePassed": 2,
+          "sample": 288,
+          "above100": 2,
+          "above1k": 1,
+          "above10k": 1,
+          "empty": 198,
+          "unpriced": 26
+        }
+      ]
+    },
+    {
+      "id": "hyperevm",
+      "head": 51725397,
+      "strata": 16,
+      "blocks": 32768,
+      "span": 65536,
+      "spanMeasured": true,
+      "creationWindows": [
+        [
+          64167,
+          66214,
+          {
+            "0xb1c0fa0b789320044a6f623cfe5ebda9562602e3": 1
+          }
+        ],
+        [
+          5344172,
+          5346219,
+          {}
+        ],
+        [
+          7292525,
+          7294572,
+          {}
+        ],
+        [
+          12575883,
+          12577930,
+          {}
+        ],
+        [
+          14700923,
+          14702970,
+          {
+            "0xff7b3e8c00e57ea31477c32a5b52a58eea47b072": 2
+          }
+        ],
+        [
+          16750152,
+          16752199,
+          {}
+        ],
+        [
+          21929294,
+          21931341,
+          {}
+        ],
+        [
+          23975158,
+          23977205,
+          {}
+        ],
+        [
+          26125435,
+          26127482,
+          {}
+        ],
+        [
+          31380203,
+          31382250,
+          {}
+        ],
+        [
+          33429531,
+          33431578,
+          {}
+        ],
+        [
+          38611926,
+          38613973,
+          {}
+        ],
+        [
+          40661242,
+          40663289,
+          {}
+        ],
+        [
+          42786180,
+          42788227,
+          {}
+        ],
+        [
+          48066287,
+          48068334,
+          {
+            "0xff7b3e8c00e57ea31477c32a5b52a58eea47b072": 2
+          }
+        ],
+        [
+          50011201,
+          50013248,
+          {}
+        ]
+      ],
+      "factories": [
+        {
+          "address": "0xb1c0fa0b789320044a6f623cfe5ebda9562602e3",
+          "name": "hyperswap-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 7780,
+          "observed": 1,
+          "firstBlock": 0,
+          "nonce": 7781,
+          "funded": 0.0006426735218508997,
+          "depthMethod": "sample",
+          "rateSample": 1,
+          "ratePassed": 0,
+          "sample": 1,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 1,
+          "unpriced": 0,
+          "knownFunded": 5,
+          "knownAbove1k": 5,
+          "knownAbove10k": 4
+        },
+        {
+          "address": "0xff7b3e8c00e57ea31477c32a5b52a58eea47b072",
+          "name": "project-x-v3",
+          "kind": "v3",
+          "mode": "logs",
+          "method": "creation nonce proxy",
+          "population": 3943,
+          "observed": 4,
+          "firstBlock": 0,
+          "nonce": 3944,
+          "funded": 0.00126806999746386,
+          "depthMethod": "sample",
+          "rateSample": 4,
+          "ratePassed": 0,
+          "sample": 4,
+          "above100": 0,
+          "above1k": 0,
+          "above10k": 0,
+          "empty": 4,
+          "unpriced": 0,
+          "knownFunded": 5,
+          "knownAbove1k": 5,
+          "knownAbove10k": 5
+        }
+      ]
+    }
+  ]
+}
