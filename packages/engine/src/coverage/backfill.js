@@ -93,6 +93,12 @@ export class FactoryBackfill {
 
   connected() { return (this.engine.transport.peerCount?.() ?? 0) > 0 }
 
+  workLifetime() {
+    // A user may allow just one public request per minute (one historical read per 20 minutes).
+    // A complete page needs several such turns even with Multicall3.
+    return Math.max(10 * MINUTE,8 * MINUTE / (this.engine.budget.limit * HISTORY_SHARE))
+  }
+
   nextRow(now) {
     // Give queued forwards two of every three outbox turns, while keeping ordinary proofs moving.
     if (this.turn % 3 !== 0) return this.forwardRow.get(now) ?? this.sendRow.get(now)
@@ -129,7 +135,8 @@ export class FactoryBackfill {
       const now = this.clock()
       const tasks = now >= this.capWake ? this.tasks.filter(t => t.wake <= now) : []
       // Finish partial pages first. Rotate completed pages, including after a failed provider.
-      tasks.sort((a,b) => Number(!!(b.work || b.firstPage)) - Number(!!(a.work || a.firstPage)) || a.last - b.last)
+      tasks.sort((a,b) => Number(!!a.plan?.ranges[0]?.revisit) - Number(!!b.plan?.ranges[0]?.revisit) ||
+        Number(!!(b.work || b.firstPage)) - Number(!!(a.work || a.firstPage)) || a.last - b.last)
       const task = tasks[0]
       this.turn++
       if (this.turn % 8 === 2 && this.engine.names.factoryDue())
@@ -177,7 +184,7 @@ export class FactoryBackfill {
   /** A committed range may extend at the next bounds refresh. Its existing prefix is still complete. */
   async bounds(task) {
     const { source, factory } = task, chain = source.chain
-    if (!task.work || task.work.range || this.clock() - task.work.at > 10 * MINUTE)
+    if (!task.work || task.work.range || this.clock() - task.work.at > this.workLifetime())
       task.work = { at: this.clock(), cache: new Map() }
     const work = task.work
     const head = work.head ??= await this.head(task)
@@ -241,7 +248,7 @@ export class FactoryBackfill {
   async page(task, range) {
     const { source, factory, bounds } = task, { store } = this.engine
     const chain = source.chain.id, now = this.clock()
-    if (task.work?.range !== range || now - task.work.at > 10 * MINUTE)
+    if (task.work?.range !== range || now - task.work.at > this.workLifetime())
       task.work = { range, at: now, cache: new Map() }
     const work = task.work
     const read = calls => this.read(source.chain, calls, work.head?.tip, work.cache)
@@ -260,7 +267,12 @@ export class FactoryBackfill {
     page ??= await indexPage(source, factory, range.next, range.end, read)
     const pools = page.pools
     const decimals = await source.readDecimals(pools, work.head?.tip, read)
-    const states = await source.snapshots(pools, read, decimals)
+    // Index membership and token identities can take several low-budget turns. Re-pin the
+    // funded-state batch after those reads so the observation uses its own block timestamp.
+    const pricingHead = pools.length && now - work.head.at > 10 * MINUTE
+      ? (work.pricingHead ??= await this.head(task)) : work.head
+    const stateRead = calls => this.read(source.chain,calls,pricingHead?.tip,work.cache)
+    const states = await source.snapshots(pools, stateRead, decimals)
     if (this.liveBytes.get().bytes >= this.byteLimit * 0.9) {
       this.capWake = this.clock() + MINUTE
       return
@@ -293,7 +305,7 @@ export class FactoryBackfill {
         const market = source.registry.pool(record, { token0: info(p.token0), token1: info(p.token1) })
         if (!market) continue
         source.saveParameters(record)
-        rows.push(source.stateRow(market, state.price, work.head.ts * 1000))
+        rows.push(source.stateRow(market, state.price, pricingHead.ts * 1000))
         // A locally seeded state-only identity can still gain its first shareable creation.
         if (capacity > 0 && (!known || !old?.tx || (!known.fromHint && p.tx && old.tx !== p.tx))) {
           capacity -= Number(this.keep.run(chain, p.pool, factory.address, p.index ?? null,

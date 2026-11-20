@@ -353,3 +353,26 @@ test('a full connected reader resumes its bounded forwarding queue on disk and a
   await receive(receiver,resumed)
   assert.ok(receiver.engine.registry.markets.has('dex:ethereum:'+first.logs[0].topics[1]))
 })
+
+test('a one-request-per-minute user limit can complete a historical page over successive 20-minute turns', async t => {
+  const n=await node(t), h=n.engine.backfill, g=fixture.ethereum[1], fixtureRpc=replay()
+  n.engine.budget.setLimit(1)
+  const task=h.tasks.find(t=>t.source.chain.id==='ethereum' && t.factory.kind==='v4')
+  task.bounds={mode:'logs'}
+  fixtureRpc.setGroup(g)
+  let available
+  h.rpc={call(...args) {
+    if (!available) throw new RateLimited(n.engine.clock()+20*60_000)
+    available=false
+    return fixtureRpc.call(...args)
+  }}
+  const range={start:g.block,next:g.block,end:g.block+1,after:-1,span:1}
+  for (let i=0;i<8 && range.next<range.end;i++) {
+    available=true
+    try { await h.page(task,range) }
+    catch(e) { assert.ok(e instanceof RateLimited); n.advance(20*60_000) }
+  }
+  assert.equal(range.next,range.end)
+  assert.equal(fixtureRpc.calls.filter(r=>r.method==='eth_getLogs').length,1)
+  assert.equal(h.count.get().n,1)
+})
