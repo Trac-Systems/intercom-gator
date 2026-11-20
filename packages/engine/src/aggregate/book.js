@@ -131,11 +131,6 @@ export class MarketBook {
       coalesce(sum(obsId % ${SUM_MOD}),0) AS ids FROM engine_latest`)
     store.onPrune((_db, { now }) => this.forgetLatest(now - DAY))
     registry.latestCleared?.add((market) => this.latest?.delete(market))
-    this.count =
-      db.prepare(`SELECT market,count(*) AS n,max(l.reporter=?) AS own FROM engine_latest l LEFT JOIN reporters r ON r.key=l.reporter
-      LEFT JOIN engine_standing s ON s.reporter=l.reporter
-      WHERE srcTs>=? AND coalesce(r.mutedUntil,0)<=? AND coalesce(r.weight,1)>0
-        AND (l.reporter=? OR s.agreements>=?) GROUP BY market`)
     this.peers = db.prepare(`SELECT o.id,o.price,o.reporter,o.market,l.srcTs,o.ordinal,coalesce(o.seq,o.id) AS seq FROM engine_latest l JOIN obs o ON o.id=l.obsId
       WHERE l.market=? AND l.srcTs BETWEEN ? AND ? AND l.reporter<>?`)
     this.check = db.prepare(`INSERT INTO engine_checks VALUES (:id,mark_receipt(NULL,:ordinal))
@@ -177,11 +172,35 @@ export class MarketBook {
     // Coverage steers the scheduler; windows are minutes long. Recounting every second cost ~15% of a busy node's
     // main thread (profile 11-19 15:40).
     if (!cache || now - cache.at >= COVERAGE_TTL_MS) {
-      const rows = this.count.all(this.ownKey, now - window, now, this.ownKey, PROVEN)
-      cache = { at: now, markets: new Map(rows.map(r => [r.market, this.localOnly(r.market) ? r.own : r.n])) }
+      cache = { at: now, markets: this.countCoverage(now - window, now) }
       this.covered.set(window, cache)
     }
     return cache.markets.get(id) ?? 0
+  }
+  /** Rows per market since `since` from unmuted, weighted reporters that are this node or proven; a local-only market
+   * counts this node's own row. Counted from the in-memory latest rows: the engine_latest query took ~70 ms and every
+   * ingest clears the cache (11-20 profile: 37 recounts in 20 s, 13% of the main thread). */
+  countCoverage(since, now) {
+    if (!this.latest) this.checkLatest(now)
+    const counted = new Map(), eligible = new Map()
+    for (const [market, rows] of this.latest) {
+      let n = 0, own = 0
+      for (const [reporter, row] of rows) {
+        if (row.srcTs < since) continue
+        let ok = eligible.get(reporter)
+        if (ok === undefined) {
+          const r = this.reputation.get(reporter)
+          ok = (r?.mutedUntil ?? 0) <= now && (r?.weight ?? 1) > 0 &&
+            (reporter === this.ownKey || (this.standing.get(reporter)?.agreements ?? 0) >= PROVEN)
+          eligible.set(reporter, ok)
+        }
+        if (!ok) continue
+        n++
+        if (reporter === this.ownKey) own = 1
+      }
+      if (n) counted.set(market, this.localOnly(market) ? own : n)
+    }
+    return counted
   }
   /** This node's own fresh read of a USD- or stablecoin-quoted CEX market: the venue's last / 24 h open. */
   dayRatio(market, now) {

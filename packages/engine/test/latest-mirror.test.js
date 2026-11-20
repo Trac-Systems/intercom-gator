@@ -118,3 +118,27 @@ test('a rebuild longer than the clean window is reused, not repeated, by the nex
   book.refresh()
   assert.equal(rebuilds, 2, 'a clean book still rebuilds after its 1 s window')
 })
+
+test('coverage counts from memory exactly like the former engine_latest query', async t => {
+  const { engine, store, book, market, row, advance, now } = await fixture(t)
+  const btc = market('BTC', 'USD'), eth = market('ETH', 'USD')
+  const proven = 'c'.repeat(64), muted = 'd'.repeat(64)
+  engine.publish([row(btc, 100_000), row(eth, 3_000)])
+  for (const key of [peer, proven, muted]) book.ingest(key, [row(btc, 100_100), row(eth, 3_001)], false)
+  store.writer.prepare('INSERT OR REPLACE INTO engine_standing VALUES (?,?,?,?)').run(proven, 5, now(), 1)
+  store.writer.prepare('INSERT OR REPLACE INTO engine_standing VALUES (?,?,?,?)').run(muted, 5, now(), 1)
+  store.writer.prepare('INSERT OR REPLACE INTO reporters(key,strikes,mutedUntil) VALUES (?,5,?)').run(muted, now() + 3_600_000)
+  advance(120_000)
+  engine.publish([row(btc, 100_200)])
+  const old = store.writer.prepare(`SELECT market,count(*) AS n,max(l.reporter=?) AS own FROM engine_latest l
+    LEFT JOIN reporters r ON r.key=l.reporter LEFT JOIN engine_standing s ON s.reporter=l.reporter
+    WHERE srcTs>=? AND coalesce(r.mutedUntil,0)<=? AND coalesce(r.weight,1)>0
+      AND (l.reporter=? OR s.agreements>=?) GROUP BY market`)
+  for (const window of [60_000, 600_000]) {
+    const own = engine.transport.publicKey, since = now() - window
+    const expected = new Map(old.all(own, since, now(), own, 3).map(r => [r.market, book.localOnly(r.market) ? r.own : r.n]))
+    assert.deepEqual(book.countCoverage(since, now()), expected, 'window ' + window)
+  }
+  assert.equal(book.coverage(btc.id, 600_000), 2, 'own + proven; the unproven and the muted peer do not count')
+  assert.equal(book.coverage(btc.id, 60_000), 1, 'only the fresh own row')
+})
