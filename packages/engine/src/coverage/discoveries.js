@@ -43,7 +43,7 @@ export class StoredDiscoveries {
       if (registry.markets.has(market) || (dexCoverage.members().split && !this.preference(market))) continue
       let signer, best = -Infinity
       for (const k of JSON.parse(row.reporters)) {
-        if (!keyPattern.test(k) || k === transport.publicKey || !book.isProven(k)) continue
+        if (!keyPattern.test(k) || k === transport.publicKey || book.muted(k)) continue
         const rank = hints.rank(k)
         if (rank >= 0 && rank > best) { signer = k; best = rank }
       }

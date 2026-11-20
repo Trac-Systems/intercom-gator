@@ -377,3 +377,23 @@ test('a signer outside the Orca cursor stream spends its discovery turn on a reg
   assert.equal(lists, 1)
   assert.equal(exact, 1)
 })
+
+test('a stored creation from a provisional signer can request public verification without earning price standing', async t => {
+  const { engine, store } = node(t, 1, 7, intelMigrations)
+  const source = engine.evm.get('bsc'), signer = key(40)
+  const pool = Array.from({ length: 32 }, (_, i) => address(i + 1)).find(p => engine.storedDiscoveries.preference('dex:bsc:' + p))
+  const d = source.chain.deployments.find(d => d.kind === 'v2'), [token0, token1] = source.quotes.keys()
+  discoveryState(store).save({ market: 'dex:bsc:' + pool, firstSeen: start, reporters: new Set([signer]),
+    message: { t: 'pool', v: 1, chain: 'bsc', kind: 'v2', dex: d.name, pool, token0, token1, tx: '0x' + key(90), block: 100 } })
+  let calls = 0
+  source.verifyPoolHint = async (hint, rpc) => {
+    calls++
+    assert.equal(hint.reporter, signer)
+    assert.equal(rpc, source.rpc.publicOnly)
+    return null
+  }
+  await engine.verifyHint()
+  assert.equal(calls, 1)
+  assert.equal(engine.book.isProven(signer), false)
+  assert.equal(engine.registry.markets.has('dex:bsc:' + pool), false)
+})
