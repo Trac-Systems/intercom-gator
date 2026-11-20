@@ -4,16 +4,19 @@ import { EventEmitter } from 'node:events'
 import { loadBundle } from '@gator/bundle'
 import { openStore } from '@gator/store'
 import { Engine, migrations } from '../src/index.js'
+import { discoveryState, migrations as intelMigrations } from '../src/intel/schema.js'
+import { ReporterSlice } from '../src/coverage/split.js'
+import { verifySeedIdentity } from '../src/coverage/seed-identity.js'
 import { seedPlan } from '../src/sources/evm.js'
-import { word } from '../src/sources/evm-abi.js'
+import { v4PoolId, v4StateCall, word, ZERO } from '../src/sources/evm-abi.js'
 import { channelFor } from '../src/obs/index.js'
 import { RateLimited } from '../src/scheduler/index.js'
 
 const key = n => word(n)
 const address = n => '0x' + word(n).slice(-40)
 const start = Date.UTC(2026, 10, 19)
-function node(t, own = 1, n = 7) {
-  const bundle = loadBundle(), store = openStore({ file: ':memory:', migrations, profile: 'small' })
+function node(t, own = 1, n = 7, extraMigrations = []) {
+  const bundle = loadBundle(), store = openStore({ file: ':memory:', migrations: [...migrations, ...extraMigrations], profile: 'small' })
   const joined = new Set()
   const transport = Object.assign(new EventEmitter(), { publicKey: key(own), channels: () => [...joined],
     join: async id => { joined.add(id); return true }, leave: async id => joined.delete(id), send: () => true,
@@ -284,4 +287,77 @@ test('a cold node verifies a funded seed via a public factory, then admits a reo
   await receiver.verifyHint()
   assert.equal(receiver.registry.markets.has('dex:bsc:' + wrong), false)
   assert.ok(receiver.hints.rank(sender.transport.publicKey) < 0)
+})
+
+test('the shipped factory seed pages branch after their shared pair on every EVM reader', t => {
+  const { engine, store } = node(t, 1, 1), members = Array.from({ length: 7 }, (_, i) => key(i + 1))
+  let legacyCount = 0, splitCount = 0
+  for (const source of engine.evm.values()) {
+    function page(roster) {
+      source.coverage = { members: () => roster }
+      source.plan = null
+      store.setSetting(source.seedCursor, {})
+      return (source.nextProbes()?.batch ?? []).map(p => p.key)
+    }
+    const baseline = page(new ReporterSlice(key(1), []))
+    const seven = members.map(k => page(new ReporterSlice(k, members)))
+    for (const probes of seven) assert.equal(probes[0], baseline[0], source.chain.id)
+    legacyCount += baseline.length
+    splitCount += new Set(seven.flat()).size
+  }
+  assert.equal(engine.evm.size, 20)
+  assert.ok(splitCount > legacyCount * 1.5, 'distinct funded-or-empty factory probes across seven signers')
+})
+
+test('receipt-less V4 registration requires the derived no-hook ID and funded public state at the same block', async t => {
+  const { engine } = node(t), source = engine.evm.get('ethereum')
+  const token1 = [...source.quotes.values()].find(q => q.symbol === 'USDC').address
+  const d = source.chain.deployments.find(d => d.kind === 'v4')
+  const pool = v4PoolId(ZERO, token1, 500, 10), hint = { token0: 'native', token1, pool, kind: 'v4', dex: d.name, chain: 'ethereum' }
+  source.chain.multicall = null
+  let funded = false, reads = 0
+  const rpc = { call: async () => '0x10', batch: async (_, calls) => calls.map(({ params: [c, block] }) => {
+    reads++
+    assert.equal(block, '0x10')
+    assert.equal(c.to, d.address)
+    if (c.data === v4StateCall(d.address, pool).data) return '0x' + word(2n ** 96n)
+    assert.equal(c.data, v4StateCall(d.address, pool, 3).data)
+    return '0x' + word(funded ? 10n ** 27n : 0n)
+  }) }
+  assert.equal(await verifySeedIdentity(source, { ...hint, pool: '0x' + word(8) }, rpc, new Map()), false)
+  assert.equal(reads, 0)
+  assert.equal(await verifySeedIdentity(source, hint, rpc, new Map()), null)
+  assert.equal(source.poolInfo.get('ethereum', pool), undefined)
+  funded = true
+  assert.equal(await verifySeedIdentity(source, hint, rpc, new Map()), true)
+  assert.equal(source.poolInfo.get('ethereum', pool).spacing, 10)
+})
+
+test('an expired in-memory hint can be recovered from stored announcements through the public verifier', async t => {
+  const { engine, store } = node(t, 1, 7, intelMigrations)
+  const source = engine.evm.get('bsc'), d = source.chain.deployments.find(d => d.kind === 'v2')
+  const id = p => 'dex:bsc:' + p
+  const rows = Array.from({ length: 32 }, (_, index) => address(index + 1))
+  const off = rows.find(p => !engine.storedDiscoveries.preference(id(p)))
+  const own = rows.find(p => engine.storedDiscoveries.preference(id(p)) && p > off)
+  const [token0, token1] = source.quotes.keys()
+  const history = discoveryState(store)
+  for (const pool of [off, own]) {
+    const message = { t: 'pool', v: 1, chain: 'bsc', dex: d.name, kind: 'v2', token0, token1, pool,
+      tx: '0x' + key(90), block: 100 }
+    history.save({ market: id(pool), message, reporters: new Set([key(40), key(2)]), firstSeen: start - 86400_000 })
+  }
+  const verified = []
+  source.verifyPoolHint = async (hint, rpc) => {
+    assert.equal(rpc, source.rpc.publicOnly)
+    verified.push([hint.pool, hint.reporter])
+    return false
+  }
+  assert.equal(engine.hints.size, 0)
+  const job = engine.scheduler.jobs.get('discovery:verify')
+  assert.equal(job.ready(), true)
+  await job.run()
+  assert.deepEqual(verified, [[own, key(2)]])
+  assert.equal(engine.registry.markets.has(id(own)), false)
+  assert.equal(job.ready(), false)
 })

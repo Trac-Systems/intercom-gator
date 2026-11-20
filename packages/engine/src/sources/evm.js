@@ -774,7 +774,7 @@ export class EvmSource {
     return this.seedWake <= this.clock()
   }
   nextProbes() {
-    if (!this.seedReady()) return null
+    this.seedReady()
     this.plan ??= seedPlan(this)
     const { pairs, methods } = this.plan
     const total = pairs.length * methods.length

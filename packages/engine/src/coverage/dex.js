@@ -27,6 +27,7 @@ export class DexCoverage {
       WHERE d.market>? AND d.market<'dex;' AND d.fromHint=1 ORDER BY d.market LIMIT 1`)
     this.scan = db.prepare('SELECT block AS scanned,polled FROM engine_pool_scans WHERE chain=? AND pool=?')
     this.plans = new Map()
+    this.tradeSets = new WeakMap()
     this.announced = new Map()
     this.announcementAt = -Infinity
     this.checkAt = -Infinity
@@ -47,7 +48,7 @@ export class DexCoverage {
    * one send per 15 seconds and the bounded map apply across all chains and both state and seed batches. */
   announceSeeds(source, rows) {
     const { transport, clock } = this.engine, now = clock()
-    if (now < this.announcementAt || !this.members().split) return
+    if (!this.engine.active || now < this.announcementAt || !this.members().split) return
     for (const [id] of rows) {
       if ((this.announced.get(id) ?? -Infinity) > now - HOUR) continue
       const p = source.poolInfo.get(source.chain.id, id.split(':')[2])
@@ -70,6 +71,7 @@ export class DexCoverage {
     scheduler.add({ id: 'dex:backlog', idleOnly: true, interval: MINUTE,
       ready: () => !this.members().split && budget.used < budget.limit / 2,
       run: async () => {
+        if (!this.engine.hints.size) this.engine.storedDiscoveries.enqueue()
         const last = store.getSetting(cursor) ?? 'dex:'
         const row = this.nextHint.get(last) ?? this.nextHint.get('dex:')
         if (!row) return
@@ -108,7 +110,12 @@ export class DexCoverage {
     const chain = source.chain.id
     const plan = this.plan(chain, 'trades', p => source.chain.deployments.some(d => d.name === p.dex && d.kind === p.kind))
     const hour = Math.floor(this.engine.clock() / HOUR)
-    return trackedPools(plan, source.limits.tracked, hour).map(p => ({ ...p, ...this.scan.get(chain, p.pool) }))
+    let set = this.tradeSets.get(plan)
+    if (set?.hour !== hour) {
+      set = { hour, rows: trackedPools(plan, source.limits.tracked, hour, this.engine.transport.publicKey) }
+      this.tradeSets.set(plan, set)
+    }
+    return set.rows.map(p => ({ ...p, ...this.scan.get(chain, p.pool) }))
   }
 
   /** Advance only after completion. Retry the same selection on a budget deferral and rotate past broken pools. */

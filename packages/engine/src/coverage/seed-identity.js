@@ -1,5 +1,5 @@
 import { MARKET_POLICY } from '../../../store/src/markets.js'
-import { address, field, multiRead, ZERO } from '../sources/evm-abi.js'
+import { address, field, multiRead, STATE_KINDS, ZERO } from '../sources/evm-abi.js'
 import { seedProbesFor } from '../sources/evm.js'
 
 const permitted = new WeakMap()
@@ -7,6 +7,7 @@ const asAddress = token => token === 'native' ? ZERO : token
 
 /** Only a pair the independent signed-bundle seeder could generate may use a receipt-less identity hint. */
 export function seedPair(source, hint) {
+  if (!STATE_KINDS.includes(hint.kind)) return false
   let tokens = permitted.get(source)
   if (!tokens) {
     tokens = new Set(source.registry.catalog.assets.filter(a => a.chain === source.chain.id && address(a.address))
@@ -45,14 +46,15 @@ export async function verifySeedIdentity(source, hint, rpc, cache) {
   const [state] = await source.snapshots([candidate], read)
   if (!(state?.liquidity >= MARKET_POLICY.minPoolLiquidityUsd)) return null
   candidate.liquidity = state.liquidity
-  source.store.transaction(() => {
+  return source.store.transaction(() => {
     // A local creation may have completed while the public reads were in flight.
-    if (source.registry.markets.has('dex:' + hint.chain + ':' + hint.pool)) return
+    if (source.registry.markets.has('dex:' + hint.chain + ':' + hint.pool)) return true
     const market = source.registry.pool(candidate, { token0: source.metadata(hint.token0),
       token1: source.metadata(hint.token1) }, true)
-    if (market) source.saveParameters(candidate)
+    if (!market) return false
+    source.saveParameters(candidate)
+    return true
   })
-  return true
 }
 
 /** Hold at most one valid, already-proven quote per unknown market while its independent identity check runs. */

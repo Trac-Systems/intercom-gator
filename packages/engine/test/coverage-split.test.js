@@ -56,9 +56,22 @@ test('common and pinned pools overlap, scarce endpoints rotate, repairs skip cov
     const repair = nextPoolPage(plan, 8, { turn: 15 }, id => id === plan.rest[0])
     assert.ok(repair.rows.includes(plan.rest[1]))
     assert.ok(!repair.rows.includes(plan.rest[0]))
-    const a = trackedPools(plan, 32, 0), b = trackedPools(plan, 32, 1)
+    const a = trackedPools(plan, 32, 0, node.own), b = trackedPools(plan, 32, 1, node.own)
     assert.equal(new Set(a).size, 32)
     assert.ok(plan.core.every(id => a.includes(id) && b.includes(id)))
     assert.ok(b.some(id => !a.includes(id)))
   }
+})
+
+test('membership changes retain surviving trade slots and resume state after a departing cursor pool', () => {
+  const own = key(1)
+  const split = n => new ReporterSlice(own, keys(n)).partition(ids, id => id, 4)
+  const before = split(7), after = split(8), oldSet = trackedPools(before, 32, 99, own)
+  const newSet = trackedPools(after, 32, 99, own)
+  for (const id of oldSet.filter(id => !newSet.includes(id))) assert.ok(!after.tail.includes(id))
+  const gone = before.tail.find(id => !after.tail.includes(id))
+  assert.ok(gone)
+  const next = nextPoolPage(after, 1, { turn: 5, last: gone })
+  const expected = before.tail.slice(before.tail.indexOf(gone) + 1).find(id => after.tail.includes(id)) ?? after.tail[0]
+  assert.deepEqual(next.rows, [expected])
 })

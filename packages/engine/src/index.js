@@ -13,6 +13,7 @@ import { HttpSources } from './sources/http.js'
 import { derivativeJobs } from './sources/derivatives.js'
 import { fetchTickers, loadNextSymbol } from './sources/cex.js'
 import { PendingDexQuotes } from './coverage/seed-identity.js'
+import { StoredDiscoveries } from './coverage/discoveries.js'
 import { DexCoverage } from './coverage/dex.js'
 import { EvmSource } from './sources/evm.js'
 import { SolanaCoverage } from './coverage/solana.js'
@@ -133,8 +134,9 @@ export class Engine extends EventEmitter {
     this.queries = new Queries(this)
     this.dexCoverage = new DexCoverage(this)
     this.pendingDexQuotes = new PendingDexQuotes(this)
+    this.storedDiscoveries = new StoredDiscoveries(this)
     this.evm = new Map()
-    this.hints = new PoolHints({ book: this.book, clock, evm: this.evm, registry: this.registry,
+    this.hints = new PoolHints({ preference: id => this.storedDiscoveries.preference(id), book: this.book, clock, evm: this.evm, registry: this.registry,
       rpc: this.rpc.publicOnly, http: this.http, catalog: this.catalog, onConfirmed: pool => this.discovery(pool, true) })
     this.discoveryQuota = new PeerQuota(clock, 60)
     this.onMessage = (channel, env) => this.receive(channel, env)
@@ -287,7 +289,8 @@ export class Engine extends EventEmitter {
     this.logos = registerLogos(this)
     this.focus = registerFocus(this)
     this.nfts = registerNftJobs(this, { enabled: this.nftsEnabled })
-    this.scheduler.add({ id: 'discovery:verify', interval: 15_000, ready: () => this.hints.size > 0,
+    this.scheduler.add({ id: 'discovery:verify', interval: 15_000,
+      ready: () => this.hints.size > 0 || (this.dexCoverage.members().split && this.storedDiscoveries.due()),
       run: () => this.verifyHint() })
   }
   /** One rotation slice, plus (for the general price reference) the top assets that have no market of their own:
@@ -362,6 +365,7 @@ export class Engine extends EventEmitter {
       this.emit('listingHint', { exchange: msg.exchange, symbol: msg.symbol })
   }
   async verifyHint() {
+    if (!this.hints.size) this.storedDiscoveries.enqueue()
     await this.hints.verifyNext()
     this.pendingDexQuotes.flush()
   }

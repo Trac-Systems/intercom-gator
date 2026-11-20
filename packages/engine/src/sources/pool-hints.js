@@ -13,8 +13,8 @@ const evmToken = value => typeof value === 'string' && (value === 'native' || /^
  * A missing receipt or a conflicting identity lowers that sender's future priority.
  * Endpoint failures do not count against the sender. */
 export class PoolHints {
-  constructor({ book, clock, evm, registry, rpc, http, catalog, onConfirmed }) {
-    Object.assign(this, { book, clock, evm, registry, rpc, http, catalog, onConfirmed })
+  constructor({ book, clock, evm, registry, rpc, http, catalog, onConfirmed, preference = () => 0 }) {
+    Object.assign(this, { book, clock, evm, registry, rpc, http, catalog, onConfirmed, preference })
     this.pending = new Map()
     this.penalties = new Map()
   }
@@ -125,7 +125,9 @@ export class PoolHints {
         continue
       }
       hint.priority = this.rank(hint.reporter)
-      if (!best || hint.priority > best.priority) best = hint
+      hint.preference = this.preference('dex:' + hint.key)
+      if (!best || hint.priority > best.priority || (hint.priority === best.priority && hint.preference > best.preference))
+        best = hint
     }
     if (!best) { this.work = null; return }
     this.busy = true
