@@ -215,7 +215,7 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   and held first, then depth/turnover — in address chunks; V4 by pool ID in topic 1; durable per-pool cursors; every
   max(15 s, hot interval) while a tracked pool has never been scanned, since a DEX-only token without 24 h turnover
   stays hidden as dust; otherwise once per period; once per pool, a funded tracked pool without a decoded swap in
-  24 h looks back up to a day of blocks (capped by the bundle log window), newest chunk first from 4× the chain
+  24 h looks back up to a day of blocks (capped by the bundle log window), newest chunk first from one chain
   range, doubling to ≤ 10,000 blocks, one call per max(15 s, hot interval), and queues only its newest swap; three
   failures or an empty day end it; done pools persist under `engine-lookback/<chain>`),
   `evm:<chain>:state` (decode queue plus one multicall refresh per period filled up to 128 reads (V2 pair 1,

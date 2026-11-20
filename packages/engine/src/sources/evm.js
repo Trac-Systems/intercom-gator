@@ -424,7 +424,8 @@ export class EvmSource {
   }
   /** One-time swap look-back (DESIGN 5.3). A funded tracked pool's first scan starts at the chain head, so its token
    * stayed dust until someone swapped while we watched (Polygon UNI/CRV with priced pools, 11-20). Once per pool,
-   * walk back up to a day of blocks (bundle log window), newest first in growing chunks, and enqueue only each pool's
+   * walk back up to a day of blocks (bundle log window), newest first in chunks from one chain range (a busy pool
+   * answers small), doubling, and enqueue only each pool's
    * newest swap: one header decodes it. At most one call per max(15 s, hot interval); errors never fail the scan. */
   async lookback(tracked) {
     const chain = this.chain.id, now = this.clock()
@@ -451,7 +452,7 @@ export class EvmSource {
       if (!group.length) return
       job = this.lookbackJob = { group: group.map(p => p.pool), pools: new Set(group.map(p => p.pool)), emitter,
         topics: [...topics], to: Math.min(...group.map(p => p.scanned)), left: this.lookbackBlocks,
-        span: Math.min(this.lookbackBlocks, 4 * this.chain.range), fails: 0,
+        span: Math.min(this.lookbackBlocks, this.chain.range), fails: 0,
         rpc: group.some(p => p.fromHint) ? this.rpc.publicOnly : this.rpc }
     }
     this.lookbackAt = now + Math.max(15_000, this.limits.hotInterval ?? this.limits.period)

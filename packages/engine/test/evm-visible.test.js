@@ -60,10 +60,11 @@ test('a funded tracked pool without a swap looks back once, newest chunk first, 
     assert.equal(method, 'eth_getLogs')
     calls.push({ from: +filter.fromBlock, to: +filter.toBlock, address: filter.address })
     if (calls.length === 1) return []
-    return [swapLog(source, pool, head - 1000, 1), swapLog(source, pool, head - 600, 3), swapLog(source, pool, head - 600, 2)]
+    const near = head - source.chain.range - 20
+    return [swapLog(source, pool, near - 80, 1), swapLog(source, pool, near, 3), swapLog(source, pool, near, 2)]
   }
   await source.lookback(tracked(source, now()))
-  const first = 4 * source.chain.range
+  const first = source.chain.range
   assert.deepEqual(calls.map(c => [c.from, c.to]), [[head - first + 1, head]])
   assert.deepEqual([...calls[0].address].sort(), [pool, empty].sort(), 'funded pools only, deepest first')
   await source.lookback(tracked(source, now()))
@@ -72,7 +73,7 @@ test('a funded tracked pool without a swap looks back once, newest chunk first, 
   await source.lookback(tracked(source, now()))
   assert.deepEqual([calls[1].from, calls[1].to], [head - 3 * first + 1, head - first], 'walks back, doubling, no overlap')
   assert.deepEqual(store.reader.prepare('SELECT block,idx FROM engine_logs WHERE chain=?').all('bsc').map(r => ({ ...r })),
-    [{ block: head - 600, idx: 3 }], 'only the newest swap is queued')
+    [{ block: head - first - 20, idx: 3 }], 'only the newest swap is queued')
   assert.deepEqual(calls[1].address, [pool, empty])
   advance(source.limits.hotInterval)
   await source.lookback(tracked(source, now()))
@@ -81,7 +82,7 @@ test('a funded tracked pool without a swap looks back once, newest chunk first, 
   // The decode turns the queued swap into 24 h turnover; the trades job never looks back at it again.
   source.rpc.call = async (_, method, [block]) => {
     assert.equal(method, 'eth_getBlockByNumber')
-    return { number: block, hash: swapLog(source, pool, head - 600, 3).blockHash,
+    return { number: block, hash: swapLog(source, pool, head - first - 20, 3).blockHash,
       timestamp: '0x' + Math.floor((now() - 3600_000) / 1000).toString(16) }
   }
   await source.state()
