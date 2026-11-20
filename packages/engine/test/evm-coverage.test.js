@@ -108,8 +108,11 @@ test('hot pacing yields once seed pages spent a quarter of the profile minute bu
   assert.equal(source.seedDelay(), 10_000)
   await source.seed()
   assert.equal(source.seedHot, true)
-  assert.equal(source.seedDelay(), 90_000)
-  f.advance(60_000)
+  // Over the share the seeder waits until the oldest lookup leaves the minute, not a whole period.
+  assert.equal(source.seedDelay(), 60_000)
+  f.advance(30_000)
+  assert.equal(source.seedDelay(), 30_000)
+  f.advance(30_000)
   assert.equal(source.seedDelay(), 10_000)
 })
 

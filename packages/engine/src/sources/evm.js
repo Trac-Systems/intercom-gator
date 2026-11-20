@@ -804,7 +804,10 @@ export class EvmSource {
     if (!this.seedHot || !this.limits.hotInterval) return this.limits.period
     const limit = this.rpc?.budget?.limit
     if (!limit || !this.rpc) return this.limits.hotInterval
-    return recentSeedSpend(this.rpc, this.clock()).length < limit * SEED_SHARE ? this.limits.hotInterval : this.limits.period
+    const now = this.clock(), log = recentSeedSpend(this.rpc, now), share = Math.max(1, Math.floor(limit * SEED_SHARE))
+    if (log.length < share) return this.limits.hotInterval
+    // Over the share: wait until it frees (a whole period stalled every chain's seeder at once).
+    return Math.min(this.limits.period, Math.max(this.limits.hotInterval, log[log.length - share] + 60_000 - now))
   }
   nextProbes() {
     const now = this.clock()
