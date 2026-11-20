@@ -46,9 +46,15 @@ export class RateLimited extends Error {
   }
 }
 
+/** Share of the profile budget held for price scanners (EVM seed/state/trades) for a minute after one was refused:
+ * supply, ticker and maintenance jobs spent all 240 requests of a normal node's minute at startup (11-20), so a
+ * refused seeder waited up to a minute per page while a one-second supply job took the freed slots. */
+export const SCANNER_RESERVE = 0.25
+
 /** Rolling profile limit covers every upstream request, including retries and history. */
 export class RequestBudget {
   #accounting = new AsyncLocalStorage()
+  #scanner = new AsyncLocalStorage()
   constructor(profile = 'normal', requested, clock = Date.now) {
     this.clock = clock
     this.ceiling = BUDGETS[profile] ?? BUDGETS.normal
@@ -69,9 +75,18 @@ export class RequestBudget {
   trackRequests(counter, run) {
     return this.#accounting.run(counter, run)
   }
+  /** Run a price scanner's work with access to the reserved share. */
+  scanner(run) {
+    return this.#scanner.run(true, run)
+  }
   take() {
-    if (this.used >= this.limit) throw new RateLimited(this.times[0] + 60_000)
-    this.times.push(this.clock())
+    const used = this.used, now = this.clock(), scanner = this.#scanner.getStore() === true
+    const cap = !scanner && now < (this.reserveUntil ?? 0) ? this.limit - Math.ceil(this.limit * SCANNER_RESERVE) : this.limit
+    if (used >= cap) {
+      if (scanner) this.reserveUntil = now + 60_000
+      throw new RateLimited(this.times[used - cap] + 60_000)
+    }
+    this.times.push(now)
     this.dispatches++
     const account = this.#accounting.getStore()
     if (account) account.requests++

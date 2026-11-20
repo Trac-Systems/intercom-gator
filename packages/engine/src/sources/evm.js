@@ -352,6 +352,8 @@ export class EvmSource {
     const tracked = this.tracked.all(this.clock() - DAY, this.clock() - MARKET_POLICY.maxPriceAge, chain, this.limits.tracked)
     // Keep priority order among equally overdue pools, and visit the least recently polled group first.
     tracked.sort((a, b) => (a.polled ?? -1) - (b.polled ?? -1))
+    // A tracked pool without any swap scan leaves its token without 24 h turnover, which hides it as dust.
+    this.tradesBacklog = tracked.length > this.tradeChunk && tracked.some(p => p.polled == null)
     const group = [], topics = new Set()
     let emitter
     for (const p of tracked) {
@@ -784,6 +786,10 @@ export class EvmSource {
   stateRow(m, price, at) {
     return [m.id, decimal(m.inverse ? 1 / price : price), decimal(this.volume.get(m.id, at - DAY, at).v),
       null, null, null, at]
+  }
+  /** Trades job pacing: at hotInterval while tracked pools have never been scanned for swaps, else per period. */
+  tradesDelay() {
+    return this.tradesBacklog && this.limits.hotInterval ? Math.max(15_000, this.limits.hotInterval) : this.limits.period
   }
   /** Seed job pacing: the priority prefix (quotes and the most valuable tokens) runs at hotInterval while all
    * chains' seed pages spent less than SEED_SHARE of the profile minute budget; otherwise, and after the prefix,

@@ -203,17 +203,19 @@ export class Engine extends EventEmitter {
         interval: source.limits.period,
         run: () => source.logs(),
       })
+      // Price scanners: their own scheduler turn and reserved budget share (DESIGN 5.3).
+      const scanner = run => () => this.budget.scanner(run)
       this.scheduler.add({ id: 'evm:' + chain.id + ':seed', interval: () => source.seedDelay(), lane: 'scanner',
-        ready: () => source.seedWake <= clock(), run: () => source.seed() })
-      this.scheduler.add({ id: 'evm:' + chain.id + ':trades', marketChain: chain.id, interval: source.limits.period,
-        ready: () => !!source.localPool.get(chain.id), run: () => source.trades() })
+        ready: () => source.seedWake <= clock(), run: scanner(() => source.seed()) })
+      this.scheduler.add({ id: 'evm:' + chain.id + ':trades', marketChain: chain.id, interval: () => source.tradesDelay(),
+        lane: 'scanner', ready: () => !!source.localPool.get(chain.id), run: scanner(() => source.trades()) })
       this.scheduler.add({
         id: 'evm:' + chain.id + ':state',
         marketChain: chain.id,
         lane: 'scanner',
         interval: 2000,
         ready: () => source.stateReady(),
-        run: () => source.scheduledState(),
+        run: scanner(() => source.scheduledState()),
         spotCheck: (market, reads) => source.spotCheck(market, this.rpc.publicOnly, reads),
       })
     }

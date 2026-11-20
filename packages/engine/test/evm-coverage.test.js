@@ -225,3 +225,18 @@ test('state refresh reads the deepest pools first and also runs while the decode
   await source.scheduledState().catch(() => {})
   assert.equal(read.length, 0, 'next refresh waits a period')
 })
+
+test('a refused price scanner reserves a quarter of the profile budget for a minute', async () => {
+  let now = 0
+  const budget = new RequestBudget('normal', undefined, () => now)
+  for (let i = 0; i < 240; i++) { budget.take(); now += 100 } // other jobs spend the whole minute
+  // A scanner is refused while the minute is full, which starts the reserve.
+  await assert.rejects(budget.scanner(async () => budget.take()), RateLimited)
+  now = 60_000 + 100 * 60 // 60 requests expired
+  assert.throws(() => budget.take(), RateLimited, 'others capped at 180 while the reserve holds')
+  for (let i = 0; i < 60; i++) await budget.scanner(async () => budget.take())
+  assert.equal(budget.used, 240)
+  now += 120_000
+  for (let i = 0; i < 240; i++) budget.take() // reserve expired with no refused scanner
+  assert.equal(budget.used, 240)
+})

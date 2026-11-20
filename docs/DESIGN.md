@@ -204,16 +204,25 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   `evm:<chain>:seed` (deterministic V2 `getPair`, V3/Pancake `getPool` per signed fee tier, Velodrome/Solidly
   `getPool(a,b,stable)`, Slipstream spacings and the standard no-hook V4 keys for ranked bundle tokens and every signed
   coin-group deployment on the chain × the chain's main quotes, block-pinned multicalls, $10k depth floor, positive
-  and negative results retried after 6 h),
+  and negative results retried after 6 h; tokens in seed-value order: own rank, else the best rank of a signed asset
+  with the same coin group or ticker (a `W`-prefixed wrapper also its unwrapped ticker), then address; pages of 256
+  probes (one Multicall3 call per 128); the quotes and the top 25/40/60 tokens by profile form a priority prefix
+  probed every 60/10/5 s while all chains' seed pages spent < 25% of the profile minute budget, the rest once per
+  period; a fresh node rebuilds its plan once ranks arrive; the cursor and the per-probe memo survive restarts),
   `evm:<chain>:trades` (Swap/Sync logs only for a bounded tracked set — 32/128/256 pools per chain by profile, watched
   and held first, then depth/turnover — in address chunks; V4 by pool ID in topic 1; durable per-pool cursors),
-  `evm:<chain>:state` (multicall pool state); `sol:<api>`, `meta:<asset>` (links/risk), `candles:<market>`.
+  `evm:<chain>:state` (decode queue plus one multicall refresh of 32 pools per period — half the deepest funded
+  pools of the tracked-set size in rotation, half the address rotation of all pools — which also runs while the
+  decode queue never empties); `sol:<api>`, `meta:<asset>` (links/risk), `candles:<market>`.
 - History import (`history:seed`): top 30/100/300 assets by profile get 8 days of 1 h bars from the asset's main
   (highest-volume) CEX market first, then USD pairs; a venue series ≥ 80% flat over ≥ 12 bars (a market nobody trades)
   is skipped for non-stable assets. Local bars from the aggregated price always win.
 - Choice: candidates below target weighted by relevance × gap × random(0.5–1.5); ~10% exploration (rarely covered
-  exchanges/chains, spot checks of popular items). Budget per profile; per-endpoint token buckets at ≤ 50% of the
-  bundle's documented limit; exponential backoff on errors, slow recovery.
+  exchanges/chains, spot checks of popular items); one turn in eight goes to the longest-waiting ready price scanner
+  (`evm:<chain>:seed`, `evm:<chain>:state`). Budget per profile; per-endpoint token buckets at ≤ 50% of the
+  bundle's documented limit, else of a code default for keyless public gateways (publicnode, dRPC, Pocket 120/min,
+  Tenderly 60/min), else of 12/min; reads that wait for a slot (risk checks, extras) hold at most half of a
+  bucket's minute capacity; exponential backoff on errors, slow recovery.
 - Reporter standing (R-APP-01): a peer becomes **proven** after three agreements within 1% with the node's own
   independent reads (credited ≥ 1 min apart, source times within 30 s, report on file before the local read); up to
   4,096 standings, weakest evicted first. Only own and proven reporters count toward coverage and targets; provisional
