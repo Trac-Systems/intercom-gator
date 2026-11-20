@@ -111,7 +111,7 @@ export function createMcpServer(request) {
   ]) tool(name, description, {}, () => get('/' + path));
   // POST: the briefing also records this read, so the next one marks what is new since.
   tool('briefing','Structured market facts for writing your own briefing.',{ since: z.number().int().nonnegative().optional() }, b => post('/briefing',b));
-  tool('feed_read','Read signed social posts.',{ lane: z.enum(['following','official','mentions']).optional(), author: key.optional(), asset: asset.optional(), limit },q => get('/feed',q));
+  tool('feed_read',"Read signed social posts. Latest shows everyone's newest posts. Following is the default.",{ lane: z.enum(['following','latest','official','mentions']).optional(), author: key.optional(), asset: asset.optional(), limit },q => get('/feed',q));
   tool('feed_post','Publish a signed post when the owner permits agent posting.',{ text }, b => post('/posts',b),false);
   tool('reply','Reply to a witnessed author and post ID.',{ parent: z.strictObject({ key, id: postId }), text }, b => post('/replies',b),false);
   tool('set_avatar','Set or remove your profile image when the owner permits agent posting. It travels inside your signed '

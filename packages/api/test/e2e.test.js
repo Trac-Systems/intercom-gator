@@ -42,6 +42,14 @@ test('three daemons converge on fixture prices, follow a signed feed and accept 
   });
   const post = await A('POST','/posts',{},{ text:'One locally observed $BTC price.' });
   await until(async () => (await B('GET','/feed')).items.some(p => p.id === post.id && p.key === a.transport.publicKey));
+  // The third daemon has never followed the author. Latest preserves the owner-lane row and decoration.
+  await until(async () => (await clients[2]('GET','/feed',{ lane:'latest' })).items.some(p => p.id === post.id));
+  const publicPost = (await clients[2]('GET','/feed',{ lane:'latest' })).items.find(p => p.id === post.id);
+  assert.equal(publicPost.key, post.key);
+  assert.equal(publicPost.channel, 'soc/u/' + post.key);
+  assert.equal(publicPost.kind, 'post');
+  assert.equal(publicPost.text, post.text);
+  assert.ok(!(await clients[2]('GET','/feed')).items.some(p => p.id === post.id));
   for (const app of apps) await app.engine.scheduler.jobs.get('cex:bitstamp').run();
   await until(async () => {
     const details = await Promise.all(clients.map(c => c('GET','/assets/BTC')));
@@ -73,10 +81,11 @@ test('three daemons converge on fixture prices, follow a signed feed and accept 
   for (const [i,app] of apps.entries()) {
     await app.social.writeAgentFiles();
     await app.intel.refreshMarket();
-    for (const file of ['social/official.md','social/following.md','social/mentions.md','social/directory.md','market/briefing.md']) {
+    for (const file of ['social/official.md','social/following.md','social/latest.md','social/mentions.md','social/directory.md','market/briefing.md']) {
       const contents = await readFile(join(app.dataDir,'agent',file),'utf8');
       assert.ok(contents.length > 0);
       if (file === 'social/official.md') { assert.match(contents,/Root announcement/); assert.doesNotMatch(contents,/Forged/); }
+      if (file === 'social/latest.md') { assert.match(contents,/One locally observed/); assert.doesNotMatch(contents,/Root announcement/); }
     }
     assert.deepEqual(await clients[i]('GET','/extras'),{ items:[], slots:[] });
   }

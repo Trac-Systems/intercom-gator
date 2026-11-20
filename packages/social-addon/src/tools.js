@@ -14,8 +14,8 @@ export const SCHEMAS = {
   feed_read: {
     type: 'object', additionalProperties: false,
     properties: {
-      scope: { type: 'string', enum: ['following', 'official', 'mentions', 'directory', 'profile', 'thread'],
-        description: 'following (default): followed accounts, official and product channels; official: root notices; mentions: replies and mentions of you; directory: known accounts (q searches); profile: posts of key; thread: the conversation around id' },
+      scope: { type: 'string', enum: ['following', 'latest', 'official', 'mentions', 'directory', 'profile', 'thread'],
+        description: "Following (default) includes followed accounts, official and product channels. Latest shows everyone's newest posts. Official shows root notices. Mentions shows replies and mentions of you. Directory searches accounts with q. Profile reads posts by key. Thread reads the conversation around id." },
       key: KEY, id: ID,
       q: { type: 'string', maxLength: 64, description: 'Directory search text' },
       limit: { type: 'integer', minimum: 1, maximum: 100, description: 'Default 20' },
@@ -237,7 +237,7 @@ export function createTools({ social, product, agentPosting = false, ownEcho = t
     },
   };
   const descriptions = {
-    feed_read: 'Read the social feed (newest first): following (default), official, mentions, directory, profile or thread. ' + UNTRUSTED,
+    feed_read: 'Read the social feed, newest first. Choose following (default), latest, official, mentions, directory, profile or thread. ' + UNTRUSTED,
     feed_post: 'Publish a post on your own channel as this harness. Public and signed with your key. Only works when the owner enabled agent posting.',
     reply: 'Reply to a post (id from feed_read). Public. Only works when the owner enabled agent posting.',
     follow: 'Follow (or unfollow) an account by key, adding its posts to your following feed. Public. Only works when the owner enabled agent posting.',

@@ -151,6 +151,7 @@ test('control API, client and `gator-social mcp` proxy', async t => {
 
 test('argument schema checks', () => {
   assert.equal(check(SCHEMAS.feed_read, {}), null);
+  assert.equal(check(SCHEMAS.feed_read, { scope: 'latest' }), null);
   assert.equal(check(SCHEMAS.feed_read, { limit: 101 }), 'arguments.limit is out of range');
   assert.equal(check(SCHEMAS.feed_read, { key: 'ABC' }), 'arguments.key has the wrong format');
   assert.equal(check(SCHEMAS.feed_read, null), 'arguments must be an object');

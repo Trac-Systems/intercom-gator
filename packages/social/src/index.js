@@ -35,7 +35,7 @@ const PUBLIC_SEEN_CAP = 1024;
  *   rebroadcast:(envelope:Envelope)=>boolean, channels:()=>string[], setRelayTtl?:(ttl:number)=>void}} Transport
  * @typedef {import('node:sqlite').DatabaseSync} Database
  * @typedef {{writer:Database, reader:Database, profile:string, transaction:Function, onPrune?:Function, onEvict?:Function}} Store
- * @typedef {{scope?:'following'|'official'|'mentions'|'directory'|'profile', key?:string,
+ * @typedef {{scope?:'following'|'latest'|'official'|'mentions'|'directory'|'profile', key?:string,
  *   before?:number|(PostRef & {ts:number}), limit?:number}} TimelineOptions
  * @typedef {{profile?:'small'|'normal'|'large', directoryCap?:number, laneRows?:number, laneBytes?:number, laneRate?:number, windowMs?:number,
  * nearDuplicateMs?:number, rates?:{posts?:number, likes?:number, cards?:number, follows?:number}}} Limits

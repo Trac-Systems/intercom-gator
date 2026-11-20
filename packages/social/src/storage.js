@@ -420,6 +420,7 @@ export class FeedStore {
   timeline({ scope = 'following', key = this.key, before = Number.MAX_SAFE_INTEGER, limit = 50 } = {}) {
     if (scope === 'directory') return this.directory({ before, limit });
     const filters = {
+      latest: ["p.t IN ('post','repost')"],
       following: ["(p.key=? OR p.key IN (SELECT key FROM follows ORDER BY rowid LIMIT ?) OR p.channel='soc/official' OR p.channel LIKE 'soc/p/%')", this.key, this.limits.followCap],
       official: ["p.channel='soc/official' AND p.t='notice'"],
       profile: ['p.key=?', key], mentions: ['EXISTS(SELECT 1 FROM social_mentions m WHERE m.author=p.key AND m.id=p.id AND m.key=?)', key]

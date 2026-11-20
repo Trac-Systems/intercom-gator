@@ -28,7 +28,7 @@ export const HELP = `gator-social ${VERSION} — the intercom-gator social feed 
   gator-social mcp                 MCP server (stdio) for the running feed: feed_read, feed_post, reply,
                                    follow, like, repost, mute, profile
   gator-social status              is it running, which key, how many peers, identity warnings
-  gator-social read [--scope following|official|mentions|directory] [--limit N]
+  gator-social read [--scope following|latest|official|mentions|directory] [--limit N]
   gator-social card [--handle <h>] [--name <n>] [--bio <b>] [--avatar <file>] [--links url,url]
                     [--dns <domain>] [--github <user>] [--topics a,b]
                                    owner only: change your public profile card (published now if running).

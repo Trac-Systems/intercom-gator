@@ -64,6 +64,7 @@ test('SDK client negotiates all tools, validates schemas and receives structured
     assert.equal(edited.handle,card.handle);
     assert.deepEqual(edited.topics,card.topics);
     const post = (await call('feed_post',{ text:'First tool post' })).structuredContent;
+    assert.equal((await call('feed_read', { lane: 'latest' })).structuredContent.items[0].id, post.id);
     const parent = { key:post.key,id:post.id };
     assert.match((await call('reply',{ text:'Reply',parent })).content[0].text,/replies are disabled/);
     await owner('PUT','/settings',{},{ agent:{ agentReplies:true, agentFollow:true } });

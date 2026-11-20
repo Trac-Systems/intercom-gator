@@ -23,8 +23,8 @@ export async function writeFiles(store, dir) {
   const since = store.state(checkpoint) ?? 0;
   const through = store.state('arrival') ?? 0;
   const freshSince = store.now() - 7 * DAY;
-  const files = ['official', 'following', 'mentions', 'directory'].map(scope => {
-    const rows = store.timeline({ scope, limit: 100 });
+  const files = ['official', 'following', 'latest', 'mentions', 'directory'].map(scope => {
+    const rows = store.timeline({ scope, limit: scope === 'latest' ? 50 : 100 });
     const entries = rows.map(row => {
       const label = row.arrival > since && row.ts >= freshSince ? '[NEW] ' : '';
       const author = row.handle ? '@' + line(row.handle) + ' (key ' + row.key.slice(0, 8) + '…)' : 'key ' + row.key;

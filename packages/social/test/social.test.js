@@ -213,7 +213,7 @@ test('signed outbox rebroadcast reaches late followers; files track arrivals, re
   assert.doesNotMatch(await file('official'), /Paid placement|Earlier than subscription/);
   await late.social.writeAgentFiles(dir);
   assert.doesNotMatch(await file('following'), /\[NEW\]/);
-  assert.equal((await readdir(join(dir, 'social'))).length, 4);
+  assert.equal((await readdir(join(dir, 'social'))).length, 5);
   assert.ok(admin.social.timeline({ scope: 'official' }).length);
 });
 
@@ -338,7 +338,7 @@ test('agent files contain only the newest 100, safely quote multiline text, and 
   const recovered = await readFile(official, 'utf8');
   assert.match(recovered, /\[NEW\].*First line \\# fake heading \\<fake\\>/);
   assert.equal(recovered.match(/\[NEW\]/g).length, 1);
-  assert.deepEqual((await readdir(join(dir, 'social'))).sort(), ['directory.md', 'following.md', 'mentions.md', 'official.md']);
+  assert.deepEqual((await readdir(join(dir, 'social'))).sort(), ['directory.md', 'following.md', 'latest.md', 'mentions.md', 'official.md']);
 });
 
 test('reposts authenticate embedded originals, explicit quotes and nested reply references survive lane copies', async t => {

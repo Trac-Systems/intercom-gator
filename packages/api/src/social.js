@@ -119,7 +119,7 @@ export function socialViews(app) {
   function feed(q, limit) {
     if (q.asset) return { items: assetPosts(q.asset, limit) };
     const scope = q.author ? 'profile' : q.lane ?? 'following';
-    check(['profile','following','official','mentions'].includes(scope), 'unknown lane');
+    check(['profile','following','latest','official','mentions'].includes(scope), 'unknown lane');
     if (scope === 'official') {
       const before = Number(q.before ?? Number.MAX_SAFE_INTEGER);
       check(Number.isSafeInteger(before), 'bad range');
