@@ -75,11 +75,11 @@ function capVenues(entries, weights) {
   return weights.map((w, i) => scale.get(venueOf(entries[i])) === 1 ? w : { ...w, weight: w.weight * scale.get(venueOf(entries[i])) })
 }
 
-/** Prices are compared for the 1% (yellow) line only when read within this time of each other, the same +-30 s as a
- * peer spot check: a 1.5% move in a few minutes made reads minutes apart look like disagreement (ETH yellow on a calm
- * market, owner node 11-20). The 3% (red) line still compares every core and reporter price. */
+/** Prices are compared for the 1% (yellow) and 3% (red) lines only when read within this time of each other, the same
+ * +-30 s as a peer spot check: reads minutes apart made a real move look like disagreement (owner node 11-20: ETH yellow
+ * on a calm market after a 1.5% move, then RED with no market cap during a 4% fall, from a 10-minute-old peer read). */
 export const ALIGN_MS = 30_000
-/** Share of the core weight from which one market's internal spread can decide the 1% line. */
+/** Share of the core weight from which one market's internal spread can decide the 1% and 3% lines. */
 const MATERIAL_SHARE = 0.01
 
 /** rows contains the latest sample per distinct, eligible reporter for this market. */
@@ -216,7 +216,7 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
   if (record) collisions?.set(asset.id, record)
   const core = coreEntries(used, capped)
   // A thin market's own reporter or quote-path spread (its last trade jumps between two reads) does not decide the 1%
-  // line for the whole asset (Gate ETH/USD1 kept ETH yellow, owner node 11-20); it still counts toward red.
+  // or 3% line for the whole asset (Gate ETH/USD1 kept ETH yellow, owner node 11-20).
   const coreTotal = used.reduce((sum, e, i) => (core.has(e) ? sum + capped[i].weight : sum), 0)
   const coreQuotes = []
   const agents = new Set(),
@@ -227,7 +227,6 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     pools = new Set(),
     sources = new Set()
   let alignedSpread = 0,
-    fullSpread = 0,
     low = Infinity,
     high = 0,
     provenLow = Infinity,
@@ -248,13 +247,12 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     // Trust is judged on the core markets; thin outlying tails are counted above but do not decide it.
     if (!core.has(entry)) continue
     const entryFresh = !(now - market.at > market.window || fxStale || fxFresh === false)
-    // Only fresh evidence confirms a price. All core markets contribute to the red threshold.
+    // Only fresh evidence confirms a price.
     if (proven && entryFresh) {
       provenSources.add(source)
       for (const key of market.provenAgents) provenAgents.add(key)
       if (market.ownFresh) ownSources.add(source)
     }
-    fullSpread = Math.max(fullSpread, market.spread, fxSpread)
     if (!(coreTotal > 0) || capped[i].weight >= MATERIAL_SHARE * coreTotal)
       alignedSpread = Math.max(alignedSpread, market.alignedSpread ?? market.spread, fxSpread)
     low = Math.min(low, usd)
@@ -288,7 +286,6 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     collisions?.set(asset.id, { ...record, guard: { low: guardLow, high: guardHigh, price, ratio: factor } })
     return null
   }
-  const allCoreSpread = Math.max(fullSpread, alignedSpread, (high - low) / price)
   const depegs = [...new Set([...core].flatMap((e) => e.depegs))].sort()
   // The venues' own 24 h move (last / open) over the core markets, weighted like the price; checks change24h.
   const days = dayRatio ? used.flatMap((e, i) => {
@@ -302,7 +299,7 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
   // trust.
   const confirmed = (provenAgents.size >= 5 && provenSources.size >= 2) || ownSources.size >= 2
   const trust =
-    stale || allCoreSpread > 0.03 + 1e-12
+    stale || alignedSpread > 0.03 + 1e-12
       ? 'red'
       : confirmed && alignedSpread <= 0.01 + 1e-12 && !depegs.length
         ? 'green'
@@ -324,8 +321,8 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
     exchanges: exchanges.size,
     pools: pools.size,
     independentSources: sources.size,
-    // Red uses the all-core spread. Green and yellow use the time-aligned spread.
-    spreadPct: (trust === 'red' ? allCoreSpread : alignedSpread) * 100,
+    // The time-aligned spread that decided the colour.
+    spreadPct: alignedSpread * 100,
     ageMs: Math.max(0, now - oldest),
     fresh,
     stale,

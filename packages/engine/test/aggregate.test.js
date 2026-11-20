@@ -87,7 +87,8 @@ test('within one market, a peer read minutes before ours is not a disagreement, 
   assert.equal(pair(100, 300_000).alignedSpread, 0)
   assert.equal(trust(pair(100, 300_000)).trust, 'green', 'was yellow: 1.5% against a five-minute-old read')
   assert.equal(trust(pair(99.7, 10_000)).trust, 'yellow', 'two reads ten seconds apart, 1.2% apart')
-  assert.equal(trust(pair(102.1, 300_000)).trust, 'red', 'any reporter more than 3% away still counts for red')
+  assert.equal(trust(pair(102.1, 300_000)).trust, 'green', 'a 3.6% older read is a move, not a wrong price (was red)')
+  assert.equal(trust(pair(102.1, 10_000)).trust, 'red', 'two reads ten seconds apart, 3.6% apart')
 })
 
 test('a thin market whose reporters disagree does not turn a widely traded asset yellow, a heavy one does', () => {
@@ -97,7 +98,8 @@ test('a thin market whose reporters disagree does not turn a widely traded asset
   const trust = (t) => aggregateAssets(assets, [...heavy, t], now).get('coin').trust
   assert.equal(trust(split([100, 100.6, 101.36], 100)), 'green', 'was yellow: 1.36% between reads of a market with 0.1% of the volume')
   assert.equal(trust(split([100, 100.6, 101.36], 50_000)), 'yellow')
-  assert.equal(trust(split([98, 100.6, 103.5], 100)), 'red', 'a thin market more than 3% apart still turns it red')
+  assert.equal(trust(split([98, 100.6, 103.5], 100)), 'green', 'a thin market 5.5% apart within itself (was red)')
+  assert.equal(trust(split([98, 100.6, 103.5], 50_000)), 'red')
 })
 
 test('two venues read in the same second 1.2% apart are yellow', () => {
@@ -109,14 +111,15 @@ test('two venues read in the same second 1.2% apart are yellow', () => {
   assert.ok(Math.abs(result.why.spreadPct - 1.2 / result.price * 100) < 1e-10)
 })
 
-test('a core venue 3.5% off two minutes earlier still turns the asset red', () => {
-  const result = aggregateAssets(assets, [
+test('a core venue 3.5% off at the same time turns the asset red, its two-minute-old pre-move quote does not', () => {
+  const at = (age) => aggregateAssets(assets, [
     market('A', 'coin', 'fiat:USD', 100, ['1', '2', '3']),
     market('B', 'coin', 'fiat:USD', 100, ['4', '5']),
-    market('C', 'coin', 'fiat:USD', 103.5, ['6'], 500, 120_000),
+    market('C', 'coin', 'fiat:USD', 103.5, ['6'], 500, age),
   ], now).get('coin')
-  assert.equal(result.trust, 'red')
-  assert.ok(Math.abs(result.why.spreadPct - 3.5) < 1e-10)
+  assert.equal(at(0).trust, 'red')
+  assert.ok(Math.abs(at(0).why.spreadPct - 3.5) < 1e-10)
+  assert.notEqual(at(120_000).trust, 'red', 'was red: a fall read minutes apart (ETH 11-20 15:45)')
 })
 
 test('the FX timestamp determines whether a converted quote is within 30 seconds', () => {
