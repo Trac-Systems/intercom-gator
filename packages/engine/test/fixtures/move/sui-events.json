@@ -1,0 +1,74 @@
+[
+  {
+    "sequenceNumber": 0,
+    "timestamp": "2026-11-19T10:26:45.413Z",
+    "contents": {
+      "type": {
+        "repr": "0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb::factory::CreatePoolEvent"
+      },
+      "json": {
+        "pool_id": "0xbfa782b2f64fc87a504896751ba6d56b7febf9769c4a2431976c41f7942837cf",
+        "coin_type_a": "deeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP",
+        "coin_type_b": "a99b8952d4f7d947ea77fe0ecdcc9e5fc0bcab2841d6e2a5aa00c3044e5544b5::navx::NAVX",
+        "tick_spacing": 2
+      }
+    },
+    "transaction": {
+      "digest": "mNMPu4BRbFghF5h7p9yd9j7dr3K1RT13h2yesu6HBrU",
+      "effects": {
+        "status": "SUCCESS",
+        "checkpoint": {
+          "sequenceNumber": 346891876
+        }
+      }
+    }
+  },
+  {
+    "sequenceNumber": 3,
+    "timestamp": "2026-11-19T21:56:52.977Z",
+    "contents": {
+      "type": {
+        "repr": "0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb::factory::CreatePoolEvent"
+      },
+      "json": {
+        "pool_id": "0xa1afaf6110702c4c21b63fdfa2dbd64181922cd306f25f554ae7170a7c5dd460",
+        "coin_type_a": "2443ec5db1f45226a7b29efda9ec83f4311e69b24a3fef8229da4245db019745::presale_coin::PRESALE_COIN",
+        "coin_type_b": "0000000000000000000000000000000000000000000000000000000000000002::sui::SUI",
+        "tick_spacing": 200
+      }
+    },
+    "transaction": {
+      "digest": "B2Brnwz15VYMWPhYEiYA7H5bAh4tQBMGnSkXWnBmDQMj",
+      "effects": {
+        "status": "SUCCESS",
+        "checkpoint": {
+          "sequenceNumber": 347063107
+        }
+      }
+    }
+  },
+  {
+    "sequenceNumber": 3,
+    "timestamp": "2026-11-19T23:35:55.239Z",
+    "contents": {
+      "type": {
+        "repr": "0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb::factory::CreatePoolEvent"
+      },
+      "json": {
+        "pool_id": "0x5766e1a635a9250e7fbb5142d7ca429783196a67abd52a574e4699e4dbef894a",
+        "coin_type_a": "bb9015ef2ccf5e5472fa7b1a4767ac28b0cce5b33cf21a308b4d2fb06387a759::dvs_mw5smitt::DVS_MW5SMITT",
+        "coin_type_b": "0000000000000000000000000000000000000000000000000000000000000002::sui::SUI",
+        "tick_spacing": 200
+      }
+    },
+    "transaction": {
+      "digest": "84159Gpmq8gaw3xFtsJxRMGnuawL8KSnaAbyN2WKivb",
+      "effects": {
+        "status": "SUCCESS",
+        "checkpoint": {
+          "sequenceNumber": 347087572
+        }
+      }
+    }
+  }
+]

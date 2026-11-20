@@ -31,7 +31,7 @@ async function errorDetail(response, limit = 4096) {
 }
 
 /** Stream the response with a decoded-byte cap (also applies to compressed HTTP). */
-export async function fetchJson(fetcher, url, init = {}, { timeout = 8000, maxBytes = 8 << 20 } = {}) {
+export async function fetchJson(fetcher, url, init = {}, { timeout = 8000, maxBytes = 8 << 20, onHeaders } = {}) {
   const timeoutSignal = AbortSignal.timeout(timeout)
   const signal = init.signal ? AbortSignal.any([timeoutSignal, init.signal]) : timeoutSignal
   const response = await fetcher(url, { ...init, signal, redirect: 'error' })
@@ -57,6 +57,7 @@ export async function fetchJson(fetcher, url, init = {}, { timeout = 8000, maxBy
     if (bytes > maxBytes) throw new Error('Response exceeds byte limit')
     chunks.push(chunk)
   }
+  onHeaders?.(response.headers)
   return JSON.parse(Buffer.concat(chunks).toString('utf8'))
 }
 

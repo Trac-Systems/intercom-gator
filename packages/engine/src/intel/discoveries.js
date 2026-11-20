@@ -1,3 +1,5 @@
+import { moveChain, validPool as validMovePool, validToken as validMoveToken } from '../sources/move/identity.js';
+import { MARKET_POLICY } from '../../../store/src/markets.js';
 import { hintFactory } from '../sources/tron/events.js';
 import { tronHex } from '../sources/tron/address.js';
 import { EvmSource } from '../sources/evm.js';
@@ -19,7 +21,9 @@ function identity(message) {
   const { pool, token0, token1, block, tx } = message;
   if (!boundedId(message.chain) || !(typeof message.dex === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_. -]{0,95}$/.test(message.dex)) || !boundedId(message.kind)) return null;
   const evm = isAddress(pool) || (typeof pool === 'string' && /^0x[\da-f]{64}$/i.test(pool));
-  if (message.chain === 'tron') {
+  if (moveChain(message.chain)) {
+    if (!validMovePool(message, true)) return null;
+  } else if (message.chain === 'tron') {
     const seed = tx === null && block === null && tronHex(pool) && tronHex(token0) &&
       (tronHex(token1) || (message.kind === 'v1' && token1 === 'native')) && token0 !== token1;
     if (!seed && !hintFactory(message)) return null;
@@ -48,7 +52,8 @@ export function createNewTokens({ thresholds = {}, resolveAssets, isKnownAsset =
     const fallback = m.t === 'pool' ? [m.token0, m.token1].map(a => m.chain + ':' + (isAddress(a) ? a.toLowerCase() : a)) : [];
     const identities = resolveAssets?.(m) ?? fallback;
     for (const asset of new Set(identities ?? [])) {
-      if (!isAsset(asset) || isKnownAsset(asset)) continue;
+      const moveAsset = moveChain(m.chain) && typeof asset === 'string' && asset.startsWith(m.chain + ':') && validMoveToken(m.chain, asset.slice(m.chain.length + 1));
+      if ((!isAsset(asset) && !moveAsset) || isKnownAsset(asset)) continue;
       if (!assets.has(asset)) {
         if (assets.size >= 8192) assets.delete(assets.keys().next().value);
         assets.set(asset, { asset, firstSeen: discovery.firstSeen, reporters: new Set(), markets: new Set(), graduated: state?.graduated(asset) ?? false });
@@ -81,10 +86,10 @@ export function createNewTokens({ thresholds = {}, resolveAssets, isKnownAsset =
       } else if (m.t === 'pool') {
         // Competing descriptions of the same pool are not corroboration.
         const original = row.message;
-        const normalized = s => s?.startsWith('0x') ? s.toLowerCase() : s;
+        const normalized = s => !moveChain(m.chain) && s?.startsWith('0x') ? s.toLowerCase() : s;
         if (['token0', 'token1'].some(k => normalized(m[k]) !== normalized(original[k])) ||
             ['dex', 'kind'].some(k => m[k] !== original[k])) return false;
-        if (m.chain === 'tron' && original.tx === null && localFirstSeen != null && hintFactory(m)) {
+        if (original.tx === null && localFirstSeen != null && ((m.chain === 'tron' && hintFactory(m)) || validMovePool(m))) {
           // A local factory scan can find the creation after a deterministic seed registered the pool.
           row = { ...row, message: { ...original, tx: m.tx, block: m.block },
             firstSeen: Math.min(row.firstSeen, localFirstSeen) };
@@ -264,14 +269,15 @@ export function poolAnnouncementJob(engine) {
   const { store, registry, clock, hints, transport } = engine;
   const minute = 60_000, hour = 60 * minute, key = 'intel:pool-announcement:next';
   let next = store.getSetting(key) ?? 0;
-  const evm = JSON.stringify([...engine.evm.keys()]);
-  const withTron = JSON.stringify([...engine.evm.keys(), 'tron']);
+  let pending;
+  const evm = [...engine.evm.keys()];
   const seeds = JSON.stringify([...registry.seedIds]);
   const venues = JSON.stringify([...registry.venues.values()].filter(v => v.publishMarketData).map(v => v.id));
   const candidate = store.reader.prepare(`SELECT p.* FROM pools p
     JOIN markets m ON m.id='dex:'||p.chain||':'||p.pool
     LEFT JOIN engine_pool_announcements r ON r.chain=p.chain AND r.pool=p.pool AND r.tx=p.tx
-    WHERE p.block IS NOT NULL AND length(p.tx)=66 AND p.chain IN (SELECT value FROM json_each(?))
+    WHERE p.block IS NOT NULL AND (length(p.tx)=66 OR p.chain='sui' AND length(p.tx) BETWEEN 32 AND 44) AND p.chain IN (SELECT value FROM json_each(?))
+      AND (p.chain NOT IN ('sui','aptos') OR p.liquidity>=${MARKET_POLICY.minPoolLiquidityUsd})
       AND (r.retryAt IS NULL OR r.retryAt<=?)
       AND (m.base IN (SELECT asset FROM intel_graduated) OR m.quote IN (SELECT asset FROM intel_graduated)
         OR m.base IN (SELECT value FROM json_each(?))
@@ -291,19 +297,32 @@ export function poolAnnouncementJob(engine) {
       const time = clock();
       if (time < next) return;
       next = time + minute;
-      const chains = engine.tron?.client.endpoint && time >= engine.tron.client.peerDue ? withTron : evm;
-      const p = candidate.get(chains, time, seeds, time, venues);
+      const chains = [...evm];
+      if (engine.tron?.client.endpoint && time >= engine.tron.client.peerDue) chains.push('tron');
+      for (const [chain, source] of engine.move ?? [])
+        if (source.client.endpoint && time >= source.client.peerDue) chains.push(chain);
+      if (pending && pending.until <= time) pending = null;
+      const p = pending?.pool ?? candidate.get(JSON.stringify(chains), time, seeds, time, venues);
       if (!p) return;
-      store.transaction(() => {
+      if (!pending) store.transaction(() => {
         store.setSetting(key, next);
         mark.run(p.chain, p.pool, p.tx, time, time + hour);
       });
       const { chain, dex, kind, pool, token0, token1, block, tx } = p;
       const message = { t: 'pool', v: 1, chain, pool, dex, kind, token0, token1, block, tx };
-      if (!identity(message) || !(await hints.hasCreationReceipt(p))) {
-        mark.run(chain, pool, tx, time, time + DAY);
-        return;
+      if (moveChain(chain)) pending ??= { pool: p, cache: new Map(), until: time + 5 * minute };
+      try {
+        if (!identity(message) || !(await hints.hasCreationReceipt(p, undefined, pending?.cache))) {
+          mark.run(chain, pool, tx, time, time + DAY);
+          pending = null;
+          return;
+        }
+      } catch (error) {
+        if (!(error instanceof RateLimited)) pending = null;
+        throw error;
       }
+      pending = null;
+      if (moveChain(chain) && !(engine.move.get(chain).known(pool)?.liquidity >= MARKET_POLICY.minPoolLiquidityUsd)) return;
       transport.send('gator/new', message);
       // Agent-added tokens can be older than the catch-up window: serve them by their latest verification.
       if (added.get(p.chain, p.pool)) refresh.run(p.chain, p.pool, time);

@@ -1,0 +1,91 @@
+{
+  "tx": {
+    "type": "user_transaction",
+    "success": true,
+    "version": "8118310067",
+    "hash": "0x9f999c157da1d2705e7186d96a73e3834b2234cd818da354f81c0aaff114b20c",
+    "timestamp": "1795061973884551",
+    "events": [
+      {
+        "guid": {
+          "creation_number": "0",
+          "account_address": "0x0"
+        },
+        "sequence_number": "0",
+        "type": "0x7730cd28ee1cdc9e999336cbc430f99e7c44397c0aa77516f6f23a78559bb5::pool::PoolCreationEvent",
+        "data": {
+          "amounts": [
+            "5240980173413",
+            "2172992419"
+          ],
+          "metadata": [
+            {
+              "inner": "0x2d40c2b0d12368153b1b7cd02839cc404430c9a8754efd97831a836164cf0b05"
+            },
+            {
+              "inner": "0xad18575b0e51dd056e1e082223c0e014cbfe4b13bc55e92f450585884f4cf951"
+            }
+          ],
+          "minted_lp_token_amount": "2405343393357",
+          "pool_obj": {
+            "inner": "0x11c479e73e493479561fdfaf620c8717a2e43b41172eeaff70df9dcb9d080bd1"
+          },
+          "swap_fee_bps": "5"
+        }
+      }
+    ]
+  },
+  "block": {
+    "block_height": "1194092293",
+    "first_version": "8118310065",
+    "last_version": "8118310072"
+  },
+  "state": [
+    {
+      "amp_factor_opt": {
+        "vec": []
+      },
+      "assets_metadata": [
+        {
+          "inner": "0x2d40c2b0d12368153b1b7cd02839cc404430c9a8754efd97831a836164cf0b05"
+        },
+        {
+          "inner": "0xad18575b0e51dd056e1e082223c0e014cbfe4b13bc55e92f450585884f4cf951"
+        }
+      ],
+      "balances": [
+        "5236518612342",
+        "2189732331"
+      ],
+      "balances_normalized_opt": {
+        "vec": []
+      },
+      "lp_token_metadata": {
+        "inner": "0x11c479e73e493479561fdfaf620c8717a2e43b41172eeaff70df9dcb9d080bd1"
+      },
+      "lp_token_supply": "2405343393457",
+      "oracle_names_opt": {
+        "vec": []
+      },
+      "pool": {
+        "inner": "0x11c479e73e493479561fdfaf620c8717a2e43b41172eeaff70df9dcb9d080bd1"
+      },
+      "pool_type": 101,
+      "precision_multipliers_opt": {
+        "vec": []
+      },
+      "rates_opt": {
+        "vec": []
+      },
+      "swap_fee_bps": "5",
+      "weights_opt": {
+        "vec": [
+          [
+            "90",
+            "10"
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+[
+  {
+    "slot": 2,
+    "version": "8132619868",
+    "at": 1795137833674,
+    "page": [
+      [
+        {
+          "fee_rate": "500",
+          "liquidity_total": "13497118004837",
+          "pool": {
+            "inner": "0x925660b8618394809f89f8002e2926600c775221f43bf1919782b297a79400d8"
+          },
+          "token_a": {
+            "inner": "0xa"
+          },
+          "token_a_reserve": "15514730658268",
+          "token_b": {
+            "inner": "0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b"
+          },
+          "token_b_reserve": "13140206960"
+        }
+      ],
+      {
+        "limit": "1",
+        "offset": "2",
+        "take": "1",
+        "total": "352"
+      }
+    ],
+    "resource": {
+      "type": "0x8b4a2c4bb53857c718a04c020b98f8c2e1f99a68b0f57389a8bf5434cd22e05c::pool_v3::LiquidityPoolV3",
+      "data": {
+        "unlocked": true,
+        "liquidity": "1122883858344",
+        "sqrt_price": "1176830440245314691"
+      }
+    },
+    "metadata": {
+      "type": "0x1::fungible_asset::Metadata",
+      "data": {
+        "decimals": 6,
+        "name": "USDC",
+        "symbol": "USDC"
+      }
+    }
+  },
+  {
+    "slot": 4,
+    "version": "8132619880",
+    "at": 1795137833747,
+    "page": [
+      [
+        {
+          "fee_rate": "100",
+          "liquidity_total": "2406169398015120",
+          "pool": {
+            "inner": "0xce131db3fb4f52c4a1526e2cf1d8a5383a6c5c0beaa610c277856a8721a9b5a3"
+          },
+          "token_a": {
+            "inner": "0xa"
+          },
+          "token_a_reserve": "21038087341450",
+          "token_b": {
+            "inner": "0xa259be733b6a759909f92815927fa213904df6540519568692caf0b068fe8e62"
+          },
+          "token_b_reserve": "20736595104080"
+        }
+      ],
+      {
+        "limit": "1",
+        "offset": "4",
+        "take": "1",
+        "total": "352"
+      }
+    ],
+    "resource": {
+      "type": "0x8b4a2c4bb53857c718a04c020b98f8c2e1f99a68b0f57389a8bf5434cd22e05c::pool_v3::LiquidityPoolV3",
+      "data": {
+        "unlocked": true,
+        "liquidity": "140349278235664",
+        "sqrt_price": "18465461725973285188"
+      }
+    },
+    "metadata": {
+      "type": "0x1::fungible_asset::Metadata",
+      "data": {
+        "decimals": 8,
+        "name": "Amnis Aptos Coin",
+        "symbol": "amAPT"
+      }
+    }
+  }
+]

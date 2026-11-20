@@ -17,6 +17,8 @@ import { registerVenueContracts } from './sources/venue-contracts/index.js'
 import { PendingDexQuotes } from './coverage/seed-identity.js'
 import { StoredDiscoveries } from './coverage/discoveries.js'
 import { DexCoverage } from './coverage/dex.js'
+import { registerMove } from './sources/move/source.js'
+import { assetAddress, moveChain } from './sources/move/identity.js'
 import { registerTron } from './sources/tron/source.js'
 import { EvmSource, seedValue } from './sources/evm.js'
 import { SolanaCoverage } from './coverage/solana.js'
@@ -103,7 +105,7 @@ export class Engine extends EventEmitter {
       onDisagreement: id => {
         const market = this.registry.markets.get(id)
         const job = market.kind === 'cex' ? 'cex:' + market.exchange :
-          market.chain === 'tron' ? 'tron:sunswap' :
+          market.chain === 'tron' ? 'tron:sunswap' : moveChain(market.chain) ? market.chain + ':pools' :
           this.evm.has(market.chain) ? 'evm:' + market.chain + ':state' : 'sol:' + market.exchange
         this.scheduler.requestSpotCheck(job, id)
       },
@@ -250,6 +252,7 @@ export class Engine extends EventEmitter {
       })
     }
     this.hints.tron = this.tron = registerTron(this)
+    this.hints.move = this.move = registerMove(this)
     const sol = this.catalog.chains.find((c) => c.family === 'solana')
     this.solanaReaders = new Map()
     for (const source of this.catalog.apis) {
@@ -439,10 +442,10 @@ export class Engine extends EventEmitter {
       : { t: 'listing', v: 1, exchange, symbol, firstSeen }
     if (pool) this.pendingDexQuotes.flush('dex:' + chain + ':' + pool)
     this.emit('discovery', msg, data.firstSeen, fromHint, historyReporter)
-    if (historyReporter && chain !== 'tron') return
-    const share = pool ? chain !== 'tron' || !!tx : this.registry.venues.get(exchange)?.publishMarketData
+    if (historyReporter && chain !== 'tron' && !moveChain(chain)) return
+    const share = pool ? (chain !== 'tron' && !moveChain(chain)) || !!tx : this.registry.venues.get(exchange)?.publishMarketData
     if (share && !historyReporter) this.transport.send('gator/new', msg)
-    if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + address, fromHint)
+    if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + (moveChain(chain) ? assetAddress(chain, address) : address), fromHint)
   }
   /** What this node reads: an effective signed bundle plus the release extension (venue labels, coin groups).
    * The digest, `obs.b` and every patch check use the signed bundle alone. A failing extension is left out. */

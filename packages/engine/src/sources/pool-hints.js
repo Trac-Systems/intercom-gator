@@ -1,3 +1,4 @@
+import { validPool as validMovePool } from './move/identity.js'
 import { decodeEvent, multiRead, ZERO } from './evm-abi.js'
 import { resolveCurveCreations } from './curve.js'
 import { RateLimited } from '../scheduler/index.js'
@@ -44,15 +45,22 @@ export class PoolHints {
         if (typeof tx !== 'string' || !/^0x[0-9a-f]{64}$/i.test(tx) || !Number.isSafeInteger(block) || block < 0) return
         tx = tx.toLowerCase()
       }
+    } else if (this.move?.has(chain)) {
+      if (!validMovePool(msg)) return
     } else if (chain === 'tron' && this.tron) {
       if (!hintFactory(msg)) return
     } else if (this.registry.chains.get(chain)?.family !== 'solana' || !['raydium', 'orca', 'meteora'].includes(dex) ||
                ![pool, token0, token1].every(solAddress)) return
-    if (token0 === token1 || this.registry.markets.has('dex:' + chain + ':' + pool)) return
+    if (token0 === token1 || this.alreadyKnown({ chain, pool, token0, token1, dex, kind })) return
     const key = chain + ':' + pool
     const priority = this.rank(reporter)
     return { key, chain, pool, token0, token1, dex, kind, tx, block, reporter, priority,
       expires: this.clock() + 5 * MINUTE }
+  }
+  alreadyKnown(hint) {
+    if (!this.registry.markets.has('dex:' + hint.chain + ':' + hint.pool)) return false
+    const local = this.move?.get(hint.chain)?.known(hint.pool)
+    return !local || !!local.tx || ['token0','token1','dex','kind'].some(k => local[k] !== hint[k])
   }
   receive(msg, reporter) {
     const hint = this.candidate(msg, reporter)
@@ -80,8 +88,9 @@ export class PoolHints {
   }
   /** Older registry rows can carry a swap receipt used to identify a pool. Only a matching
    * factory creation or manager Initialize is eligible for periodic re-announcement. */
-  async hasCreationReceipt(row, rpc = this.rpc) {
+  async hasCreationReceipt(row, rpc = this.rpc, cache = new Map()) {
     const { chain, pool, tx, block } = row
+    if (this.move?.has(chain)) return !!(await this.move.get(chain).reader.receipt(row, cache))
     if (chain === 'tron' && this.tron) return !!creationReceipt(row, await this.tron.client.receipt(tx))
     const source = this.evm.get(chain)
     if (!source) return false
@@ -124,7 +133,7 @@ export class PoolHints {
     if (this.busy) return
     let best
     for (const hint of this.pending.values()) {
-      if (hint.expires <= this.clock() || this.book.muted(hint.reporter) || this.registry.markets.has('dex:' + hint.key)) {
+      if (hint.expires <= this.clock() || this.book.muted(hint.reporter) || this.alreadyKnown(hint)) {
         this.pending.delete(hint.key)
         continue
       }
@@ -137,9 +146,11 @@ export class PoolHints {
     this.busy = true
     if (this.work?.hint !== best) this.work = { hint: best, cache: new Map() }
     let retry = false
+    const before = this.work.cache.size
     try {
-      if (best.chain === 'tron' && this.tron) {
-        if (await this.tron.verify(best, this.work.cache) === false) this.penalize(best.reporter)
+      const family = this.move?.get(best.chain) ?? (best.chain === 'tron' && this.tron)
+      if (family) {
+        if (await family.verify(best, this.work.cache) === false) this.penalize(best.reporter)
         return
       }
       const source = this.evm.get(best.chain)
@@ -153,6 +164,12 @@ export class PoolHints {
       else if (source && result) this.onConfirmed(result)
     } catch (error) {
       retry = error instanceof RateLimited
+      const source = this.move?.get(best.chain)
+      if (retry && source && this.work.cache.size > before) {
+        // Several public reads can span the initial queue TTL on small profiles. Extend only
+        // after completing a new verification stage, up to the next peer slot plus its TTL.
+        best.expires = Math.max(best.expires, source.client.peerDue + 5 * MINUTE)
+      }
       throw error
     } finally {
       if (!retry || this.pending.get(best.key) !== best) {

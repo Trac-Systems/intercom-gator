@@ -583,6 +583,53 @@ lookups, confirmed-event decoding and public receipt checks in the family module
 persist the cursor with its pending candidates, then pass verified identities to `registry.pool` and measured
 rows to `engine.publish`. Test both old receivers before sending a new pool hint.
 
+#### Sui and Aptos DEX readers
+
+`sui:pools` and `aptos:pools` each own one scheduler job. Each family can use 2, 4 or 6 public requests/minute
+on small, normal or large profiles, up to one twelfth of the configured node limit. Every dispatch also charges
+the shared HTTP host and node buckets. A peer can use at most one of three family slots. HTTP 403 and 429
+back off the host for at least one minute, doubling on consecutive refusals and honoring longer Retry-After values.
+Deployment identifiers live in reader code under §5.4.
+
+- **Sui** uses the effective bundle's `sui-graphql` route. It checks the mainnet identifier, checkpoint and timestamp.
+  Cetus and Turbos typed pool objects supply the currencies, Q64.64 square-root price, active liquidity and both
+  vault balances. The reader checks the package, object ID and paused/locked state. CoinMetadata supplies display
+  labels and decimals. The Move module and type names retain their case. SUI resolves to `sui:native`. Each factory
+  has a recent checkpoint and a backwards event cursor. A page commits its candidates and continuation together.
+  Typed swap events and paginated Cetus lookups over signed coin pairs also find active older pools. The first
+  object version's transaction can supply their original factory event. [Sui GraphQL](https://docs.sui.io/develop/accessing-data/graphql/query-with-graphql)
+- **Aptos** reads the signed REST endpoint's resource and view APIs. Hyperion's factory gives both FA identities and
+  reserves. Its corresponding pool resource supplies active liquidity and the square-root price at the same ledger
+  version. ThalaSwap V2 supplies two-asset weighted, stable and metastable pool states through its lens. Weighted
+  pools use the balance and weight ratios. Stable pools use the derivative of the amplified invariant and the
+  on-chain normalized balances. Both factories page older entries and poll their growing tail.
+- PancakeSwap Aptos and Liquidswap use legacy generic Coin resources. A resource cursor scans the deployment
+  account. Public creation handles and several deterministic legacy pairs supplement the scan. Constant-product
+  pools use the reserve ratio. Liquidswap's stable curve uses the marginal price of `x³y + xy³`.
+  The market discriminator for a generic resource is the hex SHA-256 of the configured resource account, a slash,
+  and its fully qualified canonical type. This distinguishes pairs sharing one account. Object pools use their
+  32-byte object ID. APT Coin and native FA `0xa` resolve to `aptos:native`. Other FAs use their padded metadata
+  address and legacy Coins use their qualified type. The framework metadata resource supplies name, symbol and
+  decimals. Historical resource queries pin the ledger version. [Aptos fullnode API](https://aptos.dev/rest-api/)
+- Hyperion and Thala emit module events. On the signed Aptos Labs host the same-origin transaction index can
+  locate the first transaction affecting a pool object. A successful fullnode receipt with the exact deployment,
+  event, pool and currencies supplies its creation provenance. Pruned history leaves the pool eligible for state
+  pricing. The PancakeSwap shared handle and Liquidswap per-pool handles can also supply a creation version.
+- Two-sided depth is twice the cheaper reserve in USD. Only the canonical USDC address can bootstrap this estimate.
+  The price book supplies other conversions, including native and bridged assets. Named bridged USDC/USDT
+  contracts can quote other tokens once they have a price through a native or stable market. All peers use the
+  same contract-based base/quote ordering. The ordinary $10,000 floor,
+  dust, outlier and reporter rules apply. New symbols cannot claim a CEX identity. Prices use `gator/px`.
+  A funded creation hint on `gator/new` carries a Sui checkpoint and base58 transaction digest, or an Aptos block
+  height and hex hash. A receiving node checks the public creation receipt and independently reads the funded pool.
+  State-only discoveries stay local until creation provenance arrives. Eligible creations can use the existing
+  re-announcement rotation after a fresh receipt check.
+- Rolling base turnover sums actual, deduplicated swap amounts observed inside the previous 24 hours. Sui samples
+  exact deployment event types and pages transactions affecting funded pools. Aptos checks typed swaps in indexed
+  pool transactions, and pages legacy swap handles by sequence with batched transaction timestamps. Each family
+  retains at most 8,192 swap records. Busy pools, receipt pruning and index limits can leave a lower bound on total
+  volume. Zero means this node has observed no qualifying swap in its retained window.
+
 #### Recent pool history on join
 
 An EVM node starts one catch-up pass on first use and after six hours offline. It records its last connected time
