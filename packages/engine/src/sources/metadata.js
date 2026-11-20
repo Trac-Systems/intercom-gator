@@ -10,7 +10,7 @@ import { flagReader } from './names/flags.js'
 const families = new Set(['evm', 'solana', 'tron', 'sui', 'aptos', 'ton', 'cosmos'])
 const day = 86_400_000
 const NAMES_TICK_MS = 3000
-const HISTORY_PRIORITY = 2
+const HISTORY_PRIORITY = 2, FACTORY_PRIORITY = 3
 
 /** @typedef {{name: string|null, symbol: string|null, decimals: number|null,
  * nameStatus: 'resolved'|'pending'|'unresolvable', nameSource: 'on-chain'|'contract-uri'|'bundle'|'registry'|'reported'|null,
@@ -47,16 +47,16 @@ export function registerNamesJob(engine) {
   // Separate startup seed checks from discovery and public-only work. A slow endpoint cannot occupy turns for other chains.
   const routes = new Map()
   let changed = true, nextHistory = 0
-  const ordinary = {}, history = {}
+  const ordinary = {}, history = {}, factory = {}
   function routeFor(chainId, publicOnly, priority) {
     const key = chainId + ':' + publicOnly + ':' + priority
     if (!routes.has(key)) routes.set(key, { chainId, publicOnly, priority })
   }
 
-  function enqueue(id, fromHint = false, fromHistory = false) {
+  function enqueue(id, fromHint = false, fromHistory = false, factoryHistory = false) {
     const a = registry.assets.get(id)
     if (!a || a.address === 'native' || a.kind === 'nft' || !families.has(registry.chains.get(a.chain)?.family)) return
-    const priority = fromHistory ? HISTORY_PRIORITY : Number(!!labels(seeds.get(id), a.address))
+    const priority = factoryHistory ? FACTORY_PRIORITY : fromHistory ? HISTORY_PRIORITY : Number(!!labels(seeds.get(id), a.address))
     const result = insert.run(id, a.chain, Number(fromHint), priority, clock())
     if (result.changes) changed = true
     routeFor(a.chain, Number(fromHint), priority)
@@ -148,12 +148,12 @@ export function registerNamesJob(engine) {
   function nextRoute(lane = ordinary) {
     if (changed) {
       changed = false
-      for (const queue of [ordinary, history]) { queue.selected = null; queue.wakeAt = Infinity }
+      for (const queue of [ordinary, history, factory]) { queue.selected = null; queue.wakeAt = Infinity }
       const now = clock()
       for (const route of routes.values()) {
         const r = route.attempt ?? head.get(route.chainId, route.publicOnly, route.priority)
         if (!r) continue
-        const queue = route.priority === HISTORY_PRIORITY ? history : ordinary
+        const queue = route.priority === FACTORY_PRIORITY ? factory : route.priority === HISTORY_PRIORITY ? history : ordinary
         const bothReady = r.nextRetry <= now && queue.wakeAt <= now
         if (bothReady && route.priority > queue.selected.priority) continue
         if (r.nextRetry < queue.wakeAt || (bothReady && route.priority < queue.selected.priority)) {
@@ -195,7 +195,7 @@ export function registerNamesJob(engine) {
         const complete = name && symbol && decimals != null && method
         const failures = complete ? 0 : Math.min(32, old.failures + 1)
         const nextRetry = complete ? null : now + Math.min(day, 60_000 * 2 ** (failures - 1))
-        const publishAt = complete && old.priority !== HISTORY_PRIORITY ? now : null
+        const publishAt = complete && old.priority < HISTORY_PRIORITY ? now : null
         persist.run(name, symbol, decimals, method, block, now, failures, nextRetry, publishAt, a.id)
         const patch = {}
         if (name && symbol) {
@@ -264,13 +264,18 @@ export function registerNamesJob(engine) {
     save(attempt.assets, results)
     changed = true
   }
-  // Historical labels share the durable batch/validation path. Only the idle catch-up job
-  // runs these public reads, and locally resolved historical names stay out of the live outbox.
+  // Both historical jobs reuse the durable name reader through their own idle public budget.
   return { enqueue, display,
     // Reuse an independent on-chain read without issuing a second names batch or enqueuing a venue-derived announcement.
     recordVerified(asset, row) {
       enqueue(asset.id, true, true)
       save([asset], [row])
+    },
+    enqueueFactory: (id, fromHint = false) => enqueue(id, fromHint, true, true),
+    factoryDue: () => !!nextRoute(factory),
+    async readFactory(client) {
+      const route = nextRoute(factory)
+      if (route) await readRoute(route, client)
     },
     historyDue: () => clock() >= nextHistory && !!nextRoute(history),
     async readHistory(client) {

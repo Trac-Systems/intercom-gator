@@ -25,6 +25,7 @@ export class DexCoverage {
       WHERE p.chain=? ORDER BY (coalesce(a.rank,999999)<=50) DESC,coalesce(p.liquidity,0) DESC,m.id`)
     this.nextHint = db.prepare(`SELECT m.id,m.chain,m.exchange FROM engine_market_data d JOIN markets m ON m.id=d.market
       WHERE d.market>? AND d.market<'dex;' AND d.fromHint=1 ORDER BY d.market LIMIT 1`)
+    this.historical = db.prepare('SELECT 1 FROM engine_history_pools WHERE chain=? AND pool=?')
     this.scan = db.prepare('SELECT block AS scanned,polled FROM engine_pool_scans WHERE chain=? AND pool=?')
     this.plans = new Map()
     this.tradeSets = new WeakMap()
@@ -52,7 +53,7 @@ export class DexCoverage {
     for (const [id] of rows) {
       if ((this.announced.get(id) ?? -Infinity) > now - HOUR) continue
       const p = source.poolInfo.get(source.chain.id, id.split(':')[2])
-      if (!p || p.fromHint || p.tx || !seedPair(source, p)) continue
+      if (!p || p.fromHint || p.tx || !seedPair(source, p) || this.historical.get(p.chain,p.pool)) continue
       const { chain, pool, dex, kind, token0, token1 } = p
       this.announcementAt = now + 15_000
       if (transport.send('gator/new', { t: 'pool', v: 1, chain, pool, dex, kind, token0, token1, block: null, tx: null })) {

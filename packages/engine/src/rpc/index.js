@@ -157,8 +157,8 @@ export class RpcClient {
     return this.request(chain, [{ method, params }], false, false, publicOnly).then((values) => values[0])
   }
   /** A single public dispatch. Yield the scheduler slot on a busy endpoint or a refusal. */
-  callWhenIdle(chain, method, params) {
-    return this.request(chain, [{ method, params }], false, false, true, true).then(values => values[0])
+  callWhenIdle(chain, method, params, budget = this.budget) {
+    return this.request(chain, [{ method, params }], false, false, true, true, budget).then(values => values[0])
   }
   async batch(chain, calls, publicOnly = false) {
     if (!Array.isArray(calls) || calls.length > 200) throw new RangeError('Invalid batch size')
@@ -180,7 +180,7 @@ export class RpcClient {
     }
     return results
   }
-  async acquire(endpoints, cost, wait, idleOnly) {
+  async acquire(endpoints, cost, wait, idleOnly, budget = this.budget) {
     const availableAt = e => Math.max(e.cooldown, e.bucket.next, idleOnly ? e.bucket.nextIdle ?? 0 : 0)
     for (;;) {
       this.signal?.throwIfAborted()
@@ -192,7 +192,7 @@ export class RpcClient {
         if (!available.length)
           throw new RateLimited(Math.min(...endpoints.map(availableAt)))
         const bucket = available[0].bucket
-        bucket.take(this.budget, cost, wait && !idleOnly)
+        bucket.take(budget, cost, wait && !idleOnly)
         // A lightly provisioned public endpoint can be much tighter than the profile budget.
         if (idleOnly) bucket.nextIdle = now + 4 * (bucket.next - now)
         return available[0]
@@ -235,7 +235,7 @@ export class RpcClient {
       for (const c of calls) e.refusedMethods.set(c.method, this.clock() + LEARNED_METHOD_MS)
     }
   }
-  async request(chain, calls, batch, wait, publicOnly, idleOnly = false) {
+  async request(chain, calls, batch, wait, publicOnly, idleOnly = false, budget = this.budget) {
     const all = this.chains.get(this.aliases[chain] ?? String(chain)) ?? []
     const body = calls.map(({ method, params = [] }) => ({ jsonrpc: '2.0', id: ++this.serial, method, params }))
     let lastError
@@ -246,7 +246,7 @@ export class RpcClient {
         if (lastError) throw lastError
         throw new Error('No eligible RPC endpoint for ' + chain)
       }
-      const e = await this.acquire(endpoints, body.length, wait, idleOnly)
+      const e = await this.acquire(endpoints, body.length, wait, idleOnly, budget)
       tried.add(e)
       const started = this.clock()
       try {
