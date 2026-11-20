@@ -371,6 +371,59 @@ insufficient. The sender attempts at most one record per minute and waits at lea
 The rotation and timing survive restart. Each receiver uses the existing public receipt verifier before it registers
 the market. Graduation and sender standing confer no authority to register it.
 
+#### Splitting DEX coverage across nodes
+
+Each node counts its own signing key and distinct locally proven, positive-weight, unmuted reporters seen in the
+last 30 minutes by local receipt time. It refreshes that view once a minute. With up to three reporters, ordinary
+seed order, tracked pools, state pages and Solana page-one reads keep their existing priorities. A spare scheduler
+slot can check one registered peer-origin pool per minute while less than half the local budget is in use.
+
+Starting with four reporters, each long-tail market has three preferred readers. At 32 reporters the target rises
+to four. For a common membership view, the owners are the highest scores from SHA-256 of the market ID, one NUL
+byte and the signing key, using the first 52 bits and ascending key to break ties. A single join or departure at
+fixed redundancy replaces at most one owner per market. When the target grows, existing owners keep their places.
+Nodes can have different views or inventories. The assignment controls collection priority and confers no standing.
+
+- **EVM state and swaps.** Per chain and reader, four common markets keep independent overlap. Top-50 base assets
+  come first, then measured pool depth and market ID. Up to 4/8/16 further watched, held or focused pools by profile
+  can join this core. State batches reserve a quarter of their slots (at least one) for rotating common pools.
+  A single-pool endpoint takes a core turn one time in four. The remaining slots rotate over assigned markets in
+  descending personal score. Every sixteenth page can repair off-slice pools without own or proven coverage in the
+  last hour. State cursors seek past the last personal score across rebalances and restarts. The existing bounded trade
+  set takes the common pools and the highest hourly pool-and-signer priorities from the assigned tail, with durable
+  per-pool block cursors. A joining signer can vacate slots without reordering surviving trade candidates.
+  Verified peer-origin pools participate in both readers. Their state, trade filters and subsequent block decoding use public-only endpoints.
+- **EVM factory seeding.** Before a pool address exists, the key is `seed:<chain>:<sorted currency0>:<currency1>`.
+  Split readers consider all signed deployments of tokens and the chain's main quotes. They probe the first shared
+  currency pair, their assigned pairs, and a rotating repair sample of about one extra pair per sixteen assigned.
+  Signed factories, fee tiers, funded-state checks and retry times still govern each probe. A changed membership
+  starts the new ordering after the current budget-deferred batch. Completed factory checks retain their retry times.
+- **Solana.** Each venue uses one of four turns for its shared top-100 directory and one for discovery beyond it.
+  Raydium and Meteora assign numbered directory pages and remember a short page for 30 minutes. Three or four
+  readers follow Orca’s opaque next cursor. Readers without a directory assignment use that turn for exact reads.
+  The other two turns read registered pools from the assigned rotation, including verified peer announcements. Exact reads use the signed
+  venue origin, match the requested address and both mints, and use one request per turn. Raydium batches up to
+  8/16/32 addresses. Orca and Meteora read one. An empty rotation falls back to the directory.
+- **Discovery and visibility.** Live hints keep their standing priority. Waiting proven prices and locally assigned
+  identities break a standing tie. If the live queue is empty, the node can revisit up to 32 stored announcements
+  and enqueue one per minute through the same public verifier, choosing the highest-standing eligible original
+  signer. Its cursor survives restart.
+  Small networks enqueue this work only during idle backlog collection. A price can cross its identity hint on the
+  network. The receiver can hold the newest validated proven quote for up to 128 unknown DEX markets for five minutes.
+  Admission requires independent identity registration, the same bundle digest and current reporter standing.
+  A fresh local state price with no sampled swaps can use turnover measured by fresh proven peers. The usual
+  freshness, funded-depth, turnover and supported USD conversion rules apply to rankings.
+- **State-only identities.** A split reader can send an ordinary `pool` preimage for a locally seeded signed pair
+  with both `tx` and `block` null, up to one hint per 15 seconds node-wide and one per pool per hour. For EVM, a
+  receiver considers it only from a proven signer. It reconstructs the signed factory methods or no-hook V4 ID,
+  verifies the claimed pool and measures at least $10,000 depth at one public block. The registered identity keeps
+  peer origin. New and the history channel retain their existing creation evidence requirements. v0.1.0–v0.1.3
+  ignore receipt-less EVM hints and can still learn those pools through their ordinary seeder.
+- **Budget and exchange.** Every request goes through the existing endpoint buckets and shared profile budget.
+  The same signed v1 `obs` rows travel on the same 16 price shards. One proven reporter counts toward coverage
+  and can support a live yellow tail price. The pool's other assigned readers improve redundancy. CEX collection,
+  including the local-only rule for restricted exchanges, is independent of the DEX split.
+
 #### Recent pool history on join
 
 An EVM node starts one catch-up pass on first use and after six hours offline. It records its last connected time
