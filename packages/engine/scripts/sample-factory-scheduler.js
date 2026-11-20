@@ -10,7 +10,8 @@ import { nativeRate } from './factory-survey-usd.js'
 
 const eras = process.argv.includes('--eras')
 const chains = eras ? ['ethereum','polygon'] : ['arbitrum','optimism']
-const jobs = [BACKFILL_JOB,...chains.flatMap(chain=>['logs','state','seed','trades'].map(job=>'evm:'+chain+':'+job))]
+const foreground = process.argv.includes('--logs-only') ? ['logs'] : ['logs','state','seed','trades']
+const jobs = [BACKFILL_JOB,...chains.flatMap(chain=>foreground.map(job=>'evm:'+chain+':'+job))]
 const store = openStore({file:':memory:',profile:'normal',migrations})
 const all = [], history = []
 let sent = 0, errors = 0

@@ -380,3 +380,29 @@ test('a one-request-per-minute user limit can complete a historical page over su
   assert.equal(fixtureRpc.calls.filter(r=>r.method==='eth_getLogs').length,1)
   assert.equal(h.count.get().n,1)
 })
+
+test('a misleading archive length cannot permanently hide the creation of a funded indexed pool', async t => {
+  const n=await node(t), h=n.engine.backfill, g=fixture.ethereumV2, actual=replay()
+  const task=h.tasks.find(t=>t.source.chain.id==='ethereum' && t.factory.name==='uniswap-v2')
+  task.bounds={mode:'index'}
+  actual.setGroup(g)
+  let emptyWindows=0
+  h.rpc={call(chain,method,params) {
+    if (method==='eth_call' && params[0].data==='0x574f2ba3') return '0x'+word(0)
+    if (method==='eth_getLogs' && (Number(params[0].fromBlock)>g.block || Number(params[0].toBlock)<g.block)) {
+      emptyWindows++
+      return []
+    }
+    return actual.call(chain,method,params)
+  }}
+  await h.page(task,{start:g.index,next:g.index,end:g.index+1,after:-1,span:1})
+  for (let i=0;i<200;i++) {
+    const row=h.nextRow(n.engine.clock())
+    if (!row) break
+    await h.shareStep(row)
+  }
+  assert.ok(emptyWindows>1)
+  const sent=n.sent.filter(f=>f.channel==='gator/new')
+  assert.equal(sent.length,1)
+  assert.equal(sent[0].message.tx,g.logs[0].transactionHash)
+})

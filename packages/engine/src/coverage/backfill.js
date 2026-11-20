@@ -4,6 +4,7 @@ import { logWindow } from '../sources/bundle-adapter.js'
 import { HISTORY_FLOOR, MAX_SPAN, historyFactories, historyRanges, indexPage, logPage, hex, quantity } from './factory-history.js'
 
 const MINUTE = 60_000, HOUR = 60 * MINUTE, DAY = 24 * HOUR
+const SEARCH = Object.freeze({ length: 1, window: 0, wholeHistory: -1, needHead: -2 })
 export const BACKFILL_JOB = 'discovery:factory-history'
 export const HISTORY_SHARE = 0.05
 export const HISTORY_CAP = { small: 4000, normal: 16_000, large: 48_000 }
@@ -338,29 +339,37 @@ export class FactoryBackfill {
     const save = (lo, hi, bisect, span) => search.run(lo, hi, bisect, span, now, row.chain, row.pool)
     try {
       if (!row.tx) {
-        if (row.bisect && row.hi - row.lo > MAX_SPAN) {
+        // A provider can return an empty or stale historical length instead of rejecting an
+        // archive read. If the narrowed interval was empty, exhaust the whole signed factory
+        // history once. Fetching the head is its own resumable budget turn.
+        if (row.bisect === SEARCH.needHead) {
+          const head = await this.head(task)
+          return save(0,head.tip,SEARCH.wholeHistory,MAX_SPAN)
+        }
+        if (row.bisect === SEARCH.length && row.hi - row.lo > MAX_SPAN) {
           const mid = row.lo + Math.floor((row.hi - row.lo) / 2)
           try {
             const raw = await this.rpc.call(row.chain, 'eth_call', [{ to: factory.address, data: factory.array[0] }, hex(mid)])
             const length = raw === '0x' ? 0 : quantity(raw)
             if (length === null) throw new Error('Invalid historical factory length')
-            return length <= row.idx ? save(mid + 1, row.hi, 1, row.span) : save(row.lo, mid, 1, row.span)
+            return length <= row.idx ? save(mid + 1, row.hi, SEARCH.length, row.span) : save(row.lo, mid, SEARCH.length, row.span)
           } catch (error) {
             if (error instanceof RateLimited) throw error
-            return save(row.lo, row.hi, 0, row.span)
+            return save(row.lo, row.hi, SEARCH.window, row.span)
           }
         }
         const span = Math.min(row.span, logWindow(source.rpc.chains.get(row.chain).filter(e => !e.user)))
         const from = Math.max(row.lo, row.hi - span + 1)
+        const walking = row.bisect === SEARCH.wholeHistory ? SEARCH.wholeHistory : SEARCH.window
         const result = await logPage({ source, factory, rpc: this.rpc, from, end: row.hi + 1, span,
           matchPool: row.pool, topics: [factory.topics, '0x' + word(row.token0), '0x' + word(row.token1)] })
-        if (result.retrySpan) return save(row.lo, row.hi, 0, result.retrySpan)
+        if (result.retrySpan) return save(row.lo, row.hi, walking, result.retrySpan)
         const event = result.pools.find(p => p.pool === row.pool && p.token0 === row.token0 && p.token1 === row.token1)
         if (event) { evidence.run(event.block,event.tx,row.chain,row.pool); return }
-        if (result.next <= row.hi) return save(row.lo, row.hi, 0, Math.max(1, Math.floor((row.hi - from + 1) / 2)))
-        if (from > row.lo) return save(row.lo, from - 1, 0, result.span)
-        snooze.run(now + DAY, row.chain, row.pool)
-        return
+        if (result.next <= row.hi) return save(row.lo, row.hi, walking, Math.max(1, Math.floor((row.hi - from + 1) / 2)))
+        if (from > row.lo) return save(row.lo, from - 1, walking, result.span)
+        // Keep the retry delay when even the whole range failed to yield a canonical creation.
+        return search.run(0,0,SEARCH.needHead,MAX_SPAN,now+(walking===SEARCH.wholeHistory ? DAY : 0),row.chain,row.pool)
       }
       const fields = [row.dex, row.kind, row.token0, row.token1, row.block, row.tx]
       const seen = this.recent.get(row.chain + ':' + row.pool)

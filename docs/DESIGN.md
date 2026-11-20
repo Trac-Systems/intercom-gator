@@ -469,7 +469,9 @@ window is half used. Each public endpoint reserves three of every four slots for
 A funded creation uses the ordinary v1 pool message on `gator/new`. For array entries, the
 sender narrows the creation block by querying historical array lengths, then searches the
 currency-filtered creation logs. An endpoint lacking old state can fall back to a bounded log
-walk. The sender checks the successful creation receipt against the signed deployment, block,
+walk. An empty narrowed interval also triggers a resumable search across the full deployment
+history, so a misleading historical length cannot permanently exclude the creation. The sender
+checks the successful creation receipt against the signed deployment, block,
 pool and both currencies before broadcasting. A disconnected reader keeps its proof work pending
 until a peer connects. It sends at most one historical pool per minute
 per node across restart, retries sent identities after a day and suppresses an exact recent
