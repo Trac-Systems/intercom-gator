@@ -263,3 +263,38 @@ test('agent Latest contains the newest 50 and replay pruning keeps exactly 100 s
   assert.match(rows[0], /Item 100$/);
   assert.match(rows.at(-1), /Item 51$/);
 });
+
+test('an unanswered startup want retries while Latest is empty and the answer honors current age and mutes', async t => {
+  const { peer, hub, root } = await fixture(t);
+  const advance = clock(t, hub);
+  t.mock.method(Math, 'random', () => 0);
+  const a = await peer();
+  await a.social.post('Before discovery');
+  const other = hub.peer(), muted = hub.peer();
+  share(other, post(other, 'Too old to send', { ts: hub.now - 7 * DAY }));
+  share(other, post(other, 'Old enough to keep', { ts: hub.now - 6 * DAY }));
+  share(muted, post(muted, 'Muted while waiting'));
+  root.deliver(root.envelope('soc/p/gator', { t: 'post', v: 1, text: 'Product channel only' }));
+
+  const net = hub.peer(), send = net.send.bind(net);
+  let wants = 0;
+  net.send = (channel, message) => {
+    if (message.t === 'want' && ++wants === 1) return true; // Transport admitted it, no holder received it.
+    return send(channel, message);
+  };
+  const b = await peer({}, net);
+  assert.equal(wants, 1);
+  await advance(30 * 60000 - 1);
+  await b.social.maintain();
+  assert.equal(wants, 1);
+  assert.deepEqual(latest(b.social), []);
+  await advance(1);
+  await b.social.maintain();
+  assert.equal(wants, 2);
+  a.social.mute(muted.publicKey);
+  await advance(2000);
+  assert.deepEqual(latest(b.social).map(p => p.text), ['Before discovery', 'Old enough to keep']);
+  await advance(HOUR);
+  await b.social.maintain();
+  assert.equal(wants, 2, 'Latest has recovered');
+});

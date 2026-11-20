@@ -32,7 +32,7 @@ const PUBLIC_SEEN_CAP = 1024;
  *   origin?:string, ttl?:number, pow?:object}} Envelope
  * @typedef {EventEmitter & {publicKey:string, join:(channel:string, policy:object)=>Promise<boolean>,
  *   leave:(channel:string)=>Promise<boolean>, send:(channel:string, message:object)=>boolean,
- *   rebroadcast:(envelope:Envelope)=>boolean, channels:()=>string[], setRelayTtl?:(ttl:number)=>void}} Transport
+ *   rebroadcast:(envelope:Envelope)=>boolean, channels:()=>string[], peerCount?:()=>number, setRelayTtl?:(ttl:number)=>void}} Transport
  * @typedef {import('node:sqlite').DatabaseSync} Database
  * @typedef {{writer:Database, reader:Database, profile:string, transaction:Function, onPrune?:Function, onEvict?:Function}} Store
  * @typedef {{scope?:'following'|'latest'|'official'|'mentions'|'directory'|'profile', key?:string,
@@ -319,9 +319,11 @@ export class Social extends EventEmitter {
       if (!await this.#send('soc/all', { t: 'share', v: 1, original }, true)) this.#warn(new Error('Public share send failed'));
     } catch (err) { this.#warn(err); }
   }
-  async #requestPosts() {
+  async #requestPosts({ onlyIfEmpty = false } = {}) {
     const now = this.now();
-    if (now - (this.#store.state('publicWantAt') ?? -Infinity) < WANT_INTERVAL) return;
+    if (this.#closed || this.transport.peerCount?.() === 0 ||
+        now - (this.#store.state('publicWantAt') ?? -Infinity) < WANT_INTERVAL) return;
+    if (onlyIfEmpty && this.#store.timeline({ scope: 'latest', limit: 1 }).length) return;
     try {
       if (await this.#send('soc/all', { t: 'want', v: 1 }, true)) this.#store.setState('publicWantAt', now);
     } catch (err) { this.#warn(err); }
@@ -506,6 +508,7 @@ export class Social extends EventEmitter {
       this.#store.transaction(() => this.#store.prune(now));
       try {
         await this.#sync();
+        await this.#requestPosts({ onlyIfEmpty: true });
         for (const row of this.#store.sql('SELECT * FROM social_outbox ORDER BY ts DESC,slot').all()) {
           if (row.last_sent > now - (row.slot === 'card' ? 6 * HOUR : DAY)) continue;
           if (this.transport.rebroadcast(JSON.parse(row.envelope))) {
