@@ -291,40 +291,42 @@ export class Engine extends EventEmitter {
         const general = source.id === 'llama-prices'
         const batches = Math.ceil(assets.length / size)
         if (general) this.book.referenceValidity = referenceValidity(batches * gap)
+        const reference = async () => {
+          if (general) {
+            // The validity follows the observed cadence: a busy scheduler stretches the rotation.
+            const now = clock()
+            if (lastRun != null) gap = 0.75 * gap + 0.25 * Math.max(30000, now - lastRun)
+            lastRun = now
+            this.book.referenceValidity = referenceValidity(Math.max(batches * gap, rotationMs))
+          }
+          await fetchReferences({
+            source,
+            http,
+            clock,
+            assets: this.referenceBatch(assets, cursor, size, general),
+            slot: jupiter && sol ? await this.rpc.call(sol.id, 'getSlot', []) : null,
+            slotMs: sol?.blockTime,
+            save: (...args) => {
+              save.run(...args)
+              this.book.dirty = true
+            },
+          })
+          cursor = cursor + size >= assets.length ? 0 : cursor + size
+          if (general && cursor === 0) {
+            rotationMs = clock() - rotationStart
+            rotationStart = clock()
+          }
+        }
         if (assets.length)
           this.scheduler.add({
             id: (jupiter ? 'sol:' : 'api:') + source.id,
             interval: 30000,
             // The general reference refreshes up to 64 prices per request. As a job without markets it waited behind
             // ~1,000 maintenance jobs for its every-fourth turn: one run in 22 min on a fresh normal node (11-20), so
-            // the chains' reference-only USD quotes lapsed. It takes a price-scanner turn when due.
+            // the chains' reference-only USD quotes lapsed. It takes a price-scanner turn when due, and the scanners'
+            // budget reserve (a saturated normal node spends 240 of 240 requests a minute).
             ...(general && { lane: 'scanner', weight: () => 24 }),
-            run: async () => {
-              if (general) {
-                // The validity follows the observed cadence: a busy scheduler stretches the rotation.
-                const now = clock()
-                if (lastRun != null) gap = 0.75 * gap + 0.25 * Math.max(30000, now - lastRun)
-                lastRun = now
-                this.book.referenceValidity = referenceValidity(Math.max(batches * gap, rotationMs))
-              }
-              await fetchReferences({
-                source,
-                http,
-                clock,
-                assets: this.referenceBatch(assets, cursor, size, general),
-                slot: jupiter && sol ? await this.rpc.call(sol.id, 'getSlot', []) : null,
-                slotMs: sol?.blockTime,
-                save: (...args) => {
-                  save.run(...args)
-                  this.book.dirty = true
-                },
-              })
-              cursor = cursor + size >= assets.length ? 0 : cursor + size
-              if (general && cursor === 0) {
-                rotationMs = clock() - rotationStart
-                rotationStart = clock()
-              }
-            },
+            run: () => (general ? this.budget.scanner(reference) : reference()),
           })
       }
     }
