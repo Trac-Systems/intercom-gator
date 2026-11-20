@@ -29,6 +29,25 @@ function fixture(t, definitions) {
   return { store, registry, book, queries, dex, cex, write, advance(ms) { now += ms } }
 }
 
+test('list ranks number only shown coins: a dust token with the largest cap takes no number', t => {
+  // A junk token's supply x a thin pool price can be the largest cap; it is hidden as dust and must leave no gap.
+  // No signed ranks: the registry numbers them by cap, as it does for discovered tokens.
+  const { registry, queries, dex, cex, write } = fixture(t, [
+    ['BTC', 'bitcoin:native', { rank: null }], ['STABLE', 'test:STABLE', { rank: null, stable: true }],
+    ['JUNK', undefined, { rank: null, supply: 1e15 }],
+  ])
+  write(cex('BTC'))
+  write(cex('STABLE'), 'own', start, 20, '1')
+  write(dex('JUNK', 'junk', 20_000), 'own', start, 0)
+  const shown = queries.markets()
+  assert.equal(registry.assets.get('test:JUNK').rank, 1)
+  assert.deepEqual(shown.map(r => [r.symbol, r.rank]), [['BTC', 1], ['STABLE', 2]])
+  const junk = queries.markets({ include: 'hidden' }).find(r => r.symbol === 'JUNK')
+  assert.equal(junk.visibility, 'dust')
+  assert.equal(junk.rank, null)
+  assert.equal(queries.detail('test:JUNK').rank, null)
+})
+
 test('rankings and totals use the same live, confirmed, non-dust assets before pagination', t => {
   const { store, queries, dex, cex, write } = fixture(t, [
     ['BTC', 'bitcoin:native'], ['STABLE', 'test:STABLE', { stable: true }], ['REMOTE', undefined, { stable: true }],

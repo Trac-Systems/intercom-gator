@@ -165,12 +165,16 @@ export class Queries {
       if (!unit) units.set(key, unit = { key, rank: a.rank, fixed: null,
         cap: group ? this.groupCap(group) : snapshots.get(a.id)?.marketCap ?? null })
       unit.rank = Math.min(unit.rank, a.rank)
+      unit.listed ||= snapshots.get(a.id)?.visibility === 'live'
       if (fixed.has(a.id)) unit.fixed = Math.min(unit.fixed ?? Infinity, fixed.get(a.id))
     }
+    // Only coins the list shows take a number, so it counts 1, 2, 3 without gaps. A hidden coin (dust, stale, a junk
+    // token's supply x a thin pool price) keeps its registry rank for scheduling but shows none.
     const ranks = new Map()
     let rank = 0
     for (const unit of [...units.values()].sort((a, b) => (b.cap ?? 0) - (a.cap ?? 0) || a.rank - b.rank)) {
       if (unit.fixed != null) { ranks.set(unit.key, unit.fixed); continue }
+      if (!unit.listed) { ranks.set(unit.key, null); continue }
       do rank++
       while (reserved.has(rank))
       ranks.set(unit.key, rank)
@@ -180,7 +184,8 @@ export class Queries {
   }
   /** The rank shown for an asset: its coin's rank for a group member. */
   displayRank(id, fallback = null) {
-    return this.derived().ranks.get(this.listGroup(id)?.key ?? id) ?? fallback
+    const { ranks } = this.derived(), key = this.listGroup(id)?.key ?? id
+    return ranks.has(key) ? ranks.get(key) : fallback
   }
   spark(id) {
     return this.engine.store
