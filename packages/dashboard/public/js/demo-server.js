@@ -67,6 +67,8 @@ export function createDemoServer(opts = {}) {
   const organic = (p) => p.kind !== 'promoted';
 
   const lanes = {
+    // Latest: everyone's newest posts (followed or not), the default lane; Following narrows it to the people you follow.
+    latest: () => W.posts.filter((p) => organic(p) && !muted(p.key)),
     following: () => W.posts.filter((p) => organic(p) && !muted(p.key) && (person(p.key)?.followed || person(p.key)?.me)),
     official: () => W.official.concat(W.posts.filter((p) => p.product)),
     mentions: () => allPosts().filter((p) => organic(p) && !muted(p.key) && !person(p.key)?.me && (p.text.includes(meP().handle) || (p.parent && p.parent.key === meP().key))),

@@ -6,7 +6,7 @@
 //   #/nft/:id               NFT collection page (id = "<chain>:<contract>")
 //   #/new                   new tokens
 //   #/exchanges             exchanges
-//   #/feed[/:lane]          feed: following | official | mentions
+//   #/feed[/:lane]          feed: latest (default) | following | official | mentions
 //   #/post/:key/:id         thread view
 //   #/u/:key                profile (key = 64-hex, or "me")
 //   #/channels              explore channels
@@ -79,7 +79,7 @@ export function href(name, params = {}, query = {}) {
     case 'markets': p = params.tab && params.tab !== 'all' ? 'markets/' + e(params.tab) : ''; break;
     case 'token': p = 'token/' + e(params.id); break;
     case 'nft': p = 'nft/' + e(params.id); break;
-    case 'feed': p = params.lane && params.lane !== 'following' ? 'feed/' + e(params.lane) : 'feed'; break;
+    case 'feed': p = params.lane && params.lane !== 'latest' ? 'feed/' + e(params.lane) : 'feed'; break;
     case 'post': p = 'post/' + e(params.key) + '/' + e(params.id); break;
     case 'profile': p = 'u/' + e(params.key); break;
     case 'settings': p = params.section ? 'settings/' + e(params.section) : 'settings'; break;

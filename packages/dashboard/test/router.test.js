@@ -48,7 +48,8 @@ test('href round-trips', () => {
     assert.deepEqual(r.query, query);
   }
   assert.equal(href('markets', { tab: 'all' }), '#/');
-  assert.equal(href('feed', { lane: 'following' }), '#/feed');
+  assert.equal(href('feed', { lane: 'latest' }), '#/feed');
+  assert.equal(href('feed', { lane: 'following' }), '#/feed/following');
 });
 
 test('nav key per route', () => {

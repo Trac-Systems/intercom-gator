@@ -21,7 +21,7 @@ function html(ctx, d) {
     `<div class="reply-box">${composeHTML(ctx, { id: 'rcmp', placeholder: 'Reply to ' + (p.handle || 'this post'), button: 'Reply', label: 'Reply' })}</div>` +
     `<div id="replies">${d.replies.map((r) => postHTML(ctx, r)).join('')}</div>` +
     (d.replies.length ? '' : '<p class="muted" style="padding:16px 0">No replies yet.</p>') + '</div>';
-  return { title: `${p.author}: “${p.text.slice(0, 40)}”`, main, side: socialSide(ctx, d.social, { following: false, promo: false }) };
+  return { title: `${p.author}: “${p.text.slice(0, 40)}”`, main, side: socialSide(ctx, d.social, { latest: false, promo: false }) };
 }
 
 function mount(ctx, d) {

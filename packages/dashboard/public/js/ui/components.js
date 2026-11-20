@@ -100,7 +100,7 @@ export function starBtn(ctx, t) {
   return `<button class="star" data-star="${esc(t.id)}" aria-pressed="${on}" aria-label="${on ? 'Remove ' + esc(t.symbol) + ' from' : 'Add ' + esc(t.symbol) + ' to'} watchlist"><svg class="i i-s"><use href="#i-star"/></svg></button>`;
 }
 
-/** Post-count pill next to a token: how many posts in your feed mention it. */
+/** Post-count pill next to a token: how many of the latest posts mention it. */
 export function pmHTML(ctx, t) {
   const m = ctx.mentions.get(t.symbol);
   if (!m || !m.length || !tokId(t)) return '';
