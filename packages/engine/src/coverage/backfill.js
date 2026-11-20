@@ -47,11 +47,20 @@ export class FactoryBackfill {
     const db = store.writer
     this.progress = db.prepare('SELECT * FROM engine_history_ranges WHERE chain=? AND factory=? AND mode=?')
     this.mark = db.prepare('INSERT OR REPLACE INTO engine_history_ranges VALUES (?,?,?,?,?,?,?,?)')
-    this.keep = db.prepare('INSERT OR IGNORE INTO engine_history_pools VALUES (?,?,?,?,0,?,1,?,0)')
+    this.keep = db.prepare(`INSERT OR IGNORE INTO engine_history_pools
+      (chain,pool,factory,idx,block,tx,lo,hi,bisect,span,nextShare) VALUES (?,?,?,?,?,?,0,?,1,?,0)`)
     this.count = db.prepare('SELECT count(*) AS n FROM engine_history_pools')
+    this.liveBytes = db.prepare(`SELECT (page_count-freelist_count)*page_size AS bytes
+      FROM pragma_page_count, pragma_freelist_count, pragma_page_size`)
+    this.byteLimit = store.limits.storeBudgetMB * 1024 ** 2
     this.capacity = HISTORY_CAP[profile] ?? HISTORY_CAP.normal
-    this.sendRow = db.prepare(`SELECT p.*,h.factory,h.idx,h.lo,h.hi,h.bisect,h.span FROM engine_history_pools h
+    this.countRemote = db.prepare('SELECT count(*) AS n FROM engine_history_received')
+    this.retainRemote = db.prepare('INSERT OR IGNORE INTO engine_history_received VALUES (?,?)')
+    for (const source of engine.evm.values()) source.historyRetention = this
+    this.sendRow = db.prepare(`SELECT p.chain,p.pool,p.firstSeen,p.token0,p.token1,p.kind,p.dex,
+      h.factory,h.idx,h.block,h.tx,h.lo,h.hi,h.bisect,h.span FROM engine_history_pools h
       CROSS JOIN pools p USING(chain,pool) WHERE h.nextShare<=? ORDER BY h.nextShare,h.chain,h.pool LIMIT 1`)
+    this.evidence = db.prepare('UPDATE engine_history_pools SET block=?,tx=? WHERE chain=? AND pool=?')
     this.search = db.prepare('UPDATE engine_history_pools SET lo=?,hi=?,bisect=?,span=?,nextShare=? WHERE chain=? AND pool=?')
     this.snooze = db.prepare('UPDATE engine_history_pools SET nextShare=? WHERE chain=? AND pool=?')
     this.nextSend = store.getSetting('engine-history/next-send') ?? 0
@@ -65,6 +74,10 @@ export class FactoryBackfill {
     this.recent = new Map()
     this.capWake = this.shareWake = 0
     engine.scheduler.add({ id: BACKFILL_JOB, idleOnly: true, interval: 500, ready: () => this.ready(), run: () => this.run() })
+  }
+
+  canRetainRemote() {
+    return this.countRemote.get().n < Math.floor(this.capacity / 2) && this.liveBytes.get().bytes < this.byteLimit * 0.9
   }
 
   ready() {
@@ -132,6 +145,16 @@ export class FactoryBackfill {
     return { tip, ts, at: this.clock() }
   }
 
+  async read(chain, calls, block, cache) {
+    const out = [], size = chain.multicall ? 128 : 1
+    for (let i = 0; i < calls.length; i += size) {
+      const part = calls.slice(i, i + size), key = JSON.stringify([block, part])
+      if (!cache.has(key)) cache.set(key, await multiRead(this.rpc, chain, part, hex(block)))
+      out.push(...cache.get(key))
+    }
+    return out
+  }
+
   /** A committed range may extend at the next bounds refresh. Its existing prefix is still complete. */
   async bounds(task) {
     const { source, factory } = task, chain = source.chain
@@ -139,9 +162,9 @@ export class FactoryBackfill {
     const head = work.head ??= await this.head(task)
     let mode = 'logs', end = Math.max(0, head.tip - 64) + 1
     if (factory.array) {
-      const [length, first] = await multiRead(this.rpc, chain, [
+      const [length, first] = await this.read(chain, [
         { to: factory.address, data: factory.array[0] }, { to: factory.address, data: factory.array[1] + word(0) },
-      ], hex(end - 1))
+      ], end - 1, work.cache)
       const n = quantity(length), id = address(first)
       if (n === 0 || n !== null && id && id !== ZERO) { mode = 'index'; end = n }
     }
@@ -177,7 +200,7 @@ export class FactoryBackfill {
       task.wake = Math.min(task.bounds.at + 6 * HOUR, this.clock() + MINUTE)
       return
     }
-    if (this.count.get().n >= this.capacity) { this.capWake = this.clock() + MINUTE; return }
+    if (this.count.get().n >= this.capacity || this.liveBytes.get().bytes >= this.byteLimit * 0.9) { this.capWake = this.clock() + MINUTE; return }
     await this.page(task, range)
     if (range.next >= range.end) plan.ranges.shift()
   }
@@ -190,15 +213,7 @@ export class FactoryBackfill {
     if (task.work?.range !== range || now - task.work.at > 10 * MINUTE)
       task.work = { range, at: now, cache: new Map() }
     const work = task.work
-    const read = async calls => {
-      const out = []
-      for (let i = 0; i < calls.length; i += 128) {
-        const part = calls.slice(i, i + 128), key = JSON.stringify(part)
-        if (!work.cache.has(key)) work.cache.set(key, await multiRead(this.rpc, source.chain, part, hex(work.head.tip)))
-        out.push(...work.cache.get(key))
-      }
-      return out
-    }
+    const read = calls => this.read(source.chain, calls, work.head?.tip, work.cache)
     let page
     if (bounds.mode === 'logs') {
       page = work.logs ??= await logPage({ source, factory, rpc: this.rpc, from: range.next, end: range.end,
@@ -222,7 +237,8 @@ export class FactoryBackfill {
       for (const [i, p] of pools.entries()) {
         const state = states[i]
         if (!(state?.liquidity >= HISTORY_FLOOR)) continue
-        const id = 'dex:' + chain + ':' + p.pool, known = source.registry.markets.has(id)
+        const id = 'dex:' + chain + ':' + p.pool, known = source.registry.markets.get(id)
+        const old = known && source.poolInfo.get(chain,p.pool)
         if (!known && capacity <= 0) {
           next = p.index ?? p.block
           after = p.index == null ? p.idx - 1 : -1
@@ -235,9 +251,13 @@ export class FactoryBackfill {
         if (!market) continue
         source.saveParameters(record)
         rows.push(source.stateRow(market, state.price, work.head.ts * 1000))
+        // A locally seeded state-only identity can still gain its first shareable creation.
+        if (capacity > 0 && (!known || !old?.tx || (!known.fromHint && p.tx && old.tx !== p.tx))) {
+          capacity -= Number(this.keep.run(chain, p.pool, factory.address, p.index ?? null,
+            p.block ?? null, p.tx ?? null, work.head.tip, MAX_SPAN).changes)
+          if (p.tx) this.evidence.run(p.block,p.tx,chain,p.pool)
+        }
         if (known) continue
-        capacity--
-        this.keep.run(chain, p.pool, factory.address, p.index ?? null, work.head.tip, MAX_SPAN)
         this.engine.names.enqueueFactory(market.base)
         this.engine.names.enqueueFactory(market.quote)
       }
@@ -250,7 +270,7 @@ export class FactoryBackfill {
     return { pools, states, admitted: rows.length }
   }
 
-  /** Locate an enumerated pair's creation cheaply by bisecting its code-existence interval, then
+  /** Locate an enumerated pair's creation cheaply by bisecting the factory's historical array length, then
    * use the add-token search's currency-filtered log window. Non-archive RPCs can walk the range. */
   async shareStep(row) {
     const now = this.clock(), { engine } = this
@@ -263,9 +283,10 @@ export class FactoryBackfill {
         if (row.bisect && row.hi - row.lo > MAX_SPAN) {
           const mid = row.lo + Math.floor((row.hi - row.lo) / 2)
           try {
-            const code = await this.rpc.call(row.chain, 'eth_getCode', [row.pool, hex(mid)])
-            if (typeof code !== 'string' || !/^0x(?:[a-f0-9]{2})*$/i.test(code)) throw new Error('Invalid bytecode')
-            return code === '0x' ? save(mid + 1, row.hi, 1, row.span) : save(row.lo, mid, 1, row.span)
+            const raw = await this.rpc.call(row.chain, 'eth_call', [{ to: factory.address, data: factory.array[0] }, hex(mid)])
+            const length = raw === '0x' ? 0 : quantity(raw)
+            if (length === null) throw new Error('Invalid historical factory length')
+            return length <= row.idx ? save(mid + 1, row.hi, 1, row.span) : save(row.lo, mid, 1, row.span)
           } catch (error) {
             if (error instanceof RateLimited) throw error
             return save(row.lo, row.hi, 0, row.span)
@@ -274,10 +295,10 @@ export class FactoryBackfill {
         const span = Math.min(row.span, logWindow(source.rpc.chains.get(row.chain).filter(e => !e.user)))
         const from = Math.max(row.lo, row.hi - span + 1)
         const result = await logPage({ source, factory, rpc: this.rpc, from, end: row.hi + 1, span,
-          topics: [factory.topics, '0x' + word(row.token0), '0x' + word(row.token1)] })
+          matchPool: row.pool, topics: [factory.topics, '0x' + word(row.token0), '0x' + word(row.token1)] })
         if (result.retrySpan) return save(row.lo, row.hi, 0, result.retrySpan)
         const event = result.pools.find(p => p.pool === row.pool && p.token0 === row.token0 && p.token1 === row.token1)
-        if (event) { engine.store.upsertPool({ ...row, block: event.block, tx: event.tx }); return }
+        if (event) { this.evidence.run(event.block,event.tx,row.chain,row.pool); return }
         if (result.next <= row.hi) return save(row.lo, row.hi, 0, Math.max(1, Math.floor((row.hi - from + 1) / 2)))
         if (from > row.lo) return save(row.lo, from - 1, 0, result.span)
         this.snooze.run(now + DAY, row.chain, row.pool)
@@ -295,7 +316,10 @@ export class FactoryBackfill {
         return
       }
       this.nextSend = this.clock() + MINUTE
-      engine.store.setSetting('engine-history/next-send', this.nextSend)
+      engine.store.transaction(() => {
+        engine.store.setSetting('engine-history/next-send', this.nextSend)
+        engine.store.upsertPool(row)
+      })
       const { chain, pool, token0, token1, kind, dex, block, tx } = row
       const message = { t: 'pool', v: 1, chain, pool, token0, token1, kind, dex, block, tx }
       const sent = engine.transport.send('gator/new', message)

@@ -91,7 +91,8 @@ export class PoolHints {
       if (!event || typeof log.address !== 'string' || log.transactionHash?.toLowerCase() !== tx || log.blockHash !== receipt.blockHash ||
           Number(log.blockNumber) !== block) continue
       const deployment = source.deployment(log.address?.toLowerCase(), event)
-      if (deployment?.name !== row.dex || deployment.kind !== row.kind) continue
+      if (deployment?.name !== row.dex || deployment.kind !== row.kind ||
+          (row.factory && deployment.address !== row.factory)) continue
       const swap = decodeEvent(log, event)
       if (swap?.type === 'curve-deployment' || (swap?.type === 'pool' && swap.pool === pool))
         events.push({ swap, event, log })

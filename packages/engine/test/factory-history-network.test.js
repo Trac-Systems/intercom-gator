@@ -1,0 +1,194 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { EventEmitter } from 'node:events'
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { loadBundle } from '@gator/bundle'
+import { openStore } from '@gator/store'
+import { Engine, migrations } from '../src/index.js'
+import { RateLimited } from '../src/scheduler/index.js'
+import { address, word } from '../src/sources/evm-abi.js'
+
+const fixture = JSON.parse(readFileSync(new URL('fixtures/factory-history.json',import.meta.url)))
+const token = address(fixture.ethereum[0].logs[0].topics[3])
+const reporter = '1'.repeat(64)
+const at = Math.max(...fixture.ethereum.map(group => Number(group.head.timestamp))) * 1000
+
+// Real 2026-11-20 reads. The replay can regroup the recorded subcalls into other aggregate3 pages.
+// Each block fixture includes every signed manager creation at that block.
+function replay(failAt = -1) {
+  let group = fixture.ethereum[0]
+  const calls = []
+  const ledger = { ...fixture.metadata, ...fixture.polygon.calls, ...Object.assign({}, ...fixture.ethereum.map(v => v.calls)) }
+  const rpc = { calls, setGroup(g) { group = g },
+    async call(chain, method, params) {
+      calls.push({chain,method,params})
+      if (calls.length === failAt) throw new RateLimited(at + 1)
+      if (method === 'eth_getBlockByNumber') {
+        if (params[0] === 'latest') return group.head
+        return Object.values(fixture.legacy).find(r => r.header.number === params[0])?.header ?? assert.fail('unknown block')
+      }
+      if (method === 'eth_getLogs') {
+        assert.equal(params[0].address, group.logs[0].address)
+        assert.deepEqual(params[0].topics, [[group.logs[0].topics[0]]])
+        assert.equal(Number(params[0].fromBlock), group.block)
+        assert.equal(Number(params[0].toBlock), group.block)
+        return group.logs
+      }
+      if (method === 'eth_getTransactionReceipt') return fixture.legacy[params[0]]?.receipt ?? assert.fail('unknown tx')
+      if (method !== 'eth_call') assert.fail(method)
+      const args = params[0].data.slice(10)
+      assert.ok(params[0].data.startsWith('0x82ad56cb'))
+      const n = offset => Number(BigInt('0x' + args.slice(offset,offset+64)))
+      const count = n(64), offsets = [], tuples = []
+      let offset = count * 32
+      for (let i=0;i<count;i++) {
+        const pos = 128 + n(128 + 64*i)*2, target = '0x' + args.slice(pos+24,pos+64)
+        const data = '0x' + args.slice(pos+256,pos+256+n(pos+192)*2)
+        const key = target + '/' + data
+        assert.ok(Object.hasOwn(ledger,key),key)
+        const value = ledger[key]?.slice(2) ?? ''
+        offsets.push(word(offset))
+        const tuple = word(Number(ledger[key] != null)) + word(64) + word(value.length/2) + value
+        tuples.push(tuple)
+        offset += tuple.length/2
+      }
+      return '0x' + word(32) + word(count) + offsets.join('') + tuples.join('')
+    } }
+  return rpc
+}
+
+async function node(t, { Legacy = Engine, schema = migrations, bundle = loadBundle(), own = reporter } = {}) {
+  let now = at
+  const sent = [], channels = new Set()
+  const transport = Object.assign(new EventEmitter(), { publicKey:own, channels:()=>[...channels], peerCount:()=>0,
+    join:async ch=>{channels.add(ch);return true}, leave:async ch=>channels.delete(ch),
+    send:(channel,message)=>{sent.push({channel,from:own,ts:now,message});return true} })
+  const store = openStore({ file:':memory:', profile:'normal', migrations:schema })
+  const engine = new Legacy({ store,transport,bundle,backgroundJobs:[],clock:()=>now,
+    patches:{patchFeed:false},rpcConfig:{fetch:()=>assert.fail('external fetch')} })
+  t.after(async()=>{await engine.stop();store.close()})
+  await engine.start()
+  clearTimeout(engine.timer)
+  store.writer.prepare("INSERT OR REPLACE INTO prices(asset,price,at,trust) VALUES ('ethereum:native',?,?,?)")
+    .run('1749.488105598267',now,'yellow')
+  return {engine,store,sent,advance:ms=>{now+=ms}}
+}
+
+async function discover(t) {
+  const sender = await node(t), {engine,store} = sender, history = engine.backfill
+  const task = history.tasks.find(t=>t.factory.kind==='v4' && t.source.chain.id==='ethereum')
+  task.bounds = {mode:'logs'}
+  history.rpc = replay(3)
+  for (const group of fixture.ethereum) {
+    history.rpc.setGroup(group)
+    const range = {start:group.block,end:group.block+1,next:group.block,after:-1,span:1}
+    if (group===fixture.ethereum[0]) {
+      await assert.rejects(history.page(task,range),RateLimited)
+      assert.equal(range.next,group.block)
+      assert.equal(history.progress.all('ethereum',task.factory.address,'logs').length,0)
+    }
+    const page = await history.page(task,range)
+    assert.equal(page.admitted,1)
+    assert.equal(range.next,group.block+1)
+  }
+  assert.equal(history.rpc.calls.filter(c=>c.method==='eth_getLogs').length,2)
+  assert.equal(history.count.get().n,2)
+  assert.equal(engine.registry.seedIds.has('ethereum:'+token),false)
+  assert.equal(engine.names.factoryDue(),true)
+  await engine.names.readFactory(history.rpc)
+  assert.equal(engine.names.display('ethereum:'+token).nameSource,'on-chain')
+  assert.equal(engine.names.display('ethereum:'+token).symbol,'dmt-nat')
+  const amounts = store.reader.prepare("SELECT liquidity FROM pools WHERE chain='ethereum' ORDER BY liquidity").all()
+  assert.ok(amounts[0].liquidity > 390 && amounts[0].liquidity < 415)
+  assert.ok(amounts[1].liquidity > 2400 && amounts[1].liquidity < 2500)
+  for (let i=0;i<2;i++) {
+    await history.shareStep(history.sendRow.get(engine.clock()))
+    if (i===0) {
+      const second = history.sendRow.get(engine.clock())
+      await history.shareStep(second)
+      assert.equal(sender.sent.filter(f=>f.channel==='gator/new').length,1)
+      sender.advance(60_001)
+    }
+  }
+  assert.equal(sender.sent.filter(f=>f.channel==='gator/new').length,2)
+  return sender
+}
+
+async function receive(receiver, sender) {
+  const {engine} = receiver, rpc = replay()
+  engine.hints.rpc = rpc
+  for (const frame of sender.sent) {
+    if (frame.channel==='gator/new' || frame.channel.startsWith('gator/px/'))
+      engine.transport.emit('message',frame.channel,frame)
+  }
+  assert.equal(engine.hints.size,2)
+  while (engine.hints.size) await engine.verifyHint()
+  return rpc
+}
+
+test('backfill alone resolves both DMT-NAT markets; a cold receiver verifies and keeps pricing their funded state', async t => {
+  const a = await discover(t), b = await node(t,{own:'2'.repeat(64)})
+  const rpc = await receive(b,a)
+  b.advance(60_001)
+  assert.equal(await b.engine.announcedPools.measure('ethereum',rpc),2)
+  for (const g of fixture.ethereum) {
+    const id='dex:ethereum:'+g.logs[0].topics[1]
+    assert.equal(b.engine.registry.markets.get(id).fromHint,1)
+    assert.ok(b.store.reader.prepare('SELECT liquidity FROM pools WHERE pool=?').get(g.logs[0].topics[1]).liquidity>100)
+    assert.ok(b.store.reader.prepare('SELECT 1 FROM engine_latest WHERE market=? AND reporter=?').get(id,b.engine.transport.publicKey))
+  }
+  b.advance(90_001)
+  assert.equal(await b.engine.announcedPools.measure('ethereum',rpc),2)
+  assert.equal(b.engine.hints.penalties.size,0)
+  // A proven peer reporting the exact record suppresses the sender's pending repeat.
+  const history=a.engine.backfill, record=a.sent.find(f=>f.channel==='gator/new').message
+  a.advance(86_400_001)
+  a.engine.book.isProven=()=>true
+  history.heard(record,b.engine.transport.publicKey)
+  const matching=a.store.reader.prepare('SELECT p.*,h.factory FROM pools p JOIN engine_history_pools h USING(chain,pool) WHERE p.pool=?').get(record.pool)
+  const before=a.sent.length
+  await history.shareStep(matching)
+  assert.equal(a.sent.length,before)
+})
+
+test('real Polygon allPairs indices and subcalls are batched and below-floor identities never enter the registry', async t => {
+  const {engine,store}=await node(t), h=engine.backfill, g=fixture.polygon
+  const task=h.tasks.find(t=>t.source.chain.id==='polygon' && t.factory.name==='uniswap-v2')
+  task.bounds={mode:'index'}
+  h.rpc=replay()
+  h.rpc.setGroup(g)
+  const range={start:g.start,next:g.start,end:g.start+2,after:-1,span:1}
+  const page=await h.page(task,range)
+  assert.deepEqual(page.pools.map(p=>p.pool),g.pools)
+  assert.equal(page.admitted,0)
+  assert.equal(h.rpc.calls.filter(c=>c.method==='eth_call').length,4)
+  assert.equal(h.progress.all('polygon',task.factory.address,'index')[0].next,range.end)
+  for (const p of g.pools) assert.equal(engine.registry.markets.has('dex:polygon:'+p),false)
+  assert.equal(store.reader.prepare('SELECT count(*) AS n FROM engine_history_pools').get().n,0)
+})
+
+test('archived ae1c336 verifies every emitted pool record with unchanged standing and no strikes, mutes or hint penalties', async t => {
+  let dir=process.env.GATOR_V010_DIR
+  if (!dir) {
+    try { execFileSync('git',['cat-file','-e','ae1c336^{commit}'],{stdio:'ignore',cwd:import.meta.dirname}) }
+    catch { return t.skip('archived v0.1.0 object absent') }
+    dir=mkdtempSync(join(import.meta.dirname,'factory-v010-'))
+    t.after(()=>rmSync(dir,{recursive:true,force:true}))
+    const archive=execFileSync('git',['archive','ae1c336','packages/engine/src','packages/bundle','packages/store/src','packages/net/src','packages/net/vendor','packages/social/src'],
+      {cwd:join(import.meta.dirname,'../../..'),maxBuffer:32<<20})
+    execFileSync('tar',['-xf','-','-C',dir],{input:archive})
+  }
+  const load=path=>import(pathToFileURL(join(dir,'packages',path)))
+  const old=await load('engine/src/index.js'), bundle=(await load('bundle/src/index.js')).loadBundle()
+  const a=await discover(t), b=await node(t,{Legacy:old.Engine,schema:old.migrations,bundle,own:'2'.repeat(64)})
+  const rank=b.engine.hints.rank(reporter)
+  await receive(b,a)
+  for (const g of fixture.ethereum) assert.ok(b.engine.registry.markets.has('dex:ethereum:'+g.logs[0].topics[1]))
+  assert.equal(b.engine.hints.rank(reporter),rank)
+  assert.equal(b.engine.hints.penalties.size,0)
+  assert.equal(b.engine.book.muted(reporter),false)
+  assert.equal(b.store.getReporter(reporter)?.strikes ?? 0,0)
+})

@@ -41,8 +41,8 @@ export function historyRanges(chain, factory, mode, end) {
 }
 
 /** Keep the cursor at the first unread block on a span/size refusal, as in the add-token creation search. */
-export async function logPage({ source, factory, rpc, from, end, after = -1, span, topics = [factory.topics] }) {
-  const endpoints = source.rpc.chains?.get(source.chain.id)?.filter(e => !e.user) ?? source.chain.endpoints
+export async function logPage({ source, factory, rpc, from, end, after = -1, span, topics = [factory.topics], matchPool }) {
+  const endpoints = source.rpc.chains?.get(source.chain.id)?.filter(e => !e.user && !(e.refusedMethods?.get('eth_getLogs') > source.clock())) ?? source.chain.endpoints
   const width = Math.max(1, Math.min(end - from, span, MAX_SPAN, logWindow(endpoints ?? [])))
   const to = from + width - 1
   let logs
@@ -50,7 +50,8 @@ export async function logPage({ source, factory, rpc, from, end, after = -1, spa
     logs = await rpc.call(source.chain.id, 'eth_getLogs', [{ address: factory.address, topics, fromBlock: hex(from), toBlock: hex(to) }])
   } catch (error) {
     if (error instanceof RateLimited) throw error
-    if (width > 1 && ['range', 'too-large', 'timeout'].includes(errorKind(error).kind))
+    if (width > 1 && (['range', 'too-large', 'timeout'].includes(errorKind(error).kind) ||
+        error.message?.startsWith('No eligible RPC endpoint')))
       return { retrySpan: Math.max(1, Math.floor(width / 2)) }
     throw error
   }
@@ -66,6 +67,7 @@ export async function logPage({ source, factory, rpc, from, end, after = -1, spa
     if (block === from && idx <= after) continue
     const p = decodeEvent(log, event)
     if (p?.type !== 'pool') throw new Error('Unreadable factory creation log')
+    if (matchPool && p.pool !== matchPool) continue
     entries.push({ chain: source.chain.id, pool: p.pool, token0: p.token0 === ZERO ? 'native' : p.token0,
       token1: p.token1 === ZERO ? 'native' : p.token1, manager: factory.address, dex: factory.name, kind: factory.kind,
       spacing: p.spacing, stable: p.stable, block, idx, tx: log.transactionHash.toLowerCase() })

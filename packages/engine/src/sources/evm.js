@@ -554,6 +554,9 @@ export class EvmSource {
     const decimals = await this.readDecimals([pool], block, read)
     // A live receipt or independent scan can finish during these public reads.
     if (history && (!history.wanted() || this.registry.markets.has('dex:' + chain + ':' + hint.pool))) return null
+    const archival = !history && at < this.clock() - 7 * DAY && this.historyRetention
+    // The node has finished its independent checks. Capacity is inconclusive for the sender.
+    if (archival && !this.registry.markets.has('dex:' + chain + ':' + hint.pool) && !archival.canRetainRemote()) return null
     const registered = this.store.transaction(() => {
       const market = this.registry.pool(pool, {
         token0: { decimals: decimals.get(pool.token0) }, token1: { decimals: decimals.get(pool.token1) },
@@ -561,6 +564,7 @@ export class EvmSource {
       if (market) {
         this.saveParameters(pool)
         if (creation) this.saveCreation.run(chain, pool.pool, at)
+        if (archival) archival.retainRemote.run(chain, pool.pool)
         history?.onRegistered(pool)
       }
       return market

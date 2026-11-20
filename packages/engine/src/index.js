@@ -391,7 +391,9 @@ export class Engine extends EventEmitter {
     if (pool) this.pendingDexQuotes.flush('dex:' + chain + ':' + pool)
     this.emit('discovery', msg, data.firstSeen, fromHint, historyReporter)
     if (historyReporter) return
-    if (pool || this.registry.venues.get(exchange)?.publishMarketData) this.transport.send('gator/new', msg)
+    const archivedHint = pool && fromHint && firstSeen < this.clock() - 7 * 86400_000
+    if (!archivedHint && (pool || this.registry.venues.get(exchange)?.publishMarketData))
+      this.transport.send('gator/new', msg)
     if (pool) for (const address of [token0, token1]) this.scheduleMeta(chain + ':' + address, fromHint)
   }
   /** What this node reads: an effective signed bundle plus the release extension (venue labels, coin groups).

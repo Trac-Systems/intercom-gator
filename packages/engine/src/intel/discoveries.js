@@ -258,6 +258,7 @@ export function poolAnnouncementJob(engine) {
     LEFT JOIN engine_pool_announcements r ON r.chain=p.chain AND r.pool=p.pool AND r.tx=p.tx
     WHERE p.block IS NOT NULL AND length(p.tx)=66 AND p.chain IN (SELECT value FROM json_each(?))
       AND (r.retryAt IS NULL OR r.retryAt<=?)
+      AND NOT EXISTS (SELECT 1 FROM engine_history_pools h WHERE h.chain=p.chain AND h.pool=p.pool)
       AND (m.base IN (SELECT asset FROM intel_graduated) OR m.quote IN (SELECT asset FROM intel_graduated)
         OR m.base IN (SELECT value FROM json_each(?))
         OR EXISTS (SELECT 1 FROM engine_placement_assets l WHERE l.asset IN (m.base,m.quote) AND l.keepUntil>?)

@@ -373,4 +373,18 @@ export const migrations = [
       CREATE INDEX engine_history_outbox ON engine_history_pools(nextShare,chain,pool);`)
     },
   },
+  {
+    id: 'engine-factory-history-proof',
+    up(db) {
+      db.exec(`CREATE TABLE engine_history_received (
+          chain TEXT NOT NULL, pool TEXT NOT NULL, PRIMARY KEY(chain,pool),
+          FOREIGN KEY(chain,pool) REFERENCES pools(chain,pool) ON DELETE CASCADE
+        ) STRICT, WITHOUT ROWID;
+        ALTER TABLE engine_history_pools ADD COLUMN block INTEGER;
+        ALTER TABLE engine_history_pools ADD COLUMN tx TEXT;
+        UPDATE engine_history_pools AS h SET (block,tx)=(
+          SELECT block,tx FROM pools AS p WHERE p.chain=h.chain AND p.pool=h.pool
+        ) WHERE h.idx IS NULL;`)
+    },
+  },
 ]
