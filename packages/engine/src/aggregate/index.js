@@ -315,18 +315,116 @@ function summarize(asset, entries, now, { reference, pinned, collisions, dayRati
   }
 }
 
+// A chain deployment without a price of its own (BSC USDT, Base USDC: their pools price other tokens, nothing prices
+// them) borrows a signed sibling's measured price as its USD rate, so a chain's DEX prices never rest on one third-party
+// reference (11-20: a lapsed llama reference dropped every DEX price on Base, BSC, Optimism and Polygon). It is refused
+// when the deployment's own evidence disagrees with the sibling by more than this bound. 2% sits above a healthy peg read
+// through a volatile pair (pool fee ≤ 1% plus up to a minute of drift between the pool and the venue reads) and below the
+// 3% at which sources turn red, so a borrowed rate never hides a disagreement the trust rule would show.
+export const BORROW_BOUND = 0.02
+const TRUST_ORDER = { green: 0, yellow: 1, red: 2 }
+
+/** The weighted median USD price the deployment's own fresh, supported pools imply against counter assets whose price
+ * does not rest on it; null without such evidence. */
+function ownEvidence(id, { byBase, byQuote, rates, paths, now }) {
+  const implied = []
+  for (const [list, side] of [[byBase.get(id), 'base'], [byQuote.get(id), 'quote']]) {
+    for (const m of list ?? []) {
+      if (!m.provenAgents.length || now - m.at > 3 * m.window || !(m.price > 0)) continue
+      const counter = side === 'base' ? m.quote : m.base
+      const rate = counter === id ? null : rates.get(counter)
+      if (!rate || rate.why.stale || rate.why.fresh === false || paths.get(rate)?.has(id) || rate.why.borrowedFrom ||
+          !(counter === 'fiat:USD' || rate.why.provenSources > 0 || rate.why.referenceProviders?.length)) continue
+      const value = side === 'base' ? m.price * rate.price : rate.price / m.price
+      if (!(value > 0) || !Number.isFinite(value)) continue
+      const usd = m.usdVolume ?? (m.baseVolume > 0 ? m.baseVolume * (side === 'base' ? value : rate.price) : 0)
+      implied.push({ value, usd })
+    }
+  }
+  if (!implied.length) return null
+  const total = implied.reduce((sum, e) => sum + e.usd, 0)
+  return weightedMedian(implied.map(e => ({ value: e.value, weight: total > 0 ? e.usd : 1 })))
+}
+
+/** A deployment's USD rate taken from its sibling: the sibling's price, time and trust; no volume of its own. */
+function borrowedRate(token, id, lender) {
+  const price = lender.price
+  return {
+    asset: id,
+    price,
+    priceText: lender.priceText ?? String(price),
+    at: lender.at,
+    volume24h: null,
+    marketCap: totalCapCheck(token, price * (capSupply(token) ?? NaN), null),
+    fdv: token?.totalSupply == null ? null : token.totalSupply * price,
+    agents: 0,
+    exchanges: 0,
+    trust: lender.trust,
+    why: {
+      agents: 0,
+      provenAgents: lender.why.provenAgents,
+      provenSources: lender.why.provenSources,
+      ownSources: 0,
+      provenVolume24h: 0,
+      exchanges: 0,
+      pools: 0,
+      independentSources: 0,
+      spreadPct: lender.why.spreadPct,
+      ageMs: lender.why.ageMs,
+      fresh: lender.why.fresh,
+      stale: false,
+      depegs: lender.why.depegs,
+      borrowedFrom: lender.asset,
+    },
+  }
+}
+
+/**
+ * Borrow decisions against the rates resolved without borrowing: a deployment that quotes a market and has no fresh
+ * price of its own (none, stale or only a reference) takes its best measured sibling (green before yellow before red,
+ * then more proven sources, volume, id; never a reference-only or stale one), unless its own pools or its reference
+ * disagree by more than BORROW_BOUND. A refused deployment keeps the existing rules (its reference, when it has one).
+ */
+function borrowRates(lenders, assets, context) {
+  const { rates, byQuote, references } = context
+  const out = new Map()
+  for (const [id, siblings] of lenders) {
+    if (!byQuote.has(id)) continue
+    const own = rates.get(id)
+    if (own && !own.why.stale && !own.why.referenceProviders?.length) continue
+    let lender = null
+    for (const sibling of siblings) {
+      const p = rates.get(sibling)
+      if (!p || p.why.stale || p.why.referenceProviders?.length || p.why.borrowedFrom ||
+          !(p.why.pools + p.why.exchanges > 0) || !(p.price > 0)) continue
+      const order = !lender ? -1 : (TRUST_ORDER[p.trust] ?? 3) - (TRUST_ORDER[lender.trust] ?? 3) ||
+        lender.why.provenSources - p.why.provenSources || (lender.volume24h ?? 0) - (p.volume24h ?? 0) ||
+        (p.asset < lender.asset ? -1 : 1)
+      if (order < 0) lender = p
+    }
+    if (!lender) continue
+    const off = value => value > 0 && Math.abs(value / lender.price - 1) > BORROW_BOUND + 1e-12
+    if (off(ownEvidence(id, context)) || off(references.get(id)?.price)) continue
+    out.set(id, borrowedRate(assets.get(id), id, lender))
+  }
+  return out
+}
+
 /**
  * Use a USD-anchored conversion graph. Each path visits an asset at most once.
  * options.pinned(market) marks bundle symbolMap markets (never detached); options.collisions (a Map) receives each
  * asset's split and guard diagnostics from the final pass; options.referencePrices (asset → USD) anchors splits
- * (default: the fresh references).
+ * (default: the fresh references); options.lenders (deployment → signed sibling ids, `priceSiblings`) lets a quote
+ * without a price of its own borrow its sibling's (borrowRates).
  */
 export function aggregateAssets(assets, markets, now, references = new Map(),
-  { pinned, collisions, referencePrices, dayRatio } = {}) {
-  const byBase = new Map()
+  { pinned, collisions, referencePrices, dayRatio, lenders } = {}) {
+  const byBase = new Map(), byQuote = new Map()
   for (const m of markets) {
     if (!byBase.has(m.base)) byBase.set(m.base, [])
     byBase.get(m.base).push(m)
+    if (!byQuote.has(m.quote)) byQuote.set(m.quote, [])
+    byQuote.get(m.quote).push(m)
   }
   const resolved = new Map(references)
   const fiat = { price: 1, at: Infinity, why: { stale: false, depegs: [] } }
@@ -371,17 +469,33 @@ export function aggregateAssets(assets, markets, now, references = new Map(),
     if (result) paths.set(result, dependencies)
     return result
   }
-  for (let depth = 0; depth < 4 && frontier.size; depth++) {
-    frontier = new Map()
-    for (const id of byBase.keys()) {
-      if (rates.has(id) && !(depth === 0 && references.has(id))) continue
-      const asset = assets.get(id)
-      const result = asset && evaluate(asset, rates)
-      if (result) frontier.set(id, result)
+  const rounds = (first) => {
+    for (let depth = 0; depth < 4 && frontier.size; depth++) {
+      frontier = new Map()
+      for (const id of byBase.keys()) {
+        if (rates.has(id) && !(first && depth === 0 && references.has(id))) continue
+        const asset = assets.get(id)
+        const result = asset && evaluate(asset, rates)
+        if (result) frontier.set(id, result)
+      }
+      for (const pair of frontier) rates.set(...pair)
     }
-    for (const pair of frontier) rates.set(...pair)
+  }
+  rounds(true)
+  // Borrowing is decided on the rates resolved without it, then the assets it makes reachable resolve in more rounds.
+  const borrowed = lenders?.size ? borrowRates(lenders, assets, { byBase, byQuote, rates, paths, references, now }) : new Map()
+  if (borrowed.size) {
+    for (const [id, rate] of borrowed) {
+      paths.set(rate, new Set([id, rate.why.borrowedFrom, ...(paths.get(rates.get(rate.why.borrowedFrom)) ?? [])]))
+      rates.set(id, rate)
+      resolved.set(id, rate)
+    }
+    frontier = new Map(borrowed)
+    rounds(false)
   }
   for (const id of byBase.keys()) {
+    // A borrowed deployment had no price of its own; any it gains now rests on a borrowed rate, so it stays borrowed.
+    if (borrowed.has(id)) continue
     const asset = assets.get(id)
     const result = asset && evaluate(asset, rates)
     if (result) resolved.set(id, result)
