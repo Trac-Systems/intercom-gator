@@ -5,7 +5,7 @@ import { marketAccessors } from './markets.js';
 import { pruneAccessors } from './prune.js';
 import { recordAccessors } from './records.js';
 import { migrations } from './schema.js';
-export { detectProfile, PROFILE_LIMITS } from './profile.js';
+export { detectProfile, PREVIOUS_STORE_DEFAULTS_MB, PROFILE_LIMITS } from './profile.js';
 
 /** @param {{file: string, profile?: string, migrations?: import('./database.js').Migration[]}} options */
 export function openStore(options) {

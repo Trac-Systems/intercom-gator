@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { lstatSync, rmSync, rmdirSync, statSync } from 'node:fs';
+import { lstatSync, rmSync, rmdirSync, statSync, statfsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { SwarmTransport, loadOrCreateKey } from '@gator/net';
 import { windowsDirectory } from '@gator/net/src/private-file.js';
@@ -11,7 +11,7 @@ import { Engine, migrations as engineMigrations } from '@gator/engine';
 import { createIntel, migrations as intelMigrations } from '../../engine/src/intel/index.js';
 import { configureMirrors } from './sources.js';
 import { verifyRelease } from './bundle.js';
-import { loadConfig, rpcEndpoints, saveConfig } from './config.js';
+import { loadConfig, rpcEndpoints, saveConfig, storageCapBytes } from './config.js';
 import { createAccount, migrations as accountMigrations } from './account.js';
 import { CREDENTIALS, defaultDir, ensureToken, lockDirectory, readJson, writePrivate } from './local.js';
 
@@ -160,10 +160,18 @@ export async function createGator(options = {}) {
     cleanups.push(named('intel', () => intel.stop()));
     await intel.start();
     await social.writeAgentFiles();
+    const liveSize = store.reader.prepare(`SELECT (page_count - freelist_count) * page_size AS bytes
+      FROM pragma_page_count, pragma_freelist_count, pragma_page_size`);
+    // The cap may never take more than half of the disk space that is still free (a 10 GiB large cap on a nearly
+    // full disk): live pages plus half of the free space.
+    app.storageCapBytes = () => {
+      let free = NaN;
+      try { const disk = statfsSync(dataDir); free = disk.bavail * disk.bsize; } catch {}
+      return storageCapBytes(app.config.storageCapMB, liveSize.get().bytes, free);
+    };
     app.prune = () => {
-      const { profile, storageCapMB } = app.config;
-      const cap = storageCapMB * 1024 ** 2;
-      const result = store.prune({ now: clock(), profile });
+      const cap = app.storageCapBytes();
+      const result = store.prune({ now: clock(), profile: app.config.profile });
       // Leave 10% headroom so a busy network does not trigger a prune every minute.
       if (result.liveBytes > cap * 0.9) store.transaction(db => fitBudget(db, cap * 0.9, clock()));
     };
@@ -172,10 +180,8 @@ export async function createGator(options = {}) {
     cleanups.push(() => clearInterval(timer));
     // Raw observations can arrive at ~10 MB/min on a busy network, so the hourly prune alone would overshoot a small
     // cap by hundreds of MB. Check the live size every minute and prune early.
-    const liveSize = store.reader.prepare(`SELECT (page_count - freelist_count) * page_size AS bytes
-      FROM pragma_page_count, pragma_freelist_count, pragma_page_size`);
     app.checkBudget = () => {
-      if (liveSize.get().bytes > app.config.storageCapMB * 1024 ** 2 * 0.95) app.prune();
+      if (liveSize.get().bytes > app.storageCapBytes() * 0.95) app.prune();
     };
     const budgetTimer = setInterval(() => { try { app.checkBudget(); } catch { process.emitWarning('Storage check failed'); } }, MINUTE);
     budgetTimer.unref();

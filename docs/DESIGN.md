@@ -19,8 +19,10 @@ Dashboard look: [design/keyprint](../design/keyprint/).
   - `config.json` — user settings (endpoints first, budget, profile, agent rules)
   - `api-token` — agent credential (0600); `dashboard-token` — owner credential (0600, never in a URL or argv);
     `stop-token` — accepted only by `POST /api/v1/stop` (0600); `daemon.json` — running daemon's port
-- Machine profile detected at first start from RAM/CPU/disk: `small` (150 MiB store ceiling, top 100 + watched/held), `normal`
-  (400 MiB, top ~500), `large` (1 GiB, top ~2,000). User can lower it. Request budgets: small 60/min, normal 240/min,
+- Machine profile detected at first start from RAM/CPU/disk: `small` (1,500 MiB store ceiling, candles for the top 1,000
+  + watched/held), `normal` (4,000 MiB, top ~5,000), `large` (10 GiB, top ~20,000); v0.1.4 raised all storage bounds
+  tenfold (owner 11-20; v0.1.0-v0.1.3: 150/400/1,024 MiB, 100/500/2,000). A saved old default follows the new one; a cap
+  the user picked stays. The store never takes more than its live pages plus half of the free disk. User can lower it. Request budgets: small 60/min, normal 240/min,
   large 900/min (all sources together); can be lowered, never switched off.
 
 ## 2. Packages (npm workspaces)
@@ -530,13 +532,13 @@ freshness and ordering data. A checked receipt retains its own identity inside t
 changes preserve the source decimal strings. Exact arrival counts cover the rolling hour and reporter sightings cover
 24 hours. Ordinary raw evidence covers two hours plus the 30-second comparison margin. Latest quotes, checked receipts
 and the last displayed comparison retain their references while the engine uses them. Older deltas from several spans
-share compressed archive pages. Above 285 MB of live database pages, the store shortens disposable raw history to leave
-room below the 300 MB node target. It keeps compact source prices, timestamps and arrival order for late peer
+share compressed archive pages. Above 2.85 GB of live database pages, the store shortens disposable raw history to leave
+room below the 3 GB raw evidence target (300 MB until v0.1.3). It keeps compact source prices, timestamps and arrival order for late peer
 comparisons through the original two-hour window, alongside current quotes and recorded checks. After raw eviction,
-the store can compact a fragmented quote index of up to 24 MiB. Above 295 MB it keeps shortening raw history only.
-The 300 MB node target applies to raw evidence and never empties a package cache. The profile ceiling (§1) is the
+the store can compact a fragmented quote index of up to 24 MiB. Above 2.95 GB it keeps shortening raw history only.
+The raw evidence target applies to raw evidence and never empties a package cache. The profile ceiling (§1) is the
 user's storage cap. Only when live pages exceed that ceiling do the next eviction tiers run: registered package
-caches, then candle histories of inactive, unwatched, unheld assets. Logo images keep their own bound of 8/20/48 MiB
+caches, then candle histories of inactive, unwatched, unheld assets. Logo images keep their own bound of 80/200/480 MiB
 (small/normal/large) and evict only that store's excess. Images reached only through a chain template go first,
 then the oldest. A released reference waits a day. Under general page pressure the logo evictor removes nothing. At
 startup, references that a v0.1.0 node evicted under pressure (`reason='evicted'`) become due again. The logo job's

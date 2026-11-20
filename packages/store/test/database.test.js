@@ -9,9 +9,9 @@ import { storeOpener, fixture } from './fixture.js';
 test('weakest RAM, CPU or disk resource sets the profile', () => {
   const GiB = 1024 ** 3;
   const detect = (ram, cpus, disk) => detectProfile({ totalMemBytes: ram * GiB, cpus, freeDiskBytes: disk * GiB });
-  assert.deepEqual(detect(2, 8, 20), { profile: 'small', limits: { storeBudgetMB: 150, keptAssets: 100, requestsPerMinute: 60 } });
-  assert.deepEqual(detect(4, 2, 2), { profile: 'normal', limits: { storeBudgetMB: 400, keptAssets: 500, requestsPerMinute: 240 } });
-  assert.deepEqual(detect(16, 8, 8), { profile: 'large', limits: { storeBudgetMB: 1024, keptAssets: 2000, requestsPerMinute: 900 } });
+  assert.deepEqual(detect(2, 8, 20), { profile: 'small', limits: { storeBudgetMB: 1500, keptAssets: 1000, requestsPerMinute: 60 } });
+  assert.deepEqual(detect(4, 2, 2), { profile: 'normal', limits: { storeBudgetMB: 4000, keptAssets: 5000, requestsPerMinute: 240 } });
+  assert.deepEqual(detect(16, 8, 8), { profile: 'large', limits: { storeBudgetMB: 10240, keptAssets: 20000, requestsPerMinute: 900 } });
   assert.equal(detect(32, 4, 10).profile, 'normal');
   assert.equal(detect(32, 8, 1).profile, 'small');
   assert.throws(() => detect(4, -1, 2), RangeError);

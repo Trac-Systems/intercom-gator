@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { writeFileSync } from 'node:fs';
 import { fixture } from './fixtures.js';
-import { loadConfig, patchConfig, rpcEndpoints } from '../src/config.js';
+import { loadConfig, patchConfig, rpcEndpoints, storageCapBytes } from '../src/config.js';
+import { PROFILE_LIMITS } from '@gator/store';
 import { verifyRelease } from '../src/bundle.js';
 
 test('release verification binds the data to an independently pinned key', async t => {
@@ -53,9 +54,26 @@ test('a saved cap above a lowered profile ceiling is clamped at load, new reques
   const f = fixture(t);
   writeFileSync(join(f.dir, 'config.json'), JSON.stringify({ profile: 'small', storageCapMB: 4096, budgetPerMin: 99999 }));
   const { config } = loadConfig(f.dir);
-  assert.ok(config.storageCapMB <= 1024 && config.storageCapMB >= 100);
+  assert.ok(config.storageCapMB <= 1500 && config.storageCapMB >= 100);
   assert.ok(config.budgetPerMin < 99999);
   assert.throws(() => patchConfig(config, { storageCapMB: 4096 }, 'small'), /storage out of range/);
+});
+
+test('v0.1.4 storage raise: a saved old default follows the new one, a cap the user picked stays', t => {
+  const f = fixture(t);
+  const detected = loadConfig(f.dir).detected;
+  const old = { small: 150, normal: 400, large: 1024 }[detected];
+  writeFileSync(join(f.dir, 'config.json'), JSON.stringify({ profile: detected, storageCapMB: old }));
+  assert.equal(loadConfig(f.dir).config.storageCapMB, PROFILE_LIMITS[detected].storeBudgetMB);
+  writeFileSync(join(f.dir, 'config.json'), JSON.stringify({ profile: detected, storageCapMB: 700 }));
+  assert.equal(loadConfig(f.dir).config.storageCapMB, 700);
+});
+
+test('the storage cap never takes more than half of the free disk', () => {
+  const MiB = 1024 ** 2;
+  assert.equal(storageCapBytes(10240, 100 * MiB, 100_000 * MiB), 10240 * MiB);
+  assert.equal(storageCapBytes(10240, 100 * MiB, 4000 * MiB), 2100 * MiB);
+  assert.equal(storageCapBytes(10240, 100 * MiB, NaN), 10240 * MiB);
 });
 
 test('patchFeed in config.json is kept as a boolean and stays absent by default', t => {

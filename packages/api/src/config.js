@@ -3,7 +3,7 @@ import { statfsSync } from 'node:fs';
 import { availableParallelism, totalmem } from 'node:os';
 import { join } from 'node:path';
 import { cardProblem, editCard } from '@gator/social';
-import { detectProfile, PROFILE_LIMITS } from '@gator/store';
+import { detectProfile, PREVIOUS_STORE_DEFAULTS_MB, PROFILE_LIMITS } from '@gator/store';
 import { validHandle, validUrl } from '../../dashboard/public/js/lib/text.js';
 import { check, readJson, writePrivate } from './local.js';
 
@@ -68,6 +68,12 @@ export function patchConfig(current, patch, detected) {
   return next;
 }
 
+/** The storage cap in bytes, never more than the live pages plus half of the disk space that is still free. */
+export function storageCapBytes(capMB, liveBytes, freeDiskBytes) {
+  const cap = capMB * 1024 ** 2;
+  return Number.isFinite(freeDiskBytes) && freeDiskBytes >= 0 ? Math.min(cap, liveBytes + freeDiskBytes / 2) : cap;
+}
+
 export function loadConfig(dir, overrides = {}) {
   const disk = statfsSync(dir);
   const detected = detectProfile({ totalMemBytes: totalmem(), cpus: availableParallelism(), freeDiskBytes: disk.bsize * disk.bavail }).profile;
@@ -83,7 +89,11 @@ export function loadConfig(dir, overrides = {}) {
   }
   // A release can lower a profile's ceiling (storage 4 GiB -> 1 GiB on large, 11-19): a saved value above the new
   // ceiling is clamped instead of refusing to start. Newly requested settings stay strictly validated.
-  const ceiling = profiles[order.includes(stored.profile) ? stored.profile : detected];
+  const savedProfile = order.includes(stored.profile) ? stored.profile : detected;
+  const ceiling = profiles[savedProfile];
+  // First start saved the profile default; v0.1.4 raised the defaults tenfold. A saved old default follows the new one,
+  // while a cap the user picked themselves (any other value) stays.
+  if (PREVIOUS_STORE_DEFAULTS_MB[savedProfile].includes(stored.storageCapMB)) stored.storageCapMB = ceiling.storageCapMB;
   for (const k of ['budgetPerMin', 'storageCapMB']) if (stored[k] != null) stored[k] = Math.min(stored[k], ceiling[k]);
   return { detected, config: patchConfig(patchConfig(defaults, stored, detected), overrides, detected) };
 }

@@ -21,7 +21,7 @@ const MiB = 1024 ** 2
  * Byte bound of the stored logo images per machine profile (about 5% of the store ceiling; a typical logo is ~16 KiB).
  * Images are evicted only while the logo store itself is over this bound, never to chase a whole-database target.
  */
-export const LOGO_STORE_BYTES = Object.freeze({ small: 8 * MiB, normal: 20 * MiB, large: 48 * MiB })
+export const LOGO_STORE_BYTES = Object.freeze({ small: 80 * MiB, normal: 200 * MiB, large: 480 * MiB })
 
 /** EIP-55 mixed-case checksum of a lowercase 0x address (logo repositories key EVM tokens by it). */
 export function checksumAddress(address) {

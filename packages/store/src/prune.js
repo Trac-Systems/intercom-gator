@@ -28,13 +28,14 @@ export const RAW_AGE = 2 * 60 * MINUTE;
 const BATCH = 2048;
 const PRESSURE_BATCH = 256;
 const VACUUM_PAGES = 1024;
-// Leave room for the next sampling/maintenance interval below the 300 MB node target.
-// This limit applies exclusively to dispensable raw evidence.
-const RAW_WATERMARK = 285_000_000;
+// Leave room for the next sampling/maintenance interval below the 3 GB raw evidence target (300 MB until v0.1.3; the
+// v0.1.4 storage raise scaled every bound tenfold). This limit applies exclusively to dispensable raw evidence; the
+// profile ceiling and the app's free-disk bound still cap the whole database.
+const RAW_WATERMARK = 2_850_000_000;
 // The steady target, like the watermark, only shortens raw evidence. Package caches and candle history are evicted
 // only above the profile ceiling (the user's storage cap): a few MiB of logos or posts can never bring a large
-// database under 295 MB, and chasing that target emptied them completely on every pass.
-const STEADY_BYTES = 295_000_000;
+// database under the steady target, and chasing that target emptied them completely on every pass (v0.1.0).
+const STEADY_BYTES = 2_950_000_000;
 const rawStatements = new WeakMap();
 
 function rawQueries(db) {
