@@ -286,15 +286,27 @@ export class Engine extends EventEmitter {
         const assets = this.catalog.assets
           .filter((a) => a.address !== 'native' && (!jupiter || a.chain === sol?.id))
           .sort((a, b) => Number(b.stable) - Number(a.stable))
-        let cursor = 0, rotationStart = clock(), rotationMs = 0
+        let cursor = 0, rotationStart = clock(), rotationMs = 0, lastRun = null, gap = 30000
         const size = source.id === 'dexscreener' ? 1 : 32
         const general = source.id === 'llama-prices'
-        if (general) this.book.referenceValidity = referenceValidity(Math.ceil(assets.length / size) * 30000)
+        const batches = Math.ceil(assets.length / size)
+        if (general) this.book.referenceValidity = referenceValidity(batches * gap)
         if (assets.length)
           this.scheduler.add({
             id: (jupiter ? 'sol:' : 'api:') + source.id,
             interval: 30000,
+            // The general reference refreshes up to 64 prices per request. As a job without markets it waited behind
+            // ~1,000 maintenance jobs for its every-fourth turn: one run in 22 min on a fresh normal node (11-20), so
+            // the chains' reference-only USD quotes lapsed. It takes a price-scanner turn when due.
+            ...(general && { lane: 'scanner', weight: () => 24 }),
             run: async () => {
+              if (general) {
+                // The validity follows the observed cadence: a busy scheduler stretches the rotation.
+                const now = clock()
+                if (lastRun != null) gap = 0.75 * gap + 0.25 * Math.max(30000, now - lastRun)
+                lastRun = now
+                this.book.referenceValidity = referenceValidity(Math.max(batches * gap, rotationMs))
+              }
               await fetchReferences({
                 source,
                 http,
@@ -309,10 +321,8 @@ export class Engine extends EventEmitter {
               })
               cursor = cursor + size >= assets.length ? 0 : cursor + size
               if (general && cursor === 0) {
-                // A busy scheduler stretches the rotation; the validity follows the measured one.
                 rotationMs = clock() - rotationStart
                 rotationStart = clock()
-                this.book.referenceValidity = referenceValidity(Math.max(rotationMs, Math.ceil(assets.length / size) * 30000))
               }
             },
           })

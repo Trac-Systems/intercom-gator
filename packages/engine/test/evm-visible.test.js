@@ -187,3 +187,18 @@ test('a small node gives price scanners one scheduler turn in four, a normal nod
   const { engine } = node(t, 'small')
   assert.equal(engine.scheduler.scannerEvery, 4)
 })
+
+test('the general reference takes a price-scanner turn when due, and its validity follows the observed cadence', async t => {
+  const { engine, advance } = node(t, 'normal')
+  const job = engine.scheduler.jobs.get('api:llama-prices')
+  assert.equal(job.lane, 'scanner')
+  assert.ok(job.weight() > 1 + Math.log2(1 + 200) * 2, 'beats a hot Polygon seeder of equal waiting time')
+  const http = engine.http
+  http.get = async () => ({ coins: {} })
+  const base = engine.book.referenceValidity
+  await job.run()
+  advance(10 * 60_000) // a starved scheduler: the next run comes 10 min later
+  await job.run()
+  assert.ok(engine.book.referenceValidity > base, 'a slower cadence lengthens the validity')
+  assert.ok(engine.book.referenceValidity <= 3_600_000)
+})
