@@ -1,4 +1,5 @@
-// Offline hour of price reads. Run from the checkout root: node packages/engine/scripts/sim-coverage-split.js [profile] [nodes...] [--rpm=N] [--legacy]
+// Offline hour of price reads. From the checkout root:
+// node packages/engine/scripts/sim-coverage-split.js [profile] [nodes...] [--rpm=N] [--legacy | --legacy-count=N]
 import assert from 'node:assert/strict'
 import { hash } from 'node:crypto'
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
@@ -15,11 +16,14 @@ import { ownerCounts } from '../test/fixtures/coverage-pools.js'
 const [profile = 'normal', ...args] = process.argv.slice(2)
 assert.ok(Object.hasOwn(BUDGETS, profile))
 const legacy = args.includes('--legacy')
+const legacyCount = Number(args.find(a => a.startsWith('--legacy-count='))?.slice('--legacy-count='.length) ?? 0)
+assert.ok(Number.isInteger(legacyCount) && legacyCount >= 0 && !(legacy && legacyCount))
 const rpm = Number(args.find(a => a.startsWith('--rpm='))?.slice(6) ?? BUDGETS[profile])
 assert.ok(Number.isInteger(rpm) && rpm > 0 && rpm <= BUDGETS[profile])
 const runs = args.filter(a => !a.startsWith('--'))
 const sizes = runs.length ? runs.map(Number) : [1, 3, 7, 20, 100]
 assert.ok(sizes.every(n => Number.isInteger(n) && n >= 1 && n <= 100))
+assert.ok(sizes.every(n => legacyCount <= n))
 const stamp = Date.UTC(2026, 10, 19), minute = 60_000, duration = 60 * minute
 const reporter = i => hash('sha256', 'coverage-fixture/node/' + i)
 const bundle = loadBundle(), inventory = new Map(), directories = new Map()
@@ -114,6 +118,7 @@ function multicall(input) {
 }
 
 async function runNode(n, index, totals) {
+  const previousOrder = legacy || index < legacyCount
   const file = join(dir, 'replica.db')
   copyFileSync(template, file)
   let now = stamp, rpc = 0, http = 0, peak = 0
@@ -147,14 +152,14 @@ async function runNode(n, index, totals) {
     sightings()
     for (const chain of Object.keys(ownerCounts)) {
       const source = engine.evm.get(chain)
-      if (legacy) source.coverage = null
+      if (previousOrder) source.coverage = null
       source.publish = observe
       jobs.push({ run: () => source.refreshState(), period: source.limits.period, due: stamp },
         { run: () => source.trades(), period: source.limits.period, due: stamp })
     }
     for (const reader of engine.solanaReaders.values()) {
       reader.options.publish = observe
-      jobs.push({ run: () => legacy ? fetchSolana(reader.options) : reader.run(), period: 30_000, due: stamp })
+      jobs.push({ run: () => previousOrder ? fetchSolana(reader.options) : reader.run(), period: 30_000, due: stamp })
     }
     for (let elapsed = 0; elapsed < duration; elapsed += 1000) {
       now = stamp + elapsed
@@ -185,7 +190,8 @@ try {
     const histogram = { 0: universe - totals.size }
     for (const v of totals.values()) histogram[v] = (histogram[v] ?? 0) + 1
     const mean = field => +(costs.reduce((sum, node) => sum + node[field], 0) / n / 60).toFixed(2)
-    console.log(JSON.stringify({ n, profile, rpm, legacy, universe, evm, solana: totals.size - evm, distinct: totals.size,
+    console.log(JSON.stringify({ n, profile, rpm, legacy, legacyNodes: legacy ? n : legacyCount,
+      universe, evm, solana: totals.size - evm, distinct: totals.size,
       reportersPerCoveredPool: +([...totals.values()].reduce((sum, v) => sum + v, 0) / totals.size).toFixed(2),
       histogram, rpcPerMinute: mean('rpc'), httpPerMinute: mean('http'), peakRollingMinute: Math.max(...costs.map(c => c.peak)) }))
   }
