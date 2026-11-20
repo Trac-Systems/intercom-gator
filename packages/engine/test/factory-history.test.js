@@ -83,6 +83,9 @@ test('idle dispatches have a shared five-percent rolling limit and leave foregro
   assert.equal(history.retryAt(), 0)
   parent.setLimit(19)
   assert.throws(() => history.take(), RateLimited)
+  now += 120_000
+  history.take()
+  assert.throws(() => history.take(), RateLimited)
   parent.setLimit(60)
   for (let i = parent.used; i < 30; i++) parent.take()
   assert.throws(() => history.take(), RateLimited)

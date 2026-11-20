@@ -21,7 +21,7 @@ const at = Math.max(...fixture.ethereum.map(group => Number(group.head.timestamp
 function replay(failAt = -1) {
   let group = fixture.ethereum[0]
   const calls = []
-  const ledger = { ...fixture.metadata, ...fixture.polygon.calls, ...Object.assign({}, ...fixture.ethereum.map(v => v.calls)) }
+  const ledger = { ...fixture.metadata, ...fixture.polygon.calls, ...fixture.ethereumV2.calls, ...Object.assign({}, ...fixture.ethereum.map(v => v.calls)) }
   const rpc = { calls, setGroup(g) { group = g },
     async call(chain, method, params) {
       calls.push({chain,method,params})
@@ -32,13 +32,23 @@ function replay(failAt = -1) {
       }
       if (method === 'eth_getLogs') {
         assert.equal(params[0].address, group.logs[0].address)
-        assert.deepEqual(params[0].topics, [[group.logs[0].topics[0]]])
-        assert.equal(Number(params[0].fromBlock), group.block)
-        assert.equal(Number(params[0].toBlock), group.block)
+        const log = group.logs[0]
+        if (group.index != null) {
+          assert.deepEqual(params[0].topics, [[log.topics[0]], ...log.topics.slice(1,3)])
+          assert.ok(Number(params[0].fromBlock) <= group.block && Number(params[0].toBlock) >= group.block)
+        } else {
+          assert.deepEqual(params[0].topics, [[log.topics[0]]])
+          assert.equal(Number(params[0].fromBlock), group.block)
+          assert.equal(Number(params[0].toBlock), group.block)
+        }
         return group.logs
       }
       if (method === 'eth_getTransactionReceipt') return fixture.legacy[params[0]]?.receipt ?? assert.fail('unknown tx')
       if (method !== 'eth_call') assert.fail(method)
+      if (params[0].data === '0x574f2ba3' && params[0].to === group.logs?.[0].address) {
+        assert.ok(Object.hasOwn(group.lengths,params[1]))
+        return group.lengths[params[1]]
+      }
       const args = params[0].data.slice(10)
       assert.ok(params[0].data.startsWith('0x82ad56cb'))
       const n = offset => Number(BigInt('0x' + args.slice(offset,offset+64)))
@@ -117,6 +127,26 @@ async function discover(t) {
   return sender
 }
 
+async function enumeratePair(sender) {
+  const {engine} = sender, h = engine.backfill, g = fixture.ethereumV2
+  const task = h.tasks.find(t => t.source.chain.id==='ethereum' && t.factory.name==='uniswap-v2')
+  task.bounds = {mode:'index'}
+  h.rpc.setGroup(g)
+  const cursor = {start:g.index,next:g.index,end:g.index+1,after:-1,span:1}
+  const page = await h.page(task,cursor)
+  assert.equal(page.admitted,1)
+  assert.equal(page.pools[0].tx,undefined)
+  sender.advance(60_001)
+  const before = sender.sent.filter(f=>f.channel==='gator/new').length
+  for (let i=0; i<16; i++) {
+    const row = h.sendRow.get(engine.clock())
+    if (!row) break
+    await h.shareStep(row)
+  }
+  assert.equal(sender.sent.filter(f=>f.channel==='gator/new').length,before+1)
+  assert.equal(sender.sent.filter(f=>f.channel==='gator/new').at(-1).message.tx,g.logs[0].transactionHash)
+}
+
 async function receive(receiver, sender) {
   const {engine} = receiver, rpc = replay()
   engine.hints.rpc = rpc
@@ -124,7 +154,7 @@ async function receive(receiver, sender) {
     if (frame.channel==='gator/new' || frame.channel.startsWith('gator/px/'))
       engine.transport.emit('message',frame.channel,frame)
   }
-  assert.equal(engine.hints.size,2)
+  assert.equal(engine.hints.size,sender.sent.filter(f=>f.channel==='gator/new').length)
   while (engine.hints.size) await engine.verifyHint()
   return rpc
 }
@@ -184,11 +214,63 @@ test('archived ae1c336 verifies every emitted pool record with unchanged standin
   const load=path=>import(pathToFileURL(join(dir,'packages',path)))
   const old=await load('engine/src/index.js'), bundle=(await load('bundle/src/index.js')).loadBundle()
   const a=await discover(t), b=await node(t,{Legacy:old.Engine,schema:old.migrations,bundle,own:'2'.repeat(64)})
+  await enumeratePair(a)
   const rank=b.engine.hints.rank(reporter)
   await receive(b,a)
   for (const g of fixture.ethereum) assert.ok(b.engine.registry.markets.has('dex:ethereum:'+g.logs[0].topics[1]))
+  const pair=a.sent.filter(f=>f.channel==='gator/new').at(-1).message.pool
+  assert.ok(b.engine.registry.markets.has('dex:ethereum:'+pair))
   assert.equal(b.engine.hints.rank(reporter),rank)
   assert.equal(b.engine.hints.penalties.size,0)
   assert.equal(b.engine.book.muted(reporter),false)
   assert.equal(b.store.getReporter(reporter)?.strikes ?? 0,0)
+})
+
+test('row pressure keeps the first unregistered creation as the restart point; an old hint at capacity is inconclusive', async t => {
+  const sender = await node(t), {engine} = sender, h = engine.backfill
+  const task = h.tasks.find(t => t.factory.kind === 'v4' && t.source.chain.id === 'ethereum')
+  task.bounds = { mode:'logs' }
+  h.rpc = replay()
+  const g = fixture.ethereum[0], r = { start:g.block, next:g.block, end:g.block+1, after:-1, span:1 }
+  h.rpc.setGroup(g)
+  h.capacity = 0
+  await h.page(task,r)
+  assert.equal(r.next, g.block)
+  assert.equal(h.count.get().n, 0)
+  assert.equal(engine.registry.assets.has('ethereum:'+token), false)
+  h.capacity = 2
+  await h.page(task,r)
+  assert.equal(r.next, g.block+1)
+  assert.equal(h.count.get().n, 1)
+  const receiver = await node(t,{own:'2'.repeat(64)})
+  receiver.engine.backfill.capacity = 1
+  await h.shareStep(h.sendRow.get(at))
+  const frame = sender.sent.find(f => f.channel === 'gator/new')
+  receiver.engine.hints.rpc = replay()
+  receiver.engine.transport.emit('message','gator/new',frame)
+  await receiver.engine.verifyHint()
+  assert.equal(receiver.engine.hints.penalties.size, 0)
+  assert.equal(receiver.engine.registry.markets.has('dex:ethereum:'+frame.message.pool),false)
+  assert.equal(receiver.sent.filter(f=>f.channel==='gator/new').length,0)
+})
+
+test('an announced-pool tie keeps 64 deterministic slots and a locally promoted pool leaves the queue', async t => {
+  const {engine,store} = await node(t), source = engine.evm.get('ethereum')
+  const group = fixture.ethereumV2, chain = 'ethereum', now = engine.clock()
+  const token0 = address(group.logs[0].topics[1]), token1 = address(group.logs[0].topics[2])
+  const pools = Array.from({length:65},(_,i)=>({
+    chain,kind:'v2',dex:'uniswap-v2',pool:'0x'+(i+1).toString(16).padStart(40,'0'),token0,token1,firstSeen:now,
+  }))
+  source.snapshots = async candidates=>candidates.map(()=>({liquidity:110,price:1}))
+  for (const p of pools.toReversed()) {
+    engine.registry.pool(p,{},true)
+    engine.emit('discovery',{...p,t:'pool',v:1},now,true)
+  }
+  for (let i=0;i<5;i++) await engine.announcedPools.measure(chain)
+  const select = store.reader.prepare('SELECT pool FROM engine_announced_pools WHERE belowSince IS NULL ORDER BY pool')
+  assert.deepEqual(select.all().map(r=>r.pool),pools.slice(0,64).map(p=>p.pool))
+  engine.registry.pool(pools[0])
+  store.writer.prepare('UPDATE engine_announced_pools SET checkAt=? WHERE pool=?').run(now,pools[0].pool)
+  await engine.announcedPools.measure(chain)
+  assert.equal(select.all().some(r=>r.pool===pools[0].pool),false)
 })

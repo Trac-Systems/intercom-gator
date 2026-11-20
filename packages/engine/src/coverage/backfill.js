@@ -17,11 +17,12 @@ export class HistoryBudget {
   }
   retryAt() {
     const now = this.clock(), { budget, times } = this
-    while (times.length && times[0] <= now - MINUTE) times.shift()
-    const limit = Math.floor(budget.limit * HISTORY_SHARE)
-    if (!limit) return now + MINUTE
-    if (times.length >= limit) return times[times.length - limit] + MINUTE
-    if (budget.used >= Math.floor(budget.limit / 2)) return budget.times[0] + MINUTE
+    // For a user limit below 20/min, a fractional request gets one slot over several minutes.
+    const window = Math.max(1,Math.ceil(1/(budget.limit*HISTORY_SHARE))) * MINUTE
+    while (times.length && times[0] <= now - window) times.shift()
+    const limit = Math.max(1,Math.floor(budget.limit * HISTORY_SHARE))
+    if (times.length >= limit) return times[times.length - limit] + window
+    if (budget.used >= Math.max(1,Math.floor(budget.limit / 2))) return budget.times[0] + MINUTE
     return 0
   }
   take() {
@@ -48,7 +49,7 @@ export class FactoryBackfill {
     this.progress = db.prepare('SELECT * FROM engine_history_ranges WHERE chain=? AND factory=? AND mode=?')
     this.mark = db.prepare('INSERT OR REPLACE INTO engine_history_ranges VALUES (?,?,?,?,?,?,?,?)')
     this.keep = db.prepare(`INSERT OR IGNORE INTO engine_history_pools
-      (chain,pool,factory,idx,block,tx,lo,hi,bisect,span,nextShare) VALUES (?,?,?,?,?,?,0,?,1,?,0)`)
+      (chain,pool,factory,idx,block,tx,lo,hi,bisect,span,nextShare) VALUES (?,?,?,?,?,?,0,?,1,?,?)`)
     this.count = db.prepare('SELECT count(*) AS n FROM engine_history_pools')
     this.liveBytes = db.prepare(`SELECT (page_count-freelist_count)*page_size AS bytes
       FROM pragma_page_count, pragma_freelist_count, pragma_page_size`)
@@ -158,7 +159,9 @@ export class FactoryBackfill {
   /** A committed range may extend at the next bounds refresh. Its existing prefix is still complete. */
   async bounds(task) {
     const { source, factory } = task, chain = source.chain
-    const work = task.work ??= { at: this.clock(), cache: new Map() }
+    if (!task.work || task.work.range || this.clock() - task.work.at > 10 * MINUTE)
+      task.work = { at: this.clock(), cache: new Map() }
+    const work = task.work
     const head = work.head ??= await this.head(task)
     let mode = 'logs', end = Math.max(0, head.tip - 64) + 1
     if (factory.array) {
@@ -254,7 +257,7 @@ export class FactoryBackfill {
         // A locally seeded state-only identity can still gain its first shareable creation.
         if (capacity > 0 && (!known || !old?.tx || (!known.fromHint && p.tx && old.tx !== p.tx))) {
           capacity -= Number(this.keep.run(chain, p.pool, factory.address, p.index ?? null,
-            p.block ?? null, p.tx ?? null, work.head.tip, MAX_SPAN).changes)
+            p.block ?? null, p.tx ?? null, work.head.tip, MAX_SPAN, now).changes)
           if (p.tx) this.evidence.run(p.block,p.tx,chain,p.pool)
         }
         if (known) continue

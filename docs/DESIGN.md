@@ -425,6 +425,53 @@ Nodes can have different views or inventories. The assignment controls collectio
   and can support a live yellow tail price. The pool's other assigned readers improve redundancy. CEX collection,
   including the local-only rule for restricted exchanges, is independent of the DEX split.
 
+#### Historical factory discovery
+
+An idle EVM node walks the signed V2 and Pancake-style pairs, V3, Pancake V3, V4 PoolManager,
+Velodrome/Aerodrome, Solidly and Slipstream deployments. The ordinary seeder gets the first
+opportunity to probe signed assets against their quote currencies. The history reader starts with
+chains ordered by locally measured depth, then by the number of signed quotes, and rotates among
+factories. At a head 64 blocks behind the tip it tests the factory's length and index method.
+Supported arrays are enumerated in index order. Other deployments use their signed creation or
+Initialize event from block zero, starting with recent ranges. Provider limits bound each query,
+and a range or size refusal shortens the next attempt at the same block.
+
+The assignment key contains the chain, signed factory address, scan mode and aligned range start.
+The same proven-reporter rendezvous split used for state reads assigns three copies for networks
+of 4–31 reporters and four from 32. Smaller networks overlap. Each range has a durable cursor,
+including the last event index within a busy block. State, registration and cursor advancement
+commit together. After a restart or a membership change, a reader resumes its assigned ranges.
+Bounds refresh every six hours. Completed ranges become eligible for fresh depth checks after
+30 days, behind unfinished ranges. A release contains the reader and the signed infrastructure.
+Pool identities acquired by the reader remain runtime data as described in §5.4.
+
+Each page measures up to 32 candidate pools at one current block with at most 128 Multicall3
+subcalls per request. Registration requires at least $100 of measurable USD liquidity using
+the ordinary pool state decoder and current supported USD prices. New assets use the normal
+registry, on-chain name reader, observations and trust rules. The usual liquidity and turnover
+criteria still control ranked visibility. A node holds at most 4,000 / 16,000 / 48,000 independent
+historical pools on the small / normal / large profiles. Old verified incoming records have a
+separate ceiling of half those counts. At 90% of the configured live SQLite budget, or at its
+historical row ceiling, the reader pauses with its cursor saved. These limits apply with the
+original 150 MiB / 400 MiB / 1 GiB profiles.
+
+History uses spare scheduler turns after foreground and recent catch-up work. Its public reads,
+including metadata and outbound receipt verification, share at most 5% of the configured RPC
+rate (3 / 12 / 45 per minute at the profile ceilings). The reader yields when the parent request
+window is half used. Each public endpoint reserves three of every four slots for other work.
+
+A funded creation uses the ordinary v1 pool message on `gator/new`. For array entries, the
+sender narrows the creation block by querying historical array lengths, then searches the
+currency-filtered creation logs. An endpoint lacking old state can fall back to a bounded log
+walk. The sender checks the successful creation receipt against the signed deployment, block,
+pool and both currencies before broadcasting. It sends at most one historical pool per minute
+per node across restart, retries sent identities after a day and suppresses an exact recent
+announcement from a proven peer for an hour. A current receiver independently verifies the
+receipt and measures the pool through public endpoints. Up to 64 funded peer-origin pools per
+chain receive regular announced-pool pricing, with depth and pool ID breaking ties. One proven
+reporter can supply a yellow tail observation under the existing rules. A v0.1.0 receiver can
+verify the same creation record with its original verifier.
+
 #### Recent pool history on join
 
 An EVM node starts one catch-up pass on first use and after six hours offline. It records its last connected time

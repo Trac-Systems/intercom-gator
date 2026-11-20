@@ -21,8 +21,15 @@ export function registerAnnouncedPools(engine) {
     LEFT JOIN engine_pool_parameters k USING(chain,pool)
     WHERE a.chain=? AND a.checkAt<=? AND d.fromHint=1 ORDER BY a.checkAt,a.pool LIMIT ?`)
   const nextChain = store.reader.prepare('SELECT chain FROM engine_announced_pools WHERE checkAt<=? ORDER BY checkAt,chain LIMIT 1')
-  const deeper = store.reader.prepare(`SELECT count(*) AS n FROM engine_announced_pools
-    WHERE chain=? AND pool<>? AND belowSince IS NULL AND depth>?`)
+  const deeper = db.prepare(`SELECT count(*) AS n FROM engine_announced_pools
+    WHERE chain=? AND belowSince IS NULL AND (depth>? OR (depth=? AND pool<?))`)
+  const retireExcess = db.prepare(`UPDATE engine_announced_pools SET belowSince=?,checkAt=? WHERE chain=? AND pool IN (
+    SELECT pool FROM engine_announced_pools WHERE chain=? AND belowSince IS NULL AND depth>=?
+    ORDER BY depth DESC,pool LIMIT -1 OFFSET ?)`)
+  const retireLocal = db.prepare(`DELETE FROM engine_announced_pools WHERE chain=? AND pool IN (
+    SELECT a.pool FROM engine_announced_pools a WHERE a.chain=? AND a.checkAt<=? AND NOT EXISTS (
+      SELECT 1 FROM engine_market_data d WHERE d.market='dex:'||a.chain||':'||a.pool AND d.fromHint=1)
+    ORDER BY a.checkAt,a.pool LIMIT ?)`)
   const save = db.prepare('UPDATE engine_announced_pools SET checkAt=?,checks=checks+1,depth=?,belowSince=? WHERE chain=? AND pool=?')
   const drop = db.prepare('DELETE FROM engine_announced_pools WHERE chain=? AND pool=?')
   const saveDepth = db.prepare('UPDATE pools SET liquidity=? WHERE chain=? AND pool=?')
@@ -37,6 +44,8 @@ export function registerAnnouncedPools(engine) {
   async function measure(chain, rpc = engine.rpc.publicOnly) {
     const source = evm.get(chain), now = clock()
     if (!source) return 0
+    // Independent enumeration can promote a verified hint while it waits for its state turn.
+    retireLocal.run(chain,chain,now,ANNOUNCED_LIMITS.batch)
     const rows = due.all(chain, now, ANNOUNCED_LIMITS.batch)
     const pools = rows.map(p => ({ ...p, manager: source.chain.deployments.find(d => d.kind === p.kind && d.name === p.dex)?.address }))
     const readable = pools.filter(p => p.kind !== 'v4' || p.manager)
@@ -49,7 +58,7 @@ export function registerAnnouncedPools(engine) {
         if (state && (state.empty || state.liquidity != null)) saveDepth.run(state.empty ? 0 : state.liquidity, chain, p.pool)
         const depth = state && !state.empty ? state.liquidity : state?.empty ? 0 : null
         const kept = market && depth != null && depth >= ANNOUNCED_LIMITS.minDepthUsd &&
-          deeper.get(chain, p.pool, depth).n < ANNOUNCED_LIMITS.perChain
+          deeper.get(chain,depth,depth,p.pool).n < ANNOUNCED_LIMITS.perChain
         if (kept) {
           published.push(source.stateRow(market, state.price, now))
           save.run(now + source.limits.period, depth, null, chain, p.pool)
@@ -60,6 +69,7 @@ export function registerAnnouncedPools(engine) {
         const step = ANNOUNCED_LIMITS.recheck[Math.min(p.checks, ANNOUNCED_LIMITS.recheck.length - 1)]
         save.run(Math.min(below + ANNOUNCED_LIMITS.forgetAfter, now + step), depth, below, chain, p.pool)
       }
+      if (published.length) retireExcess.run(now,now+HOUR,chain,chain,ANNOUNCED_LIMITS.minDepthUsd,ANNOUNCED_LIMITS.perChain)
     })
     if (published.length) engine.publish(published)
     return pools.length
