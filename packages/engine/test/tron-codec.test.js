@@ -4,7 +4,7 @@ import test from 'node:test'
 import { tronAddress, tronHex } from '../src/sources/tron/address.js'
 import { FACTORIES, USDT, WTRX } from '../src/sources/tron/deployments.js'
 import { creationReceipt, eventPath, hintFactory, parsePage } from '../src/sources/tron/events.js'
-import { snapshots } from '../src/sources/tron/state.js'
+import { seedPlan, snapshots } from '../src/sources/tron/state.js'
 
 const fixture = name => JSON.parse(readFileSync(new URL('./fixtures/tron/' + name + '.json', import.meta.url)))
 
@@ -15,6 +15,8 @@ test('TRON mainnet Base58Check, network prefix and 20-byte ABI addresses round t
   assert.equal(tronAddress('0x' + hex.slice(2)), USDT)
   for (const bad of [USDT.toLowerCase(), USDT.slice(0, -1) + 'u', USDT + '1', null]) assert.equal(tronHex(bad), null)
   for (const bad of ['42' + hex.slice(2), hex.slice(2), hex + '0', null]) assert.equal(tronAddress(bad), null)
+  // Older signed schemas check the spelling only. A bad checksum must not stop the other chain jobs at startup.
+  assert.deepEqual(seedPlan([{ chain: 'tron', address: USDT.slice(0, -1) + 'u' }]), seedPlan([]))
 })
 
 for (const factory of FACTORIES.filter(f => f.event)) {

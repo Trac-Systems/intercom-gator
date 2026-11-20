@@ -1,11 +1,11 @@
 import { poolStateCalls, poolStateValue, field, word, ZERO } from '../evm-abi.js'
 import { abiDecimals, abiLabel } from '../names/evm.js'
 import { labels } from '../names/text.js'
-import { abiAddress, tronAddress } from './address.js'
+import { abiAddress, tronAddress, tronHex } from './address.js'
 import { FACTORIES, MULTICALL, QUOTES, WTRX } from './deployments.js'
 
 export function seedPlan(assets) {
-  const tokens = assets.filter(a => a.chain === 'tron' && a.address !== 'native').map(a => a.address)
+  const tokens = assets.filter(a => a.chain === 'tron' && tronHex(a.address)).map(a => a.address)
   const currencies = new Set([...QUOTES, ...tokens])
   const seen = new Set(), probes = []
   for (const a of currencies) {
@@ -40,7 +40,7 @@ export function lookupAddress(value) {
 }
 
 /** A single solidified block supplies identity, factory membership, state and both token balances. */
-export async function snapshots(pools, client, registry) {
+export async function snapshots(pools, client, registry, peer = false) {
   const calls = [], metadata = new Map()
   for (const p of pools) {
     for (const address of [p.token0, p.token1]) {
@@ -62,7 +62,7 @@ export async function snapshots(pools, client, registry) {
     } else calls.push(...poolStateCalls({ ...p, pool, token0: abiAddress(p.token0), token1: abiAddress(p.token1) }))
     return [i, calls.length]
   })
-  const { values, at } = await client.aggregate(calls)
+  const { values, at } = await client.aggregate(calls, peer)
   for (const [address, m] of metadata) {
     if (m.asset) continue
     const [name, symbol, d] = values.slice(m.offset, m.offset + 3)

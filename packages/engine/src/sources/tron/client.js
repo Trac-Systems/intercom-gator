@@ -13,6 +13,7 @@ export class TronClient {
     this.engine = engine
     this.next = 0
     this.refusals = 0
+    this.peerNext = 0
   }
   get endpoint() {
     // This signed host implements both the v1 index and SolidityNode APIs. Other tron-http
@@ -20,19 +21,26 @@ export class TronClient {
     return this.engine.bundle.chains.find(c => c.id === 'tron' && c.family === 'tron')?.endpoints.find(e =>
       e.protocol === 'tron-http' && e.url === 'https://api.trongrid.io' && e.verified?.ok !== false)
   }
-  async request(path, body) {
+  get peerDue() { return Math.max(this.next, this.peerNext) }
+  async request(path, body, peer = false) {
     const { http, clock, budget, profile } = this.engine
     const now = clock(), endpoint = this.endpoint
     if (!endpoint) throw new Error('TronGrid unavailable in active bundle')
-    if (now < this.next) throw new RateLimited(this.next)
+    const due = peer ? this.peerDue : this.next
+    if (now < due) throw new RateLimited(due)
     const rpm = Math.min(SHARES[profile] ?? 4, budget.limit / 12)
-    this.next = now + Math.ceil(MINUTE / rpm)
+    const interval = Math.ceil(MINUTE / rpm)
+    this.next = now + interval
+    if (peer) this.peerNext = now + 3 * interval
     try {
       const json = await http.getPublic(endpoint.url + path, rateLimit(endpoint.limits), 1, body)
       this.refusals = Math.max(0, this.refusals - 1)
       return json
     } catch (error) {
-      if (error instanceof RateLimited) this.next = error.retryAt // No request left the process.
+      if (error instanceof RateLimited) {
+        this.next = error.retryAt // No request left the process.
+        if (peer) this.peerNext = this.next
+      }
       if ([403, 429].includes(error.status)) {
         const pause = Math.max((error.retryAfter ?? 0) * 1000, MINUTE * 2 ** Math.min(5, this.refusals++))
         this.next = clock() + pause
@@ -42,12 +50,12 @@ export class TronClient {
       throw error
     }
   }
-  async aggregate(calls) {
+  async aggregate(calls, peer = false) {
     const timestamp = { to: abiAddress(MULTICALL), data: '0x0f28c97d' } // getCurrentBlockTimestamp()
     const parameter = encodeAggregate([timestamp, ...calls]).slice(10)
     const body = { owner_address: MULTICALL, contract_address: MULTICALL,
       function_selector: 'aggregate3((address,bool,bytes)[])', parameter, visible: true }
-    const json = await this.request('/walletsolidity/triggerconstantcontract', body)
+    const json = await this.request('/walletsolidity/triggerconstantcontract', body, peer)
     if (json?.result?.result !== true) throw new Error('TRON constant call failed')
     const [rawTime, ...values] = decodeAggregate('0x' + json.constant_result?.[0], calls.length + 1)
     const at = Number(field(rawTime, 0)) * 1000, age = this.engine.clock() - at
@@ -55,6 +63,6 @@ export class TronClient {
     return { at, values }
   }
   receipt(tx) {
-    return this.request('/walletsolidity/gettransactioninfobyid', { value: tx })
+    return this.request('/walletsolidity/gettransactioninfobyid', { value: tx.slice(2) }, true)
   }
 }

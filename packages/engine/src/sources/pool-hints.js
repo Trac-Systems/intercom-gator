@@ -1,6 +1,7 @@
 import { decodeEvent, multiRead, ZERO } from './evm-abi.js'
 import { resolveCurveCreations } from './curve.js'
 import { RateLimited } from '../scheduler/index.js'
+import { creationReceipt, hintFactory } from './tron/events.js'
 import { solanaPair } from './solana.js'
 
 const CAPACITY = 128
@@ -38,6 +39,8 @@ export class PoolHints {
       token0 = token0.toLowerCase()
       token1 = token1.toLowerCase()
       tx = tx.toLowerCase()
+    } else if (chain === 'tron' && this.tron) {
+      if (!hintFactory(msg)) return
     } else if (this.registry.chains.get(chain)?.family !== 'solana' || !['raydium', 'orca', 'meteora'].includes(dex) ||
                ![pool, token0, token1].every(solAddress)) return
     if (token0 === token1 || this.registry.markets.has('dex:' + chain + ':' + pool)) return
@@ -74,6 +77,7 @@ export class PoolHints {
    * factory creation or manager Initialize is eligible for periodic re-announcement. */
   async hasCreationReceipt(row, rpc = this.rpc) {
     const { chain, pool, tx, block } = row
+    if (chain === 'tron' && this.tron) return !!creationReceipt(row, await this.tron.client.receipt(tx))
     const source = this.evm.get(chain)
     if (!source) return false
     const receipt = await rpc.call(chain, 'eth_getTransactionReceipt', [tx])
@@ -127,6 +131,10 @@ export class PoolHints {
     if (this.work?.hint !== best) this.work = { hint: best, cache: new Map() }
     let retry = false
     try {
+      if (best.chain === 'tron' && this.tron) {
+        if (await this.tron.verify(best, this.work.cache) === false) this.penalize(best.reporter)
+        return
+      }
       const source = this.evm.get(best.chain)
       const result = source ? await source.verifyPoolHint(best, this.rpc, this.work.cache) : await this.solana(best)
       if (result === false) this.penalize(best.reporter)

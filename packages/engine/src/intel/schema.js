@@ -22,7 +22,7 @@ export function discoveryState(store) {
   const { reader, writer } = store;
   const all = reader.prepare('SELECT * FROM intel_discoveries ORDER BY firstSeen, market');
   const upsert = writer.prepare(`INSERT INTO intel_discoveries(market,firstSeen,message,reporters) VALUES (?,?,?,?)
-    ON CONFLICT(market) DO UPDATE SET reporters=excluded.reporters`);
+    ON CONFLICT(market) DO UPDATE SET reporters=excluded.reporters,message=excluded.message,firstSeen=excluded.firstSeen`);
   const remove = writer.prepare('DELETE FROM intel_discoveries WHERE market=?');
   const graduated = reader.prepare('SELECT 1 FROM intel_graduated WHERE asset=?');
   const graduate = writer.prepare('INSERT OR IGNORE INTO intel_graduated(asset,at) VALUES (?,?)');

@@ -1,3 +1,5 @@
+import { hintFactory } from '../sources/tron/events.js';
+import { tronHex } from '../sources/tron/address.js';
 import { EvmSource } from '../sources/evm.js';
 import { formatUrl } from '../sources/http.js';
 import { decimal } from '../obs/index.js';
@@ -16,7 +18,11 @@ function identity(message) {
   const { pool, token0, token1, block, tx } = message;
   if (!boundedId(message.chain) || !(typeof message.dex === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_. -]{0,95}$/.test(message.dex)) || !boundedId(message.kind)) return null;
   const evm = isAddress(pool) || (typeof pool === 'string' && /^0x[\da-f]{64}$/i.test(pool));
-  if (evm) {
+  if (message.chain === 'tron') {
+    const seed = tx === null && block === null && tronHex(pool) && tronHex(token0) &&
+      (tronHex(token1) || (message.kind === 'v1' && token1 === 'native')) && token0 !== token1;
+    if (!seed && !hintFactory(message)) return null;
+  } else if (evm) {
     if (!isTime(block) || typeof tx !== 'string' || ![token0, token1].every(t => isAddress(t) || t === 'native') || token0.toLowerCase() === token1.toLowerCase() ||
         !/^0x[\da-f]{64}$/i.test(tx)) return null;
   } else if (![pool, token0, token1].every(t => typeof t === 'string' && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(t)) ||
@@ -75,8 +81,15 @@ export function createNewTokens({ thresholds = {}, resolveAssets, isKnownAsset =
         // Competing descriptions of the same pool are not corroboration.
         const original = row.message;
         const normalized = s => s?.startsWith('0x') ? s.toLowerCase() : s;
-        if (['token0', 'token1', 'tx'].some(k => normalized(m[k]) !== normalized(original[k])) ||
-            ['dex', 'kind', 'block'].some(k => m[k] !== original[k])) return false;
+        if (['token0', 'token1'].some(k => normalized(m[k]) !== normalized(original[k])) ||
+            ['dex', 'kind'].some(k => m[k] !== original[k])) return false;
+        if (m.chain === 'tron' && original.tx === null && localFirstSeen != null && hintFactory(m)) {
+          // A local factory scan can find the creation after a deterministic seed registered the pool.
+          row = { ...row, message: { ...original, tx: m.tx, block: m.block },
+            firstSeen: Math.min(row.firstSeen, localFirstSeen) };
+          state?.save(row);
+          discoveries.set(market, row);
+        } else if (normalized(m.tx) !== normalized(original.tx) || m.block !== original.block) return false;
       }
       if (!row.reporters.has(envelope.from) && row.reporters.size < 128) {
         row = { ...row, reporters: new Set([...row.reporters, envelope.from]) };
@@ -251,6 +264,7 @@ export function poolAnnouncementJob(engine) {
   const minute = 60_000, hour = 60 * minute, key = 'intel:pool-announcement:next';
   let next = store.getSetting(key) ?? 0;
   const evm = JSON.stringify([...engine.evm.keys()]);
+  const withTron = JSON.stringify([...engine.evm.keys(), 'tron']);
   const seeds = JSON.stringify([...registry.seedIds]);
   const venues = JSON.stringify([...registry.venues.values()].filter(v => v.publishMarketData).map(v => v.id));
   const candidate = store.reader.prepare(`SELECT p.* FROM pools p
@@ -270,7 +284,8 @@ export function poolAnnouncementJob(engine) {
       const time = clock();
       if (time < next) return;
       next = time + minute;
-      const p = candidate.get(evm, time, seeds, time, venues);
+      const chains = engine.tron?.client.endpoint && time >= engine.tron.client.peerDue ? withTron : evm;
+      const p = candidate.get(chains, time, seeds, time, venues);
       if (!p) return;
       store.transaction(() => {
         store.setSetting(key, next);

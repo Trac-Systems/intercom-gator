@@ -7,14 +7,17 @@ const topics = {
   v3: keccak256('PoolCreated(address,address,uint24,int24,address,uint256)').slice(2),
 }
 const uint = n => Number.isSafeInteger(n) && n > 0
-const txId = s => typeof s === 'string' && /^[0-9a-f]{64}$/.test(s)
+// Wire hashes carry 0x. Legacy New-token readers can otherwise mistake hex without a zero for a Solana signature.
+const txId = s => typeof s === 'string' && /^0x[0-9a-f]{64}$/.test(s)
 const validFee = n => Number.isSafeInteger(n) && n > 0 && n < 1_000_000
 const fromWord = s => typeof s === 'string' && /^0{24}[0-9a-f]{40}$/i.test(s) && !/^0+$/.test(s)
   ? tronAddress('0x' + s.slice(24)) : null
 
 export function hintFactory(p) {
-  if (p.chain !== 'tron' || !uint(p.block) || !txId(p.tx) || ![p.pool, p.token0, p.token1].every(tronHex) ||
-      new Set([p.pool, p.token0, p.token1]).size !== 3 || abiAddress(p.token0) >= abiAddress(p.token1)) return null
+  if (p.chain !== 'tron' || !uint(p.block) || !txId(p.tx)) return null
+  const [pool, a, b] = [p.pool, p.token0, p.token1].map(tronHex)
+  const zero = '41' + '0'.repeat(40)
+  if (!pool || !a || !b || pool === zero || a === zero || a >= b || pool === a || pool === b) return null
   return FACTORIES.find(f => f.event && f.dex === p.dex && f.kind === p.kind)
 }
 
@@ -37,7 +40,7 @@ export function parsePage(f, json, window) {
        fingerprint === window.fingerprint))) throw new Error('Invalid TronGrid continuation')
   const pools = json.data.map(e => {
     const r = e?.result
-    const p = { chain: 'tron', dex: f.dex, kind: f.kind, block: e?.block_number, tx: e?.transaction_id,
+    const p = { chain: 'tron', dex: f.dex, kind: f.kind, block: e?.block_number, tx: '0x' + e?.transaction_id,
       pool: tronAddress(f.kind === 'v2' ? r?.pair ?? r?.[2] : r?.pool ?? r?.[4]), token0: tronAddress(r?.token0 ?? r?.[0]),
       token1: tronAddress(r?.token1 ?? r?.[1]), fee: f.kind === 'v3' ? Number(r?.fee ?? r?.[2]) : 0, firstSeen: e?.block_timestamp }
     if (e?.contract_address !== f.address || e.event_name !== f.event || !uint(p.firstSeen) ||
@@ -51,7 +54,7 @@ export function parsePage(f, json, window) {
 /** A solidified successful TRON transaction with the exact factory log. The V3 data includes poolLength. */
 export function creationReceipt(p, receipt) {
   const f = hintFactory(p)
-  if (!f || receipt?.id !== p.tx || receipt.blockNumber !== p.block || receipt.receipt?.result !== 'SUCCESS' ||
+  if (!f || receipt?.id !== p.tx.slice(2) || receipt.blockNumber !== p.block || receipt.receipt?.result !== 'SUCCESS' ||
       !uint(receipt.blockTimeStamp) || !Array.isArray(receipt.log) || receipt.log.length > 1024) return null
   const v3 = f.kind === 'v3'
   for (const log of receipt.log) {
