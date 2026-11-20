@@ -29,8 +29,14 @@ https://raw.githubusercontent.com/Trac-Systems/intercom-gator/main/SKILL.md.
 Download the versioned tarball and SHA256SUMS, verify the checksum, install the locked
 production dependencies and verify the signed bundle. Start the daemon in the background
 and point your gator MCP server at this version. Show me Bitcoin's price with its trust
-dot and my node's peer count, then open the dashboard in my browser.
+dot and my node's peer count, then open the dashboard in my browser. Finally, ask me before
+scheduling the hourly gator routine (SKILL.md section 3) in your harness.
 ```
+
+**The hourly routine.** Every hour your agent checks the node, reads alerts and mentions, and tells the node what
+to collect more of (it "focuses" assets the network sees poorly). Without it the node still runs, but nothing steers it
+and nobody reads its alerts. The install and update steps set it up in your harness's scheduler (OpenClaw, Hermes,
+Claude Code, Codex, OpenCode, or the operating system's scheduler) after asking you.
 
 When it is done, the dashboard opens in your browser, already signed in. To open it again later, ask your agent to
 "open the gator dashboard".
@@ -72,6 +78,8 @@ https://raw.githubusercontent.com/Trac-Systems/intercom-gator/main/SKILL.md.
 Verify the new release beside my current install before stopping it. Start the new version
 with my existing data directory and startup options, update your gator MCP path, and confirm
 the daemon and MCP report my same public identity. Keep the previous install for rollback.
+Then check the hourly gator routine (SKILL.md section 3): point it at the new version, or
+offer to schedule it if it is missing.
 ```
 
 This also migrates a v0.1.0 Git clone. The clone stays available for rollback and the new daemon uses the
