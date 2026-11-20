@@ -100,7 +100,7 @@ test('scheduled EVM state reads cover assigned verified hints via public RPC and
 })
 
 test('trade scans and block decoding for registered peer-origin pools stay on public endpoints', async t => {
-  const { engine, store } = node(t), source = engine.evm.get('bsc')
+  const { engine, store, advance } = node(t), source = engine.evm.get('bsc')
   const [id] = pools(engine, 1)
   const p = source.poolInfo.get('bsc', id.split(':')[2])
   const topic = Object.values(source.chain.events).find(e => e.signature === 'Swap(address,uint256,uint256,uint256,uint256,address)').topic
@@ -121,11 +121,37 @@ test('trade scans and block decoding for registered peer-origin pools stay on pu
   const job = engine.scheduler.jobs.get('evm:bsc:trades')
   assert.equal(job.ready(), true)
   await job.run()
-  await source.state()
+  const stateJob = engine.scheduler.jobs.get('evm:bsc:state')
+  let pages = 0
+  source.readPoolState = async () => { pages++ }
+  await stateJob.run()
+  assert.equal(pages, 1)
+  // Simulate other jobs occupying the node until the next state page is also due.
+  advance(source.limits.period)
+  await stateJob.run()
+  assert.equal(pages, 1)
   assert.deepEqual(calls, ['eth_blockNumber', 'eth_getLogs', 'eth_getBlockByNumber'])
   assert.equal(observations[0][0], id)
   assert.ok(+observations[0][2] > 0)
   assert.equal(store.reader.prepare('SELECT fromHint FROM engine_market_data WHERE market=?').get(id).fromHint, 1)
+})
+
+test('up to three reporters keep the existing on-demand Solana spot-check source', async t => {
+  const { engine, peer, advance } = node(t, 1, 1)
+  const a = 'A'.repeat(32), b = 'B'.repeat(32), pool = 'R'.repeat(32)
+  const market = engine.registry.pool({ chain: 'solana', dex: 'raydium', kind: 'pool', pool,
+    token0: a, token1: b, firstSeen: start }, {}, true)
+  const urls = []
+  engine.http.getPublic = async url => { urls.push(new URL(url)); return [] }
+  const job = engine.scheduler.jobs.get('sol:raydium')
+  const origin = new URL(engine.catalog.apis.find(api => api.id === 'dexscreener').url).origin
+  for (const n of [1, 2, 3]) {
+    if (n > 1) peer(n)
+    advance(60_000)
+    await job.spotCheck(market.id)
+    assert.equal(urls.at(-1).origin, origin)
+  }
+  assert.equal(urls.length, 3)
 })
 
 test('all three Solana readers rotate the common directory, discovery pages and exact public venue reads', async t => {

@@ -187,6 +187,7 @@ export class EvmSource {
     this.assetPrice = db.prepare('SELECT priceReal,trust FROM prices WHERE asset=? AND at>=? AND priceReal>0')
     this.saveDepth = db.prepare('UPDATE pools SET liquidity=? WHERE chain=? AND pool=?')
     this.refreshAt = 0
+    this.decodeNext = false
     this.nextPool = 0
     this.adoptQueue()
   }
@@ -581,8 +582,14 @@ export class EvmSource {
     return !!this.pending.get(this.chain.id) || (this.refreshAt <= this.clock() && this.hasPools())
   }
   async scheduledState() {
-    if (!this.pending.get(this.chain.id) || (this.coverage?.members().split && this.refreshAt <= this.clock()))
+    const pending = this.pending.get(this.chain.id)
+    // A busy scheduler may revisit this chain less often than its refresh period. Give
+    // queued swaps and creations a turn even if the state page is always overdue.
+    if (!pending || (!this.decodeNext && this.coverage?.members().split && this.refreshAt <= this.clock())) {
+      this.decodeNext = true
       return this.refreshState()
+    }
+    this.decodeNext = false
     for (let i = 0; i < this.limits.blocks; i++) {
       await this.state()
       if (!this.pending.get(this.chain.id)) break

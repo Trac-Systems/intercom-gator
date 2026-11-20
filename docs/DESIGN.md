@@ -392,6 +392,7 @@ Nodes can have different views or inventories. The assignment controls collectio
   last hour. State cursors seek past the last personal score across rebalances and restarts. The existing bounded trade
   set takes the common pools and the highest hourly pool-and-signer priorities from the assigned tail, with durable
   per-pool block cursors. A joining signer can vacate slots without reordering surviving trade candidates.
+  When load makes both the state page and queued block decoding overdue, the scheduler alternates between them.
   Verified peer-origin pools participate in both readers. Their state, trade filters and subsequent block decoding use public-only endpoints.
 - **EVM factory seeding.** Before a pool address exists, the key is `seed:<chain>:<sorted currency0>:<currency1>`.
   Split readers consider all signed deployments of tokens and the chain's main quotes. They probe the first shared

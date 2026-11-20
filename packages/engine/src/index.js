@@ -17,6 +17,7 @@ import { StoredDiscoveries } from './coverage/discoveries.js'
 import { DexCoverage } from './coverage/dex.js'
 import { EvmSource } from './sources/evm.js'
 import { SolanaCoverage } from './coverage/solana.js'
+import { checkSolanaPrice, fetchSolana } from './sources/solana.js'
 import { registerNamesJob } from './sources/metadata.js'
 import { fetchReferences } from './sources/api.js'
 import { registerSupplyJobs } from './sources/supply.js'
@@ -228,13 +229,19 @@ export class Engine extends EventEmitter {
     for (const source of this.catalog.apis) {
       if (sol && ['raydium', 'meteora', 'orca'].includes(source.id)) {
         const reader = new SolanaCoverage(this, { source, registry, http, clock, chain: sol.id, publish, discover })
+        const directory = this.catalog.apis.find(api => api.id === 'dexscreener')
         this.solanaReaders.set(source.id, reader)
         this.scheduler.add({
           id: 'sol:' + source.id,
           interval: 30000,
           markets: () => registry.jobsFor((m) => m.exchange === source.id),
           run: () => reader.run(),
-          spotCheck: id => reader.spotCheck(id),
+          spotCheck: id => {
+            if (this.dexCoverage.members().split) return reader.spotCheck(id)
+            if (directory) return checkSolanaPrice(directory, http, registry, id, publish, clock)
+            return fetchSolana({ ...reader.options, http: publicHttp, fromHint: true,
+              discover: data => this.discovery(data, true) })
+          },
         })
       } else if (source.id === 'bitcoin-fees') {
         this.scheduler.add({
