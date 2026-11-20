@@ -232,6 +232,19 @@ One wire DEX market is one pool; for a Curve classic pool with more than two coi
   arrival), at least 10 min and at most 1 h. With 10 min against a ~23 min rotation, reference-only rows flipped
   live/stale, and a chain whose USD quote was reference-only (BSC USDT, Base/Optimism USDC) lost every DEX price
   when that reference lapsed.
+- Borrowed USD rate: a deployment that quotes a market and has no fresh price of its own (none, stale, or only a
+  reference) takes a signed sibling's measured price as its USD rate. Siblings are the members of its signed coin
+  group (Polygon USDT, Base/Optimism USDC); a stablecoin record without a coin borrows from the one coin group whose
+  stablecoin members its reciprocal signed `links` reach (third-party pegs: BSC USDT and USDC, Base and Optimism USDT,
+  bridged EURC). Never by symbol. The lender is the best market-backed, non-stale sibling (green before yellow before
+  red, then proven sources, volume, id); a reference-only or stale sibling never lends. Its price, time, trust,
+  freshness, spread and depegs carry over, with no volume of its own (`why.borrowedFrom`). De-peg guard: no borrowing
+  when the deployment's own evidence disagrees by more than 2%: the volume-weighted median price its fresh own/proven
+  pools imply against counter assets whose supported price does not rest on it (pools against the native coin or
+  other quotes), or its reference. 2% sits above a healthy peg read through a volatile pair (fee ≤ 1% plus a minute
+  of drift) and below the 3% red disagreement. A refused deployment keeps the existing rules (its reference, when it
+  has one). Decided once per rebuild on the rates resolved without borrowing; assets it makes reachable then resolve,
+  and a borrowed deployment keeps the borrowed rate. Unproven reporters cannot block it (their pools are no evidence).
 - History import (`history:seed`): top 30/100/300 assets by profile get 8 days of 1 h bars from the asset's main
   (highest-volume) CEX market first, then USD pairs; a venue series ≥ 80% flat over ≥ 12 bars (a market nobody trades)
   is skipped for non-stable assets. Local bars from the aggregated price always win.
