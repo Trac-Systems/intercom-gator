@@ -523,12 +523,16 @@ test('an honest peer with some volatile disagreements is never muted; strikes fa
 
 test('the update clears strikes and mutes left by the lifetime rule once', t => {
   const file = join(mkdtempSync(join(tmpdir(), 'strike-amnesty-')), 'gator.db')
-  t.after(() => rmSync(dirname(file), { recursive: true, force: true }))
+  let after
+  // Close before removing: Windows cannot unlink an open database file.
+  t.after(() => {
+    after?.close()
+    rmSync(dirname(file), { recursive: true, force: true })
+  })
   const peer = 'b'.repeat(64), until = Date.now() + 86_400_000
   const before = openStore({ file, migrations: migrations.filter(m => m.id !== 'engine-024-strike-amnesty') })
   before.upsertReporter({ key: peer, strikes: 5, mutedUntil: until })
   before.close()
-  const after = openStore({ file, migrations })
-  t.after(() => after.close())
+  after = openStore({ file, migrations })
   assert.deepEqual([after.getReporter(peer).strikes, after.getReporter(peer).mutedUntil], [0, 0])
 })
