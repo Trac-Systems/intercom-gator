@@ -168,7 +168,18 @@ export class Registry {
     this.indexAsset(token)
     return token
   }
+  canBindContract(venue, label, fallback) {
+    if (!fallback || fallback.startsWith('fiat:') || this.curated.get(venue.id)?.has(label)) return false
+    return fallback.startsWith('unresolved:') || (!venue.symbolMap?.[label] && !fallback.endsWith(':native'))
+  }
   resolve(venue, label) {
+    const fallback = this.resolveDefault(venue, label)
+    if (!venue.contracts?.bindings.has(label) || !this.canBindContract(venue, label, fallback)) return fallback
+    const id = venue.contracts.bindings.get(label), split = this.splits.get(venue.id + ':' + label)
+    if (id && (split?.asset !== id || split.reviewing)) return id
+    return 'unresolved:' + venue.id + ':' + label
+  }
+  resolveDefault(venue, label) {
     if (
       [
         'USD',
@@ -227,8 +238,12 @@ export class Registry {
       baseLabel === quoteLabel
     )
       return null
-    const base = this.resolve(venue, baseLabel),
-      quote = this.resolve(venue, quoteLabel)
+    let base = this.resolve(venue, baseLabel), quote = this.resolve(venue, quoteLabel)
+    // Two labels that the venue trades against one another cannot both denote the same contract.
+    if (base && base === quote) {
+      if (venue.contracts?.bindings.get(baseLabel) === base) base = 'unresolved:' + venueId + ':' + baseLabel
+      if (venue.contracts?.bindings.get(quoteLabel) === quote) quote = 'unresolved:' + venueId + ':' + quoteLabel
+    }
     if (!base || !quote || base === quote || base === 'fiat:USD') return null
     return this.register({
       id: 'cex:' + venueId + ':' + baseLabel + '-' + quoteLabel,
@@ -244,15 +259,21 @@ export class Registry {
     const label = venueLabel(market)
     return !!(label && this.curated.get(label.venue)?.has(label.label))
   }
-  /** Point every market of one venue label at `base`, keeping its observations (the pair itself is unchanged). */
-  rebindLabel(key, base) {
+  /** Reclassify a venue's base label after a price split. A contract-managed quote carries the same identity. */
+  rebindLabel(key, asset) {
     const changed = []
+    const [venue, label] = key.split(':')
+    const managesQuote = this.venues.get(venue)?.contracts?.bindings.has(label)
     for (const market of this.markets.values()) {
-      if (venueLabel(market)?.key !== key || market.base === base) continue
-      const next = { ...market, base }
-      this.db.prepare('DELETE FROM asset_markets WHERE asset=? AND market=?').run(market.base, market.id)
+      if (market.kind !== 'cex' || market.exchange !== venue) continue
+      const [baseLabel, quoteLabel] = market.id.split(':')[2].split('-')
+      const base = baseLabel === label ? asset : market.base
+      const quote = managesQuote && quoteLabel === label ? asset : market.quote
+      if (market.base === base && market.quote === quote) continue
+      const next = { ...market, base, quote }
+      if (market.base !== base) this.db.prepare('DELETE FROM asset_markets WHERE asset=? AND market=?').run(market.base, market.id)
       this.store.upsertMarket(next)
-      if (this.assets.has(base)) this.store.linkAssetMarket(base, market.id)
+      if (market.base !== base && this.assets.has(base)) this.store.linkAssetMarket(base, market.id)
       this.markets.set(market.id, next)
       changed.push(market.id)
     }
@@ -327,7 +348,11 @@ export class Registry {
         confirmed.add(key)
         for (const id of this.rebindLabel(key, 'unresolved:' + key)) {
           const p = prices?.get(id)
-          if (p) p.base = 'unresolved:' + key
+          if (p) {
+            const market = this.markets.get(id)
+            p.base = market.base
+            p.quote = market.quote
+          }
         }
       }
       for (const key of review) {

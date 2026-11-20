@@ -373,6 +373,37 @@ insufficient. The sender attempts at most one record per minute and waits at lea
 The rotation and timing survive restart. Each receiver uses the existing public receipt verifier before it registers
 the market. Graduation and sender standing confer no authority to register it.
 
+#### Binding spot listings to venue-reported contracts
+
+A node reads a venue's public currency directory when it starts and about once a day thereafter. Each reader uses the
+shared request budget and host bucket. It uses the chain and contract from the same network entry, or Hyperliquid
+spot's explicit HyperEVM contract link. It also requires a valid, independently fetched, active spot ticker for that
+venue and label within the last hour. Identity applies to both sides of the pair. Fiat and authoritative signed
+mappings retain priority. An unresolved label or an incidental unique-symbol match can acquire a venue-specific
+identity. A confirmed price split still excludes its rejected deployment.
+
+A single supported deployment identifies an asset. For multiple deployments in one signed coin group, the venue
+market points at a listed issuance member when available, then the member with the deepest measured pool, with
+asset ID breaking a tie within that signed group. For other multi-network entries, the deepest known deployment
+must have positive measured pool liquidity and win outright. Different signed coin groups, conflicting rows,
+duplicate ownership of an address and non-unit denominations withhold the binding.
+
+Unknown contracts require an independent public chain read. EVM reads measure ERC-20 name, symbol, decimals,
+total supply and allowance. Solana verifies mint ownership, decimals and metadata. TRON, Sui, Aptos and TON reuse
+the chain-specific token readers. A fresh, address-specific DEX price must agree within a factor of three in either
+direction. The node compares matching quote units directly and uses a fresh supported FX rate for different units.
+If it has a DEX price but cannot convert a quote, it waits for a comparable pair. It records price refusals locally.
+
+A halted or absent pair stops supplying identity evidence. If all trading for the label halts or disappears, a
+return requires a fresh directory. Continuous trading of another pair preserves its shared quote's evidence.
+Directory evidence expires after 25 hours. Only the names of managed labels survive restart, so old observations
+cannot attach to a replacement contract before local revalidation. The existing halt, age and visibility rules
+continue to govern delisted markets.
+
+Directories and bindings stay on the receiving node. Peers exchange the usual `cex:<venue>:<BASE>-<QUOTE>` market
+ID and resolve it using their own registry. The signed release files, observation rows and bundle digest follow
+the existing §5.4 rules.
+
 #### Recent pool history on join
 
 An EVM node starts one catch-up pass on first use and after six hours offline. It records its last connected time

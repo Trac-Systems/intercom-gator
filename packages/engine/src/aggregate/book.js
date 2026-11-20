@@ -334,6 +334,7 @@ export class MarketBook {
   }
   refresh() {
     const now = this.clock()
+    for (const venue of this.registry.venues.values()) venue.contracts?.expire(now)
     // New observations mark the book dirty many times a second on a busy node. A read may use a rebuild up to
     // maxStaleMs old instead of rebuilding (~0.4 s) inside every request; 0 rebuilds at once.
     if (this.haltRevision === this.registry.haltRevision &&

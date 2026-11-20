@@ -105,6 +105,7 @@ export async function fetchTickers({ venue, http, registry, clock, publish, disc
   const baselineKey = 'engine-cex-baseline/' + venue.id
   const hasBaseline = registry.store.getSetting(baselineKey)
   const halted = marketHalts(registry), changes = new Map()
+  const seen = venue.contracts ? new Set() : null
   venue.lastTickers ??= new Map()
   const remember = registry.store.writer.prepare('INSERT OR IGNORE INTO engine_cex_symbols VALUES (?,?,?)')
   registry.store.transaction(() => {
@@ -129,6 +130,7 @@ export async function fetchTickers({ venue, http, registry, clock, publish, disc
         listings.push(listing)
       }
       if (!market) continue
+      seen?.add(market.id)
       const base = decimal(record.baseVolume),
         quote = decimal(record.quoteVolume)
       const usd = decimal(record.usdVolume)
@@ -157,10 +159,12 @@ export async function fetchTickers({ venue, http, registry, clock, publish, disc
         decimal(record.ask),
         timestamp(record.at, now),
       ]
+      if (venue.contracts) tick.contractPriceAt = validRow(observation, now) ? observation[6] : 0
       if (old) {
-        if (!validRow(observation, now)) continue
+        if (!(venue.contracts ? tick.contractPriceAt : validRow(observation, now))) continue
         changes.set(market.id, null)
       }
+      if (old || (previous && now - previous.at > 3_600_000)) venue.contracts?.resumed.add(market.id)
       // A local FX rate may include restricted exchange data. Convert only inside the book.
       if (volume == null && quote != null) localQuoteVolumes.set(observation, quote)
       rows.push(observation)
@@ -176,6 +180,7 @@ export async function fetchTickers({ venue, http, registry, clock, publish, disc
     if (!venue.cursor) registry.store.setSetting(baselineKey, true)
   })
   updateHalts(registry, changes)
+  venue.contracts?.tickers(seen, !venue.cursor)
   if (venue.id === 'deribit') venue.currency = venue.currency === 'ETH' ? 'BTC' : 'ETH'
   for (const listing of listings) discover(listing)
   publish(rows, localQuoteVolumes)
