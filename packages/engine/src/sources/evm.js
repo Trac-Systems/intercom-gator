@@ -11,9 +11,9 @@ import { RateLimited } from '../scheduler/index.js'
 // hot: tokens (by seed value) whose pairs form the plan's priority prefix, probed every hotInterval instead of every
 // period. 24 probes per 300 s on small needed ~61 h for Polygon's 17,542 probes and ~2.3 h on large (11-20).
 const LIMITS = {
-  small: { tracked: 32, chunk: 8, seed: 256, hot: 25, hotInterval: 60_000, tokens: 100, blocks: 2, period: 300_000 },
-  normal: { tracked: 128, chunk: 16, seed: 256, hot: 40, hotInterval: 10_000, tokens: 300, blocks: 4, period: 90_000 },
-  large: { tracked: 256, chunk: 32, seed: 256, hot: 60, hotInterval: 5_000, tokens: 300, blocks: 8, period: 45_000 },
+  small: { tracked: 32, chunk: 8, seed: 256, hot: 25, hotInterval: 60_000, deepInterval: 120_000, tokens: 100, blocks: 2, period: 300_000 },
+  normal: { tracked: 128, chunk: 16, seed: 256, hot: 40, hotInterval: 10_000, deepInterval: 60_000, tokens: 300, blocks: 4, period: 90_000 },
+  large: { tracked: 256, chunk: 32, seed: 256, hot: 60, hotInterval: 5_000, deepInterval: 30_000, tokens: 300, blocks: 8, period: 45_000 },
 }
 // Pools per state refresh: one Multicall3 eth_call carries up to 128 reads (4 per concentrated pool).
 const REFRESH_POOLS = 32
@@ -222,6 +222,7 @@ export class EvmSource {
     this.refreshAt = 0
     this.nextPool = 0
     this.nextDeep = 0
+    this.deepAt = 0
     this.seedHot = true
     this.adoptQueue()
   }
@@ -602,7 +603,9 @@ export class EvmSource {
       token(swap.token0) === pool.token0 && token(swap.token1) === pool.token1
   }
   stateReady() {
-    return !!this.pending.get(this.chain.id) || (this.refreshAt <= this.clock() && !!this.localPool.get(this.chain.id))
+    const now = this.clock()
+    return !!this.pending.get(this.chain.id) ||
+      ((this.refreshAt <= now || (this.chain.multicall && this.deepAt <= now)) && !!this.localPool.get(this.chain.id))
   }
   async scheduledState() {
     // A chain with a constant stream of launchpad creations always had queued logs, so its pools were never
@@ -915,14 +918,23 @@ export class EvmSource {
    * address-ordered rotation of all pools. Address order alone took 40 min on large (and hours on normal and
    * small) to revisit BSC's 1,701 pools, so its main pools went stale between visits (11-20). */
   async refreshState() {
-    if (this.refreshAt > this.clock()) return
-    const chain = this.chain.id
+    const now = this.clock(), chain = this.chain.id
     const limit = this.chain.multicall ? REFRESH_POOLS : 1
+    // The 16 deepest funded pools are also read every deepInterval: a top asset's market goes stale after three
+    // one-minute windows, and BSC's $31.7M USDT/USDC pool was read once in 17 min (normal run, 11-20).
+    const fixed = this.chain.multicall && this.deepAt <= now
+      ? this.deepest.all(chain, MARKET_POLICY.minPoolLiquidityUsd, limit / 2) : []
+    if (fixed.length || this.deepAt <= now) this.deepAt = now + (this.limits.deepInterval ?? this.limits.period)
+    if (this.refreshAt > now) {
+      if (fixed.length) await this.readPoolState(fixed, this.rpc)
+      return
+    }
     const deep = this.chain.multicall
       ? this.deepest.all(chain, MARKET_POLICY.minPoolLiquidityUsd, this.limits.tracked) : []
     if (this.nextDeep >= deep.length) this.nextDeep = 0
-    const picked = deep.slice(this.nextDeep, this.nextDeep + limit / 2)
-    this.nextDeep += picked.length
+    const rotating = deep.slice(this.nextDeep, this.nextDeep + limit / 2)
+    this.nextDeep += rotating.length
+    const picked = fixed.length ? fixed : rotating
     const chosen = new Set(picked.map(p => p.pool))
     const rest = this.store.reader.prepare(`SELECT p.*,k.spacing,k.stable FROM pools p JOIN engine_market_data d
       ON d.market='dex:'||p.chain||':'||p.pool LEFT JOIN engine_pool_parameters k USING(chain,pool)

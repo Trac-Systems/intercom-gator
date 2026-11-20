@@ -226,7 +226,12 @@ test('state refresh reads the deepest pools first and also runs while the decode
   assert.equal(read[0], deep, 'deepest pool first although its address sorts last')
   read.length = 0
   await source.scheduledState().catch(() => {})
-  assert.equal(read.length, 0, 'next refresh waits a period')
+  assert.equal(read.length, 0, 'nothing due yet')
+  // small: the deepest pools again after deepInterval (120 s), the whole rotation only after the period (300 s).
+  f.advance(120_000)
+  assert.equal(source.stateReady(), true)
+  await source.scheduledState().catch(() => {})
+  assert.deepEqual(read, [deep])
 })
 
 test('a refused price scanner reserves a quarter of the profile budget for a minute', async () => {
