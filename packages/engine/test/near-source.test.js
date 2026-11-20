@@ -7,7 +7,7 @@ import { openStore } from '@gator/store'
 import { Engine, migrations } from '../src/index.js'
 import { createIntel, migrations as intelMigrations } from '../src/intel/index.js'
 import { RateLimited } from '../src/scheduler/index.js'
-import { ftInfo, nearToken, refKey, refState, REF } from '../src/sources/near/source.js'
+import { ftInfo, nearToken, refId, refKey, refState, REF } from '../src/sources/near/source.js'
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/tonnear/near.json', import.meta.url)))
 const bundle = loadBundle(), digest = bundleDigest(bundle)
@@ -34,7 +34,7 @@ function answer(value) {
 
 async function node(t, store, pools) {
   const transport = new Transport(), calls = []
-  const ctx = { now: fixture.calls[0].at, calls, store, transport, pools }
+  const ctx = { now: fixture.calls[0].at, calls, store, transport, pools, volumes: [] }
   const fetch = async (url, init) => {
     const { origin } = new URL(url)
     assert.ok(HOSTS.includes(origin), origin)
@@ -50,6 +50,7 @@ async function node(t, store, pools) {
       return Response.json({ jsonrpc: '2.0', id: 'gator', result: { error: 'wasm execution failed', logs: [] } })
     }
     assert.equal(params.account_id, REF)
+    if (params.method_name === 'get_pool_volumes') return answer(ctx.volumes.shift())
     if (params.method_name === 'get_pools') {
       const out = []
       for (let i = args.from_index; i < args.from_index + args.limit && ctx.pools.has(i); i++) out.push(ctx.pools.get(i))
@@ -93,6 +94,8 @@ test('Ref pool state, NEP-141 metadata and market keys', () => {
   assert.equal(nearToken('a'.repeat(65)), null)
   assert.match(refKey(535), /^0x[0-9a-f]{64}$/)
   assert.notEqual(refKey(535), refKey(535, 'other.near'))
+  assert.equal(refId(refKey(535)), 535)
+  assert.equal(refId(refKey(535, 'other.near')), null)
   const s = refState(STNEAR, [24, 24])
   assert.ok(s.price > 1.2 && s.price < 2, 'wNEAR per stNEAR: ' + s.price) // liquid staking ratio
   assert.equal(refState({ ...STNEAR, pool_kind: 'RATED_SWAP' }, [24, 24]), null)
@@ -164,6 +167,35 @@ test('a pool appended after the pass registers its new token, prices it and ente
     assert.ok(entry?.markets.includes(id))
     assert.ok(entry.liquidityUsd > 10_000)
     assert.equal(n.transport.sent.some(m => m.ch === 'gator/new'), false)
+  } finally { await n.stop(); store.close() }
+})
+
+test('Ref cumulative swap counters give the published base turnover', async t => {
+  // Two real get_pool_volumes readings of the same Ref pool, minutes apart, with the pool state of the second.
+  const samples = JSON.parse(readFileSync(new URL('./fixtures/tonnear/near-volumes.json', import.meta.url)))
+  const { id: poolId, pool } = samples[1]
+  const [token0, token1] = pool.token_account_ids.map(nearToken)
+  const pools = new Map([[poolId, pool]]), store = database(), n = await node(t, store, pools)
+  try {
+    n.source.remember({ pool: refKey(poolId), ref: String(poolId), dex: 'ref-finance', kind: 'v2', token0, token1,
+      firstSeen: n.now, stage: 1 })
+    await n.step(() => n.source.meta())
+    await n.step(() => n.source.state())
+    assert.equal(n.source.candidate(refKey(poolId)).funded, 1)
+    n.volumes.push(samples[0].volumes, samples[1].volumes)
+    assert.equal(await n.step(() => n.source.volumes()), true)
+    assert.equal(await n.step(() => n.source.volumes()), false) // next sample after 15 minutes
+    n.now += Math.max(15 * minute, samples[1].at - samples[0].at)
+    assert.equal(await n.step(() => n.source.volumes()), true)
+    n.store.writer.prepare("UPDATE engine_family_candidates SET due=0 WHERE chain='near'").run()
+    await n.step(() => n.source.state())
+    const id = 'dex:near:' + refKey(poolId), market = n.engine.registry.markets.get(id)
+    const side = market.inverse ? 1 : 0, places = n.source.decimals(side ? token1 : token0)
+    const row = n.transport.sent.filter(m => m.ch.startsWith('gator/px/')).flatMap(m => m.msg.o).filter(r => r[0] === id).at(-1)
+    const total = v => BigInt(v[side].input) + BigInt(v[1 - side].output) // base in + base out
+    const expected = Number(total(samples[1].volumes) - total(samples[0].volumes)) / 10 ** places
+    assert.ok(expected > 0, 'swaps between the recorded samples')
+    assert.ok(Math.abs(Number(row[2]) - expected) <= expected * 1e-9, row[2] + ' vs ' + expected)
   } finally { await n.stop(); store.close() }
 })
 

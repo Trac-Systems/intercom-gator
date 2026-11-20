@@ -19,8 +19,15 @@ const ANSWERS = new Set(['CONTRACT_EXECUTION_ERROR', 'UNKNOWN_ACCOUNT', 'NO_CONT
 const ACCOUNT = /^(?=.{2,64}$)(?:[a-z\d]+[-_])*[a-z\d]+(?:\.(?:[a-z\d]+[-_])*[a-z\d]+)*$/
 
 export const nearToken = id => (id === WNEAR ? 'native' : typeof id === 'string' && ACCOUNT.test(id) ? id : null)
-/** Market key of a Ref pool: the v1 wire pattern needs 0x + 64 hex. */
-export const refKey = (id, contract = REF) => '0x' + createHash('sha256').update(contract + '#' + id).digest('hex')
+/**
+ * Market key of a Ref pool for the v1 wire pattern (0x + 64 hex): 24 bytes of sha256(contract), then the pool id as a
+ * big-endian u64, so a receiver can recover and check the pool without a lookup table.
+ */
+export const refKey = (id, contract = REF) =>
+  '0x' + createHash('sha256').update(contract).digest('hex').slice(0, 48) + BigInt(id).toString(16).padStart(16, '0')
+/** @returns {number|null} the Ref pool id of a market key, or null for another contract. */
+export const refId = (key, contract = REF) => (typeof key === 'string' && key.length === 66 && key === refKey(BigInt('0x' + key.slice(50)), contract)
+  ? Number(BigInt('0x' + key.slice(50))) : null)
 
 /** NEAR JSON-RPC view calls at the final block. */
 export class NearClient extends FamilyClient {
@@ -143,9 +150,10 @@ export class NearSource extends FamilyDex {
     return true
   }
   /**
-   * Ref keeps cumulative swap amounts per pool token (`get_pool_volumes`: input and output since creation). Samples
-   * at least 15 minutes apart are kept for 24 hours; the base token's growth across the window is its turnover. A
-   * window younger than a day (fresh node or pool) is a lower bound, as with partial EVM swap windows.
+   * Ref keeps cumulative swap amounts keyed by the input token (`get_pool_volumes`: entry i = token i paid in and the
+   * other token paid out, since creation). Base turnover = growth of the base token's `input` plus the quote's
+   * `output`. Samples at least 15 minutes apart are kept for 24 hours; a younger window (fresh node or pool) is a
+   * lower bound, as with partial EVM swap windows.
    */
   async volumes() {
     const now = this.engine.clock()
@@ -154,7 +162,7 @@ export class NearSource extends FamilyDex {
     if (!p || (p.extra.volAt ?? 0) > now - 15 * MINUTE) return false
     const { value } = await this.client.view(REF, 'get_pool_volumes', { pool_id: Number(p.ref) })
     const cum = Array.isArray(value) && value.length === 2 && value.every(v => /^\d{1,60}$/.test(v?.input ?? '') &&
-      /^\d{1,60}$/.test(v?.output ?? '')) ? value.map(v => String(BigInt(v.input) + BigInt(v.output))) : null
+      /^\d{1,60}$/.test(v?.output ?? '')) ? value.flatMap(v => [String(BigInt(v.input)), String(BigInt(v.output))]) : null
     const fresh = this.candidate(p.pool)
     if (!fresh) return true
     const samples = (fresh.extra.vol ?? []).filter(s => s[0] >= now - 24 * HOUR)
@@ -168,7 +176,9 @@ export class NearSource extends FamilyDex {
     const samples = this.candidate(p.pool)?.extra.vol ?? []
     if (samples.length < 2) return '0'
     const side = market.inverse ? 1 : 0, token = side ? p.token1 : p.token0, places = this.decimals(token)
-    const diff = BigInt(samples.at(-1)[side + 1]) - BigInt(samples[0][side + 1])
+    // Sample layout: [at, in0, out0, in1, out1]; base paid in + base paid out (recorded under the other token).
+    const total = s => BigInt(s[1 + 2 * side]) + BigInt(s[2 + 2 * (1 - side)])
+    const diff = total(samples.at(-1)) - total(samples[0])
     return places == null || diff <= 0n ? '0' : decimal(Number(diff) / 10 ** places)
   }
   refresh() { return 2 * MINUTE }

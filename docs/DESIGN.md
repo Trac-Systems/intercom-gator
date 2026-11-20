@@ -418,7 +418,7 @@ rows to `engine.publish`. Test both old receivers before sending a new pool hint
 `ton:dex` and `near:ref` are one budgeted scheduler job each (`sources/ton/`, `sources/near/`, shared queue and
 pricing in `sources/family-dex.js`). Both keep their candidates in `engine_family_candidates` keyed by chain and
 market key, with the venue's own pool reference, a verification stage, the next due time and resumable step state.
-Market IDs are `dex:ton:0x<account hash>` (basechain pools) and `dex:near:0x<sha256("v2.ref-finance.near#<pool id>")>`,
+Market IDs are `dex:ton:0x<account hash>` (basechain pools) and `dex:near:0x<first 24 bytes of sha256("v2.ref-finance.near")><pool id as u64>` (invertible for a future hint check),
 so the existing v1 `obs` pattern accepts them. Registry asset IDs keep each chain's own spelling: TON jetton masters
 in mainnet bounceable form (`ton:EQ…`, as in the signed data) and NEAR account IDs (`near:usdt.tether-token.near`).
 STON.fi proxy-TON (pTON v1 and v2.1) and `wrap.near` resolve to the native assets. Contract addresses ship in reader
@@ -440,7 +440,8 @@ pool needs `get_pool_data`, the router's own `get_pool_address(wallet0, wallet1)
 pool wallets showing the router as owner and the jetton masters. Verified pools then cost one reserves read
 (`get_reserves` / `get_pool_data`) per refresh, spread so the funded set fits the share. Jetton name, symbol and
 decimals come only from on-chain TEP-64 content (decimals default to 9). Off-chain metadata URIs are not
-fetched, and such jettons keep their address as label. Seeds and directory rows alternate with fresh factory
+fetched, and such jettons keep their address as label. A pool with one unnamed jetton is first measured on its
+priced side, so metadata is read only for pools that reach the depth floor. Seeds and directory rows alternate with fresh factory
 creations in the verification queue. Accounts that were never deployed answer exit code −13 and wait a day.
 
 NEAR reads use `query/call_function` at `final` finality, rotated over the three signed `near-jsonrpc` endpoints
@@ -452,7 +453,8 @@ when it ran before NEAR had a USD price. Two-token `SIMPLE_POOL`s are queued whe
 and a USD price shows $10,000 of two-sided depth. Stable and rated pools are not priced. `ft_metadata`
 supplies NEP-141 identity, and `get_pool_by_ids` refreshes up to 48 queued pools per call, checking that the
 contract's token list still matches. Ref DCL `list_pools` exceeds the view gas limit and is not read. Turnover
-comes from `get_pool_volumes`, Ref's cumulative input and output per token. Samples at least 15 minutes apart
+comes from `get_pool_volumes`, Ref's cumulative swap amounts keyed by input token: entry i holds token i paid in
+and the other token paid out. Base turnover is the base token's `input` plus the quote's `output`. Samples at least 15 minutes apart
 are kept for 24 hours, and the base token's growth is the row's base turnover. A younger window is a lower
 bound. TON pools expose no cumulative counter, so TON rows carry zero measured turnover, and dust rules can
 keep their DEX-only assets off ranked lists.
