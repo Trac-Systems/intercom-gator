@@ -7,7 +7,6 @@ import { formatUrl } from '../sources/http.js';
 import { decimal } from '../obs/index.js';
 import { RateLimited } from '../scheduler/index.js';
 import { discoveryState } from './schema.js';
-import { MARKET_POLICY } from '../../../store/src/markets.js';
 import { DAY, isAddress, isAsset, isKey, isTime, validMessage } from './values.js';
 
 export const NEW_THRESHOLDS = Object.freeze({ liquidityUsd: 100_000, ageMs: DAY, trades: 100, reporters: 3 });
