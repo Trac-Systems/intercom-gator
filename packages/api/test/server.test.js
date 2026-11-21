@@ -443,11 +443,16 @@ test('price events reach the stream coalesced per coin (newest value, first-seen
   const reader = stream.body.getReader();
   t.after(() => controller.abort());
   await reader.read();
-  // 600 coins, each reported twice in one synchronous burst (one rebuild): only the newest of each is sent.
-  for (const round of [1, 2]) for (let i = 0; i < 600; i++) app.events.emit('price',{ asset:'coin-' + i, price:String(round * 1000 + i) });
+  // 600 coins, each reported twice in one synchronous burst (one rebuild): only the newest of each is sent. The
+  // payloads (~1.2 MB) exceed any socket buffer and the client starts reading late: a full buffer must make the
+  // server wait for the client, never close the stream (v0.1.16 CI on Windows) or drop a coin's newest price.
+  const pad = 'x'.repeat(2000);
+  for (const round of [1, 2]) for (let i = 0; i < 600; i++) app.events.emit('price',{ asset:'coin-' + i, price:String(round * 1000 + i), pad });
+  await new Promise(r => setTimeout(r, 300));
   let wire = '', chunks = 0;
   while ((wire.match(/event: price/g) ?? []).length < 600) {
-    const { value } = await reader.read();
+    const { value, done } = await reader.read();
+    assert.equal(done, false, 'the stream stays open');
     wire += new TextDecoder().decode(value);
     chunks++;
   }
@@ -456,4 +461,8 @@ test('price events reach the stream coalesced per coin (newest value, first-seen
   assert.deepEqual(prices.map(p => p.asset), Array.from({ length:600 },(_, i) => 'coin-' + i));
   assert.ok(prices.every((p, i) => p.price === String(2000 + i)), 'the newest price of each coin');
   assert.ok(chunks >= 2, 'more than one batch for 600 coins');
+  // The same stream still carries later events.
+  app.events.emit('notice',{ text:'after the burst' });
+  let tail = '';
+  while (!tail.includes('after the burst')) tail += new TextDecoder().decode((await reader.read()).value);
 });
