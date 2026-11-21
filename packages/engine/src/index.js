@@ -212,7 +212,7 @@ export class Engine extends EventEmitter {
       this.scheduler.add({
         id: 'cex:' + venue.id,
         interval: 15000,
-        markets: () => registry.jobsFor((m) => m.exchange === venue.id),
+        markets: () => registry.jobsForExchange(venue.id),
         run: () => tickers(http),
         spotCheck: () => tickers(publicHttp, true),
       })
@@ -280,7 +280,7 @@ export class Engine extends EventEmitter {
         this.scheduler.add({
           id: 'sol:' + source.id,
           interval: 30000,
-          markets: () => registry.jobsFor((m) => m.exchange === source.id),
+          markets: () => registry.jobsForExchange(source.id),
           run: () => reader.run(),
           spotCheck: id => {
             if (this.dexCoverage.members().split) return reader.spotCheck(id)
@@ -646,7 +646,7 @@ export class Engine extends EventEmitter {
     if (fromHint || !this.rpcConfig.metaFor || !this.registry.assets.has(id) || this.scheduler.jobs.has(jobId)) return
     this.scheduler.add({
       id: jobId,
-      markets: () => this.registry.jobsFor(m => m.base === id),
+      markets: () => this.registry.jobsForBase(id),
       run: async () => {
         await this.rpcConfig.metaFor(id, { rpc: this.rpc, store: this.store })
         this.book.dirty = true

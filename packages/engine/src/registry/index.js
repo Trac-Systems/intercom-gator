@@ -41,13 +41,76 @@ export function assetId(chain, address) {
   return chain + ':' + (EVM.test(address) ? address.toLowerCase() : address)
 }
 
+/** The market map, also indexed by exchange and by base, in the map's own order, so a venue's or an asset's jobs do not
+ * scan every market (owner node 11-21: one scan of all markets took 1-1.2 s, for every venue job on scheduler turns,
+ * and froze the daemon). Markets are replaced through set(), never edited in place. */
+export class MarketMap extends Map {
+  #by = { exchange: new Map(), base: new Map() }
+  #seq = new Map()
+  #next = 0
+  #unordered = new Set()
+  #add(field, market, id, appended) {
+    const key = market[field]
+    if (key == null) return
+    let ids = this.#by[field].get(key)
+    if (!ids) this.#by[field].set(key, ids = new Set())
+    else if (!appended) this.#unordered.add(field + '\0' + key)
+    ids.add(id)
+  }
+  #remove(field, market, id) {
+    const ids = this.#by[field].get(market[field])
+    if (!ids) return
+    ids.delete(id)
+    if (!ids.size) this.#by[field].delete(market[field])
+  }
+  set(id, market) {
+    const old = super.get(id)
+    const appended = !super.has(id)
+    if (appended) this.#seq.set(id, this.#next++)
+    super.set(id, market)
+    for (const field of ['exchange', 'base']) {
+      if (old && old[field] === market[field]) continue
+      if (old) this.#remove(field, old, id)
+      this.#add(field, market, id, appended)
+    }
+    return this
+  }
+  delete(id) {
+    const old = super.get(id)
+    if (old) for (const field of ['exchange', 'base']) this.#remove(field, old, id)
+    this.#seq.delete(id)
+    return super.delete(id)
+  }
+  clear() {
+    super.clear()
+    this.#by.exchange.clear()
+    this.#by.base.clear()
+    this.#seq.clear()
+    this.#unordered.clear()
+  }
+  /** The markets whose `field` ('exchange' or 'base') equals key, in map order. */
+  *where(field, key) {
+    const ids = this.#by[field].get(key)
+    if (!ids) return
+    const tag = field + '\0' + key
+    if (this.#unordered.has(tag)) {
+      // A market moved here from another key: restore map order once.
+      const sorted = [...ids].sort((a, b) => this.#seq.get(a) - this.#seq.get(b))
+      ids.clear()
+      for (const id of sorted) ids.add(id)
+      this.#unordered.delete(tag)
+    }
+    for (const id of ids) yield super.get(id)
+  }
+}
+
 /** Resolve symbols only inside a venue. An ambiguous label cannot create a price relationship. */
 export class Registry {
   constructor(store, catalog, categorySources = []) {
     this.store = store
     this.catalog = catalog
     this.assets = new Map()
-    this.markets = new Map()
+    this.markets = new MarketMap()
     /** Called with a market id whose engine_latest rows were deleted (the book keeps those rows in memory). */
     this.latestCleared = new Set()
     this.symbols = new Map()
@@ -516,9 +579,13 @@ export class Registry {
     if (totalSupply != null) a.totalSupply = totalSupply
     this.saveAsset(a)
   }
-  jobsFor(predicate) {
+  /** Jobs of the markets on one exchange (the index; same result and order as jobsFor(m => m.exchange === id)). */
+  jobsForExchange(id) { return this.jobsFor(() => true, this.markets.where('exchange', id)) }
+  /** Jobs of the markets of one base asset (same result and order as jobsFor(m => m.base === id)). */
+  jobsForBase(id) { return this.jobsFor(() => true, this.markets.where('base', id)) }
+  jobsFor(predicate, from = this.markets.values()) {
     const markets = []
-    for (const market of this.markets.values())
+    for (const market of from)
       if (predicate(market)) {
         const rank = this.marketRank(market)
         const relevance = this.pinned.has(market.base) ? 6 : undefined
