@@ -434,3 +434,26 @@ test('a browser session survives a daemon restart on the same port and ends when
   await f.start('restart', { port });
   assert.equal((await me()).status, 401);
 });
+
+test('price events reach the stream coalesced per coin (newest value, first-seen order) in bounded batches', async t => {
+  const app = await fixture(t).start('price-batches');
+  const controller = new AbortController();
+  const stream = await fetch('http://127.0.0.1:' + app.port + '/api/v1/stream',{
+    headers: { Authorization:'Bearer ' + readToken(app.dataDir) }, signal:controller.signal });
+  const reader = stream.body.getReader();
+  t.after(() => controller.abort());
+  await reader.read();
+  // 600 coins, each reported twice in one synchronous burst (one rebuild): only the newest of each is sent.
+  for (const round of [1, 2]) for (let i = 0; i < 600; i++) app.events.emit('price',{ asset:'coin-' + i, price:String(round * 1000 + i) });
+  let wire = '', chunks = 0;
+  while ((wire.match(/event: price/g) ?? []).length < 600) {
+    const { value } = await reader.read();
+    wire += new TextDecoder().decode(value);
+    chunks++;
+  }
+  const prices = wire.trim().split('\n\n').filter(f => f.startsWith('event: price')).map(f => JSON.parse(f.split('\n')[1].slice(6)));
+  assert.equal(prices.length, 600);
+  assert.deepEqual(prices.map(p => p.asset), Array.from({ length:600 },(_, i) => 'coin-' + i));
+  assert.ok(prices.every((p, i) => p.price === String(2000 + i)), 'the newest price of each coin');
+  assert.ok(chunks >= 2, 'more than one batch for 600 coins');
+});

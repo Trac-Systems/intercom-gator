@@ -12,6 +12,7 @@ const types = { '.html':'text/html; charset=utf-8', '.css':'text/css', '.js':'te
 const LOGO_PATH = /^\/img\/([0-9a-f]{64})\.(png|webp|jpg)$/;
 const csp = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 const MAX_BODY = 64 * 1024;
+const PRICE_BATCH = 500;
 const TICKET_MS = 60_000, MAX_TICKETS = 8;
 function equal(input, token) {
   if (typeof input !== 'string' || input.length !== token.length) return false;
@@ -97,7 +98,31 @@ export async function serve(app, { port = DEFAULT_PORT, token, login, stop }) {
     }
     return false;
   }
+  // A rebuild reports every changed coin as one price event: thousands at once on a busy node. Writing each to every
+  // dashboard stream at once held the daemon for ~1.4 s (owner node 11-21). Prices are kept per coin (the newest wins,
+  // its place in the queue stays) and written in batches of PRICE_BATCH, one write per stream, yielding in between.
+  const pricesDue = new Map();
+  let priceFlush = null;
+  function flushPrices() {
+    priceFlush = null;
+    if (!streams.size) { pricesDue.clear(); return; }
+    let frames = '', n = 0;
+    for (const [coin, data] of pricesDue) {
+      pricesDue.delete(coin);
+      frames += 'event: price\ndata: ' + JSON.stringify(data) + '\n\n';
+      if (++n >= PRICE_BATCH) break;
+    }
+    for (const res of streams) if (!res.write(frames)) res.destroy();
+    if (pricesDue.size) priceFlush = setImmediate(flushPrices);
+  }
   function publish(type, data) {
+    if (!streams.size) return;
+    const coin = type === 'price' ? data?.asset : null;
+    if (typeof coin === 'string') {
+      pricesDue.set(coin, data);
+      priceFlush ??= setImmediate(flushPrices);
+      return;
+    }
     const frame = 'event: ' + type + '\ndata: ' + JSON.stringify(data) + '\n\n';
     for (const res of streams) if (!res.write(frame)) res.destroy();
   }
@@ -212,6 +237,8 @@ export async function serve(app, { port = DEFAULT_PORT, token, login, stop }) {
   server.maxConnections = 256;
   function cleanup() {
     clearInterval(heartbeat);
+    clearImmediate(priceFlush);
+    pricesDue.clear();
     for (const [type,fn] of listeners) app.events.off(type,fn);
   }
   try {
