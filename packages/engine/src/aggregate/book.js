@@ -38,11 +38,15 @@ const SUM_MOD = 1_000_003
 // With reuse enabled (maxStaleMs > 0) a rebuild is reused for at least this many times its own duration, so rebuilds
 // take at most ~1/(1+REBUILD_SPACING) of the main thread however large the book grows.
 const REBUILD_SPACING = 4
-// With reuse enabled a read never waits for a rebuild while the last one is younger than this: it is rebuilt in the
-// background, in slices of about SLICE_MS between which requests run (owner node 11-20: a 0.8-1 s rebuild every few
-// seconds made a click wait up to 1.3 s). Older than this (a stalled loop), a read rebuilds at once as before.
+// With reuse enabled a read never waits for a rebuild: it returns the last one and leaves the new one to the background,
+// in slices of about SLICE_MS between which requests run (owner node 11-20: a 0.8-1 s rebuild every few seconds made a
+// click wait up to 1.3 s). Once the last rebuild is older than this, the next background rebuild starts at once and runs
+// in larger slices (STALE_SLICE_MS) so it finishes sooner. Reads used to rebuild synchronously here instead: on a node
+// whose sliced rebuilds take longer than this, every such read froze the daemon for 8-10 s (owner node 11-21: hourly
+// routine calls failed with "Daemon unavailable"). Only the first rebuild after start runs inside a read.
 const READ_LIMIT_MS = 15_000
 const SLICE_MS = 25
+const STALE_SLICE_MS = 100
 // A background rebuild waits at most this long for its spacing, so a long first (cold) rebuild cannot push the next one
 // past READ_LIMIT_MS (bench 11-20: 15.6 s -> one read rebuilt at once, 578 ms).
 const SPACING_CAP_MS = 5_000
@@ -505,11 +509,13 @@ export class MarketBook {
     // app) a read returns the last rebuild while it is younger than READ_LIMIT_MS and leaves a due rebuild to the
     // background; maxStaleMs 0 (tests) rebuilds at once. Freshness counts from the END of a rebuild: counted from its
     // start, a rebuild longer than the 1 s clean window was stale on arrival (11-20: USDT page 68 s, ~50 rebuilds).
-    if (this.maxStaleMs > 0 && !this.rebuildError && now - this.refreshed < READ_LIMIT_MS) {
+    if (this.maxStaleMs > 0 && !this.rebuildError && this.refreshed > -Infinity) {
       // A changed halt set (venue reads flip halts constantly with ~80 venues) starts a background rebuild at once; it
-      // used to force a synchronous rebuild into the read (owner node 11-20: 0.8-1.3 s requests).
-      if (halted) this.scheduleRebuild(true)
-      else if (now - this.refreshed >= (this.dirty ? this.maxStaleMs : 1000)) this.scheduleRebuild()
+      // used to force a synchronous rebuild into the read (owner node 11-20: 0.8-1.3 s requests). So does a rebuild
+      // older than READ_LIMIT_MS: the read still answers from the last one instead of freezing the daemon.
+      const age = now - this.refreshed
+      if (halted || age >= READ_LIMIT_MS) this.scheduleRebuild(true)
+      else if (age >= (this.dirty ? this.maxStaleMs : 1000)) this.scheduleRebuild()
       return this.snapshots
     }
     if (!halted && now - this.refreshed < (this.dirty ? this.maxStaleMs : 1000)) return this.snapshots
@@ -563,7 +569,10 @@ export class MarketBook {
   }
   *rebuildSteps(now, sliced) {
     let busy = 0, mark = performance.now()
-    const late = () => sliced && performance.now() - mark > this.sliceMs
+    // A rebuild that starts after the last one went stale takes larger slices, so readers get fresh prices sooner.
+    const sliceMs = now - this.refreshed >= READ_LIMIT_MS && this.refreshed > -Infinity
+      ? Math.max(this.sliceMs, STALE_SLICE_MS) : this.sliceMs
+    const late = () => sliced && performance.now() - mark > sliceMs
     // Ingests during a sliced rebuild mark the book dirty again for the next one.
     if (sliced) this.dirty = false
     this.haltRevision = this.registry.haltRevision

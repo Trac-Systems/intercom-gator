@@ -102,14 +102,16 @@ test('drift between the mirror and engine_latest reloads it within a minute', as
 
 const settle = async book => { while (book.rebuilding || book.rebuildTimer) await new Promise(r => setImmediate(r)) }
 
-test('a read never waits for a rebuild under 15 s old: it rebuilds in the background, in slices', async t => {
+test('a read never waits for a rebuild, even an old one: it rebuilds in the background, in slices', async t => {
   const { engine, book, market, row, advance } = await fixture(t)
   const btc = market('BTC', 'USD')
   engine.publish([row(btc, 100_000)])
   book.maxStaleMs = 4000
   book.dirty = true
   book.refreshed = -Infinity
+  // Before any rebuild there is nothing to answer from: the first read rebuilds at once.
   book.refresh()
+  assert.ok(book.refreshed > -Infinity, 'the first read after start rebuilds inside the read')
   let rebuilds = 0
   const rank = engine.registry.rankMarkets.bind(engine.registry)
   engine.registry.rankMarkets = (...args) => { rebuilds++; return rank(...args) }
@@ -135,10 +137,16 @@ test('a read never waits for a rebuild under 15 s old: it rebuilds in the backgr
   // Rows are read when the rebuild reaches them (with 0 ms slices: after the ingest above).
   assert.equal(book.marketPrices.get(btc.id).price, 102_000)
   assert.equal(book.dirty, true, 'an ingest during the rebuild leaves the book dirty for the next one')
-  // A read older than 15 s (a stalled loop) rebuilds at once, as before.
+  // A read older than 15 s never rebuilds inside the read (it froze the daemon for 8-10 s on the owner node 11-21):
+  // it answers from the last rebuild and starts the next one in the background at once.
   advance(16_000)
-  book.refresh()
+  const stale = book.snapshots
+  assert.equal(book.refresh(), stale)
+  assert.equal(rebuilds, 1, 'no rebuild inside the read')
+  assert.ok(book.rebuildTimer || book.rebuilding, 'a background rebuild is due at once')
+  await settle(book)
   assert.equal(rebuilds, 2)
+  assert.notEqual(book.snapshots, stale)
   assert.equal(book.marketPrices.get(btc.id).price, 102_000)
   // A stopped book schedules nothing.
   book.stop()
