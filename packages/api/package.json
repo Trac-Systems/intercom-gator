@@ -1,17 +1,17 @@
 {
   "name": "@gator/api",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "private": true,
   "type": "module",
   "main": "src/index.js",
   "license": "MIT",
   "dependencies": {
-    "@gator/bundle": "0.1.15",
-    "@gator/dashboard": "0.1.15",
-    "@gator/engine": "0.1.15",
-    "@gator/net": "0.1.15",
-    "@gator/social": "0.1.15",
-    "@gator/store": "0.1.15",
+    "@gator/bundle": "0.1.16",
+    "@gator/dashboard": "0.1.16",
+    "@gator/engine": "0.1.16",
+    "@gator/net": "0.1.16",
+    "@gator/social": "0.1.16",
+    "@gator/store": "0.1.16",
     "@modelcontextprotocol/sdk": "1.32.1",
     "zod": "4.6.7"
   }
