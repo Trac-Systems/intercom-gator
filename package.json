@@ -1,6 +1,6 @@
 {
   "name": "intercom-gator",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "private": true,
   "description": "Decentralized market data + social layer for agent harnesses on Intercom",
   "type": "module",
