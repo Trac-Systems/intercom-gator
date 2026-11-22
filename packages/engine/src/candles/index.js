@@ -104,7 +104,10 @@ export class CandleHistory {
     // A pair might have resumed during the open hour. Inspect it too before declaring a halt,
     // while still returning only the caller's requested closed bars.
     const sourceTo = tick && tf === '1h' && to === started - started % WIDTH[tf] ? started + 1 : to
-    const params = historyParams(market, spec, tf, from, sourceTo, limit + 1)
+    // A range longer than one venue page asks for its newest page. Start-anchored venues (Binance startTime, Kraken
+    // since) answered with the OLDEST bars of the range: an ALL chart from 1983 got 2015-2018 and nothing after.
+    const start = Math.max(from, sourceTo - Math.min(limit + 1, spec.max ?? Infinity) * WIDTH[tf])
+    const params = historyParams(market, spec, tf, start, sourceTo, limit + 1)
     const url = formatUrl(spec.url, params)
     // POST venues (Hyperliquid candleSnapshot) carry the range in the body; GET sent them a bodyless 405.
     const body = spec.method === 'POST' && spec.body ? fillBody(spec.body, params) : null
@@ -206,19 +209,37 @@ export class CandleHistory {
     const read = async (pair) => {
       const left = wait - (performance.now() - started)
       if (sent >= attempts || left <= 0) return null
+      const allowed = Math.max(50, Math.floor(Math.min(timeout, left)))
       try {
-        const result = await this.market(pair, tf, from, to, limit, { timeout: Math.max(50, Math.floor(Math.min(timeout, left))) })
+        const result = await this.market(pair, tf, from, to, limit, { timeout: allowed })
         sent++
         return result
       } catch (error) {
         if (error instanceof RateLimited) retryAt = Math.min(retryAt, error.retryAt)
         else sent++
+        // A venue whose own HTTP answer timed out on a full-length read (binance.us from outside the US) took the
+        // whole wait of a chart load; skip it for a while. A HistoryTimeout can be our own request queue: no mark.
+        if (allowed >= 3000 && error?.name === 'TimeoutError') this.markIdle(pair.id + ':' + tf, MISMATCH_IDLE_MS)
         lastError = error
         return null
       }
     }
-    const candidates = this.candidates(asset, tf)
     const now = this.clock()
+    const candidates = this.candidates(asset, tf)
+    // A deep range (1Y, ALL and its older pages) asks first the venues that can serve the most of it: those that
+    // take a start or end take up to their page size; those that only send their newest bars help only a range that
+    // ends today. The three attempts of an ALL chart went to crypto.com (newest 300 days), binance.us and a pair
+    // listed 54 days ago, before Bitfinex (10,000 days a page) was reached. An undeclared page size counts as 1,000.
+    // Ties keep the quality order above.
+    if (expected > 300) {
+      const serves = (m) => {
+        const spec = this.registry.venues.get(m.exchange)?.candles
+        const ranged = /\{(?:startMs|startSec|lastMs|endMs|endSec|yyyymmdd)\}/.test(spec?.url ?? '')
+        return ranged || to >= now - WIDTH[tf] ? Math.min(expected, spec?.max ?? 1000) : 0
+      }
+      const score = new Map(candidates.map((m) => [m, serves(m)]))
+      candidates.sort((a, b) => score.get(b) - score.get(a))
+    }
     const closedFiatRange = tf === '1h' && to <= now - now % WIDTH[tf] &&
       candidates.some(m => m.quote !== 'fiat:USD' && m.quote.startsWith('fiat:'))
     for (const market of candidates) {
@@ -244,7 +265,9 @@ export class CandleHistory {
       if (to >= this.clock() - WIDTH['1h'] && this.registry.halted?.has(market.id)) continue
       const dead = !history.length || (!stable && deadHistory(history))
       // A short range may be empty for a thin market; a day or more without a bar is a halted or delisted pair.
-      if (dead && to - from >= 86_400_000) this.markIdle(key)
+      // Only a range reaching today says so: an empty page from before the listing (an ALL chart's older pages)
+      // marked the best daily markets idle for 6 h, and 1Y then fell back to the node's own few bars.
+      if (dead && to - from >= DAY && to >= this.clock() - DAY) this.markIdle(key)
       if (dead) {
         lastError = new Error('No trading in ' + market.id + ' history')
         continue

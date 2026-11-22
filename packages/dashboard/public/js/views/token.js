@@ -350,7 +350,7 @@ function readout(i) {
   el.innerHTML = f.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
 }
 
-async function draw(ctx, t) {
+async function draw(ctx, t, retried = false) {
   const my = ++loadSeq;
   const r = rangeById(ui.range);
   const st = document.getElementById('chart-state');
@@ -358,6 +358,8 @@ async function draw(ctx, t) {
   let res;
   try { res = await ctx.api.candles(t.id, r.tf, r.bars); } catch (e) { if (st) st.textContent = 'Could not load candles.'; return; }
   if (my !== loadSeq || !chartApi) return;
+  // Older bars did not load (venues busy): draw what came, ask once more unless the viewer moved on.
+  if (res.partial && !retried) setTimeout(() => { if (my === loadSeq && chartApi) draw(ctx, t, true); }, 10000);
   let c = res.candles || [];
   bucket = TF_SECONDS[r.tf];
   if (ui.mode === 'candle' && TF_SECONDS[r.candle] > bucket) { c = aggregate(c, TF_SECONDS[r.candle]); bucket = TF_SECONDS[r.candle]; }

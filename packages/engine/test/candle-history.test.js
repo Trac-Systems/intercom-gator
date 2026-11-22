@@ -78,3 +78,32 @@ test('migration drops flat imported history of non-stable assets only', async (t
   assert.equal(count('stable:native'), 20)
   assert.equal(count('live:native'), 20)
 })
+
+test('a long range asks a start-anchored venue for its newest page, not its oldest', async () => {
+  const DAY = 24 * HOUR, now = to
+  const market = { id: 'cex:a:X-USD', base: 'x:native', kind: 'cex', symbol: 'XUSD', exchange: 'a', quote: 'fiat:USD' }
+  const registry = { venues: new Map([['a', { id: 'a', rpm: 60, candles: { intervals: { '1d': '1d' }, max: 1000,
+    url: 'https://venue.test/k?symbol={symbol}&interval={interval}&startTime={startMs}&endTime={lastMs}&limit={limit}' } }]]) }
+  const urls = []
+  const h = new CandleHistory({ store: {}, registry, clock: () => now, scheduler: { demand: (key, url, fn) => fn() },
+    http: { get: async (url) => { urls.push(new URL(url)); return [] } } })
+  await h.market(market, '1d', now - 2000 * DAY, now, 2000)
+  assert.equal(+urls[0].searchParams.get('startTime'), now - 1000 * DAY)
+  assert.equal(urls[0].searchParams.get('limit'), '1000')
+  // A range within one page is unchanged.
+  await h.market(market, '1d', now - 365 * DAY, now, 365)
+  assert.equal(+urls[1].searchParams.get('startTime'), now - 365 * DAY)
+})
+
+test('an empty page from before the listing leaves the market active; an empty recent range marks it idle', async () => {
+  const DAY = 24 * HOUR
+  const markets = [{ id: 'cex:a:X-USD', base: 'x:native', kind: 'cex', symbol: 'X', exchange: 'a', quote: 'fiat:USD' }]
+  const registry = { markets: new Map(markets.map((m) => [m.id, m])), main: new Map(),
+    venues: new Map([['a', { candles: { intervals: { '1d': '1d' } } }]]), assets: new Map([['x:native', { id: 'x:native' }]]) }
+  const h = new CandleHistory({ store: { candles: () => [] }, registry, clock: () => to })
+  h.market = async () => []
+  await h.get('x:native', { tf: '1d', from: to - 4000 * DAY, to: to - 2000 * DAY, limit: 2000 }).catch(() => {})
+  assert.equal(h.idle.size, 0, 'the 1990s say nothing about trading today')
+  await h.get('x:native', { tf: '1d', from: to - 365 * DAY, to, limit: 365 }).catch(() => {})
+  assert.equal(h.idle.size, 1)
+})

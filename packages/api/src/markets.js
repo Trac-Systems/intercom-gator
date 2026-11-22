@@ -154,23 +154,35 @@ export function marketViews(app, people) {
     const limit = integer(q.limit, 500, 5000) || 5000, width = widths[tf];
     const to = integer(q.to, app.clock() + 1, Number.MAX_SAFE_INTEGER);
     const from = integer(q.from, Math.max(0, Math.floor((to - 1) / width) * width - (limit - 1) * width), to);
-    // Keep sparse local history anywhere in the requested interval. Bound upstream
-    // work to at most three disjoint pages, each within the engine's 2,000-bar cap.
+    // Keep sparse local history anywhere in the requested interval. Bound upstream work to at most three pages, each
+    // within the engine's 2,000-bar cap, newest first: each page ends where the bars so far begin, so an ALL range
+    // (5,000 days back to 1983) fills backwards from today until the venues run out of history. Oldest-first asked
+    // for the 1980s first, and the one page that hit data held a venue's first 1,000 days (2015-2018).
     const bars = new Map(store.candles({ asset: id, tf, from, to, limit }).map(row => [row.ts, row]));
-    let start = from;
-    for (let remaining = limit; remaining > 0 && start < to && bars.size < limit; remaining -= 2000) {
-      const count = Math.min(remaining, 2000);
-      const end = remaining <= 2000 ? to : Math.min(to, (Math.floor(start / width) + count) * width);
+    // Upstream time: 6 s a page, 15 s in all (the dashboard waits 20 s for a chart).
+    let end = to, partial = false;
+    const deadline = performance.now() + 15_000;
+    for (let page = 0; page < 3 && end > from; page++) {
+      const count = Math.min(2000, Math.ceil((end - from) / width));
+      const start = Math.max(from, end - count * width);
+      const wait = Math.min(6000, Math.floor(deadline - performance.now()));
+      if (page && wait < 1000) { partial = true; break; }
+      let rows;
       try {
-        for (const row of await engine.candles(id, { tf, from: start, to: end, limit: count })) bars.set(row.ts, row);
+        rows = await engine.candles(id, { tf, from: start, to: end, limit: count, wait });
       } catch (error) {
         if (!bars.size) throw error;
+        partial = true;
         break;
       }
-      start = end;
+      for (const row of rows) bars.set(row.ts, row);
+      // Rows are oldest first. Nothing older than `end` in this page: the history starts here.
+      const oldest = rows.length ? rows[0].ts : end;
+      if (oldest >= end || start === from) break;
+      end = oldest;
     }
-    const rows = [...bars.values()].sort((a,b) => a.ts - b.ts).slice(0,limit);
-    return { asset: id, tf, candles: rows.map(r => ({ t: Math.floor(r.ts / 1000), o: +r.open, h: +r.high,
+    const rows = [...bars.values()].sort((a,b) => a.ts - b.ts).slice(-limit);
+    return { asset: id, tf, ...(partial && { partial: true }), candles: rows.map(r => ({ t: Math.floor(r.ts / 1000), o: +r.open, h: +r.high,
       l: +r.low, c: +r.close, v: r.volume ?? null })) };
   }
   function* extraCandidates(slot) {
