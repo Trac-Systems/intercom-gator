@@ -140,12 +140,26 @@ export function engineData(engine) {
   function poolFor(asset) {
     return pools.get({ asset });
   }
+  const blockSeconds = new Map((bundle.chains ?? []).map(c => [c.id, c.blockTimeSeconds]));
+  /** When an EVM pool's creation block was mined: the chain head's own timestamp minus the blocks since, at the pace
+   * this node measured (or the signed block time). Undefined without a head read or a block. */
+  function blockTime(row) {
+    const source = engine.evm?.get(row?.chain), head = source?.latest, measured = source?.blockSeconds;
+    const seconds = measured ?? blockSeconds.get(row?.chain);
+    if (!head || !(seconds > 0) || !Number.isSafeInteger(row.block) || !Number.isSafeInteger(head.tip) ||
+        !Number.isSafeInteger(head.ts) || row.block > head.tip) return undefined;
+    const at = Math.round(head.ts * 1000 - (head.tip - row.block) * seconds * 1000);
+    // Before the node has measured the pace, the signed block time may be stale (BSC 0.75 s signed, 0.45 s real):
+    // then it only dates a clearly old pool (two days and more stays more than a day even at half the pace).
+    return measured == null && head.ts * 1000 - at < 2 * DAY ? undefined : at;
+  }
   return {
     rpc: engine.rpc, bundle, store, transport: engine.transport, now: engine.clock,
     isMuted: key => engine.book.muted(key),
     isProven: key => engine.book.isProven(key),
     isFollowed: key => engine.book.followed(key),
-    isKnownAsset: id => quoted.has(id) || id.endsWith(':native') || ((id.startsWith('tron:') || moveChain(id.split(':', 1)[0])) && registry.seedIds.has(id)),
+    // A signed token is established on every chain: a new pool of it (a fresh UNI/WETH pair) is no new token.
+    isKnownAsset: id => quoted.has(id) || id.endsWith(':native') || !!registry.seedIds?.has(id),
     resolveAssets(m) {
       const market = m.t === 'pool' ? 'dex:' + m.chain + ':' + (isAddress(m.pool) ? m.pool.toLowerCase() : m.pool)
         : 'cex:' + m.exchange + ':' + m.symbol;
@@ -177,7 +191,7 @@ export function engineData(engine) {
       const time = engine.clock(), row = poolFor(asset);
       const window = { asset, from: time - DAY, to: time + 1 };
       const n = moveTrades && moveChain(row?.chain) ? moveTrades.get({ ...window, chain: row.chain }).n : trades.get(window).n;
-      return { liquidityUsd: row?.liquidity, trades: n };
+      return { liquidityUsd: row?.liquidity, trades: n, createdEstimate: blockTime(row) };
     },
     sampleGlobal(at) {
       const { volume24h, btcDominance } = engine.global();

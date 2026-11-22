@@ -113,13 +113,33 @@ test('engine adapter uses local pools, registered base asset, recent trades and 
     deployments: [{ name: 'fixture', kind: 'v2', router: a, address: b }] }] } }, registry, clock: () => at,
     global: () => ({ volume24h: 123, btcDominance: 55 }) });
   assert.ok(opts.isKnownAsset('base:' + b));
+  // A signed token is established on every chain, not only on TRON and the Move chains.
+  const signed = engineData({ store, bundle: {}, registry: { ...registry, seedIds: new Set(['base:' + a]) }, clock: () => at });
+  assert.ok(signed.isKnownAsset('base:' + a));
+  assert.equal(opts.isKnownAsset('base:' + a), false);
   assert.deepEqual(opts.resolveAssets(poolMessage), [asset]);
   assert.equal(opts.resolveSymbol('ABC'), asset);
   assert.equal(opts.resolveContext(asset).pool.router, a);
-  assert.deepEqual(opts.metricsFor(asset), { trades: 1, liquidityUsd: 40 });
+  assert.deepEqual(opts.metricsFor(asset), { trades: 1, liquidityUsd: 40, createdEstimate: undefined });
   opts.sampleGlobal(at);
   const [day] = await opts.dailyMarket({ from: at, to: at + DAY });
   assert.deepEqual([day.volumeUsd, day.btcDominance, day.btcClose, day.ethClose], [123, 55, '10', '4']);
+
+  // A pool found late is dated by its creation block against the chain head at the measured pace
+  // (600 blocks x 1 s = 10 min; the signed 2 s is stale).
+  db.exec('ALTER TABLE pools ADD COLUMN block');
+  db.prepare('UPDATE pools SET block=?').run(400);
+  const source = { latest: { block: 998, tip: 1000, ts: at / 1000, at }, blockSeconds: 1 };
+  const dated = engineData({ store, bundle: { chains: [{ id: 'base', blockTimeSeconds: 2 }] }, registry, clock: () => at,
+    evm: new Map([['base', source]]) });
+  assert.equal(dated.metricsFor(asset).createdEstimate, at - 10 * 60_000);
+  // Unmeasured, the signed pace dates only a clearly old pool (two days and more).
+  delete source.blockSeconds;
+  assert.equal(dated.metricsFor(asset).createdEstimate, undefined);
+  source.latest = { ...source.latest, tip: 100_000, block: 99_998 };
+  assert.equal(dated.metricsFor(asset).createdEstimate, at - (100_000 - 400) * 2000);
+  db.prepare('UPDATE pools SET block=?').run(200_000);
+  assert.equal(dated.metricsFor(asset).createdEstimate, undefined, 'a block past the head proves nothing');
 });
 
 test('five-minute verifier interval actually polls and stop cancels it', async t => {

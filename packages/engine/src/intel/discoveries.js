@@ -129,7 +129,10 @@ export function createNewTokens({ thresholds = {}, resolveAssets, isKnownAsset =
         const metrics = metricsFor(row.asset) ?? {};
         const liquidityUsd = Number.isFinite(metrics.liquidityUsd) && metrics.liquidityUsd >= 0 ? metrics.liquidityUsd : null;
         const trades = Number.isSafeInteger(metrics.trades) && metrics.trades >= 0 ? metrics.trades : null;
-        const createdAt = isTime(metrics.createdAt) && metrics.createdAt <= time ? metrics.createdAt : row.firstSeen;
+        // Without a checked creation time, the pool's creation block estimates it (never later than first seen): a pool
+        // a young node learns about late (history scans, other peers) showed its token as "0m" old.
+        const estimate = isTime(metrics.createdEstimate) ? Math.min(metrics.createdEstimate, row.firstSeen) : row.firstSeen;
+        const createdAt = isTime(metrics.createdAt) && metrics.createdAt <= time ? metrics.createdAt : estimate;
         const ageMs = Math.max(0, time - createdAt), reporters = row.reporters.size;
         if (liquidityUsd !== null && trades !== null && liquidityUsd >= limits.liquidityUsd &&
             ageMs >= limits.ageMs && trades >= limits.trades && reporters >= limits.reporters) {

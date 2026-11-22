@@ -417,3 +417,16 @@ test('fast-chain creation scans cover a polling period when the provider support
   assert.equal(Number(filter.toBlock), 1598)
   assert.equal(f.store.getSetting('engine-gap/eth/creation'), undefined)
 })
+
+test('the chain pace comes from the node\'s own head reads ten minutes apart', async t => {
+  const f = fixture(t), source = f.open()
+  await source.chainHead()
+  assert.equal(source.blockSeconds, undefined)
+  f.advance(5 * 60 * second, 600)
+  await source.chainHead()
+  assert.equal(source.blockSeconds, undefined, 'five minutes are too short to measure')
+  f.advance(5 * 60 * second, 750)
+  await source.chainHead()
+  // 1,350 blocks in 600 s: 0.444 s a block (BSC since 2026, where the signed list still says 0.75 s).
+  assert.ok(Math.abs(source.blockSeconds - 600 / 1350) < 1e-9)
+})

@@ -54,3 +54,17 @@ test('conflicting pool identity, wrong channel, invalid block or future listing 
   assert.equal(tracker.consume(channel, envelope({ t: 'listing', v: 1, symbol: 'ABC', exchange: 'dex', firstSeen: 2 })), false);
   assert.equal(tracker.list()[0].reporters, 1);
 });
+
+test('a pool learned late takes its age from the creation-block estimate, a checked creation time wins', () => {
+  // A young node hears of a two-day-old pool now (another peer's history scan): it is not "0m" old.
+  const time = 10 * DAY;
+  let metrics = { createdEstimate: time - 2 * DAY };
+  const tracker = createNewTokens({ now: () => time, metricsFor: () => metrics, isKnownAsset: id => id === quote });
+  tracker.consume(channel, envelope(pool));
+  assert.equal(tracker.list()[0].ageMs, 2 * DAY);
+  // An estimate after first sight never makes the token younger than the node has known it.
+  metrics = { createdEstimate: time + DAY };
+  assert.equal(tracker.list()[0].ageMs, 0);
+  metrics = { createdEstimate: time - 2 * DAY, createdAt: time - 3 * DAY };
+  assert.equal(tracker.list()[0].ageMs, 3 * DAY);
+});

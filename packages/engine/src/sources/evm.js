@@ -297,6 +297,14 @@ export class EvmSource {
         chain: this.chain.name, at: this.clock(), kind: 'baseFee', value: decimal(fee / 1e9) + ' gwei',
       })
       this.latest = { block: Math.max(0, block - 2), tip: block, ts: uint(header.timestamp), at: this.clock() }
+      // The chain's own pace from this node's head reads (10+ minutes apart): the signed block time can be stale
+      // (BSC: 0.75 s signed, 0.45 s measured 11-22), and New-list ages are dated with it.
+      const ts = this.latest.ts
+      if (ts != null) {
+        this.firstHead ??= { tip: block, ts }
+        if (ts - this.firstHead.ts >= 600 && block > this.firstHead.tip)
+          this.blockSeconds = (ts - this.firstHead.ts) / (block - this.firstHead.tip)
+      }
       return this.latest
     })
     try { return await this.readingHead } finally { this.readingHead = null }
