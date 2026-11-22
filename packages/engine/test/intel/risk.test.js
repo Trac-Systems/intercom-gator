@@ -252,3 +252,25 @@ test('standalone pool age uses the timestamp of historical code and leaves unava
   pastCode = null;
   assert.equal((await check()).flags.veryNew, 'unknown');
 });
+
+test('standalone pool age reaches a day back when the signed block time is stale', async () => {
+  // Base on 11-22: 0.2 s a block, signed 2 s. The first guess lands 2.4 hours back; the second steps at the pace
+  // observed between the head and that block.
+  const head = 1_000_000, at = head / 5 * 1000;
+  const reader = {
+    block: '0x' + head.toString(16),
+    read(method, params) {
+      if (method === 'eth_getBlockByNumber') return { timestamp: '0x' + Math.floor(Number(BigInt(params[0])) / 5).toString(16) };
+      if (method === 'eth_getCode') return '0x6000';
+      return [];
+    },
+    call(_, sig) {
+      if (sig === 'token0()') return '0x' + addressWord(usdt.address);
+      if (sig === 'token1()') return '0x' + addressWord(weth.address);
+      return null;
+    },
+  };
+  const result = await poolRisk(reader, usdt.address, route.pool, { at, blockTimeSeconds: 2 });
+  assert.ok(result.evidence.ageBound.minAgeMs >= DAY && result.evidence.ageBound.minAgeMs < DAY + 2000);
+  assert.equal(result.flags.veryNew, false);
+});

@@ -94,8 +94,10 @@ async function ageBound(reader, pool, at, threshold, seconds) {
     if (typeof code !== 'string' || !/^0x(?:[\da-f]{2})*$/i.test(code)) return null;
     if (code !== '0x' && time <= target) return { flag: false, ...evidence, minAgeMs: at - time };
     if (code === '0x' && time >= target) return { flag: true, ...evidence, maxAgeMs: at - time };
-    // Move to the other side of the cutoff using the observed time difference.
-    const steps = BigInt(Math.max(1, Math.ceil(Math.abs(time - target) / (1000 * seconds)) + 1));
+    // Move to the other side of the cutoff using the observed time difference, at the pace seen between the head
+    // and this block: signed block times go stale (Base 0.2 s a block on 11-22, signed 2 s).
+    const pace = head > block && headAt > time ? (headAt - time) / (1000 * Number(head - block)) : seconds;
+    const steps = BigInt(Math.max(1, Math.ceil(Math.abs(time - target) / (1000 * pace)) + 1));
     block += time < target ? steps : -steps;
     if (block < 0n || block > head) break;
   }

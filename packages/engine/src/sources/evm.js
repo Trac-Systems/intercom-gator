@@ -301,10 +301,8 @@ export class EvmSource {
       // (BSC: 0.75 s signed, 0.45 s measured 11-22), and New-list ages are dated with it.
       const ts = this.latest.ts
       if (ts != null) {
-        if (!this.firstHead) {
-          this.firstHead = { tip: block, ts }
-          this.measurePace(block, ts)
-        }
+        this.firstHead ??= { tip: block, ts }
+        if (this.blockSeconds == null && !this.pacing && (this.paceReads ?? 0) < 3) this.measurePace(block, ts)
         if (ts - this.firstHead.ts >= 600 && block > this.firstHead.tip)
           this.blockSeconds = (ts - this.firstHead.ts) / (block - this.firstHead.tip)
       }
@@ -312,18 +310,21 @@ export class EvmSource {
     })
     try { return await this.readingHead } finally { this.readingHead = null }
   }
-  // One header about an hour back gives the pace at start; without it New-list ages wait ten minutes for a
-  // second head read and fall back to first sight meanwhile.
+  // One header about an hour back (at the signed pace) gives the pace at start (three tries); without it New-list
+  // ages wait ten minutes for a second head read and fall back to first sight meanwhile. A minute of span is
+  // enough: Base made 1,800 blocks in 360 s on 11-22 (0.2 s, signed 2 s).
   measurePace(tip, ts) {
     const back = Math.min(tip, Math.ceil(3_600_000 / (this.chain.blockTime > 0 ? this.chain.blockTime : 12_000)))
     if (back < 1) return
-    this.rpc.call(this.chain.id, 'eth_getBlockByNumber', [hex(tip - back), false]).then(header => {
+    const block = tip - back
+    this.paceReads = (this.paceReads ?? 0) + 1
+    this.pacing = this.rpc.call(this.chain.id, 'eth_getBlockByNumber', [hex(block), false]).then(header => {
       const then = uint(header?.timestamp)
-      if (then == null || uint(header.number) !== tip - back || ts - then < 600 || this.firstHead?.tip !== tip) return
-      this.firstHead = { tip: tip - back, ts: then }
+      if (then == null || uint(header.number) !== block || ts - then < 60 || !(block < this.firstHead?.tip)) return
+      this.firstHead = { tip: block, ts: then }
       const latest = this.latest?.tip > tip && this.latest.ts != null ? this.latest : { tip, ts }
-      this.blockSeconds = (latest.ts - then) / (latest.tip - this.firstHead.tip)
-    }, () => {})
+      this.blockSeconds = (latest.ts - then) / (latest.tip - block)
+    }, () => {}).finally(() => { this.pacing = null })
   }
   async creationLogs(filter) {
     // Only advance the chain cursor after every address partition has succeeded. If the
