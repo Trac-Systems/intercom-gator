@@ -107,3 +107,32 @@ test('an empty page from before the listing leaves the market active; an empty r
   await h.get('x:native', { tf: '1d', from: to - 365 * DAY, to, limit: 365 }).catch(() => {})
   assert.equal(h.idle.size, 1)
 })
+
+test('closed days a venue sent serve the next deep chart load without asking again', async () => {
+  const DAY = 24 * HOUR, end = to - (to % DAY)
+  const markets = [{ id: 'cex:a:X-USD', base: 'x:native', kind: 'cex', symbol: 'X', exchange: 'a', quote: 'fiat:USD' }]
+  const registry = { markets: new Map(markets.map((m) => [m.id, m])), main: new Map(),
+    venues: new Map([['a', { candles: { intervals: { '1d': '1d' } } }]]), assets: new Map([['x:native', { id: 'x:native' }]]) }
+  const h = new CandleHistory({ store: { candles: () => [] }, registry, clock: () => end + HOUR })
+  let asked = 0
+  const bar = (ts) => ({ ts, tf: '1d', open: '1', high: '1.2', low: '0.9', close: '1.1', source: 'cex:a:X-USD', quote: 'fiat:USD' })
+  h.market = async (market, tf, from, until) => {
+    asked++
+    const rows = []
+    for (let ts = from; ts < until; ts += DAY) rows.push(bar(ts))
+    return rows
+  }
+  const range = { tf: '1d', from: end - 2000 * DAY, to: end - DAY, limit: 2000 }
+  assert.equal((await h.get('x:native', range)).length, 1999)
+  assert.equal((await h.get('x:native', range)).length, 1999)
+  assert.equal(asked, 1, 'the second load is served from the kept days')
+  // Today's open bar is never kept: a range reaching it asks again.
+  await h.get('x:native', { ...range, to: end + 1 })
+  assert.equal(asked, 2)
+  // Sixteen assets at most: the one charted longest ago goes.
+  h.days.delete('x:native')
+  for (let i = 0; i < 16; i++) h.days.set('other:' + i, new Map([[end - 2 * DAY, bar(end - 2 * DAY)]]))
+  await h.get('x:native', range)
+  assert.equal(h.days.size, 16)
+  assert.ok(h.days.has('x:native') && !h.days.has('other:0'))
+})

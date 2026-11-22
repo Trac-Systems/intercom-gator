@@ -48,6 +48,8 @@ export class CandleHistory {
     this.idle = new Map()
     this.fiatSeries = new Map()
     this.partialHours = new Map()
+    /** asset -> ts -> closed daily venue bar, for the 16 assets charted last */
+    this.days = new Map()
   }
   markIdle(key, ms = IDLE_MARKET_MS) {
     const now = this.clock()
@@ -201,6 +203,16 @@ export class CandleHistory {
     const stable = !!this.registry.assets.get(asset)?.stable
     const bars = new Map(local.map((b) => [b.ts, b]))
     const ownBars = new Map(local.map((b) => [b.ts, +b.close]))
+    // Closed days a venue already sent stay valid: a 1Y or ALL chart's next load (or its retry) asks only for what is
+    // still missing. Each load fetched every page again, and a venue that allows one long read per window (Bitfinex)
+    // left a busy node's ALL chart at a few bars, load after load.
+    const days = tf === '1d' ? this.days.get(asset) : null
+    if (days) {
+      this.days.delete(asset)
+      this.days.set(asset, days)
+      for (const [ts, bar] of days) if (ts >= from && ts < to && !bars.has(ts)) bars.set(ts, bar)
+      if (bars.size >= expected) return [...bars.values()].sort((a, b) => a.ts - b.ts).slice(0, limit)
+    }
     const started = performance.now()
     let lastError,
       sent = 0,
@@ -299,6 +311,14 @@ export class CandleHistory {
       // Nothing was sent anywhere: report when the earliest throttled venue frees up.
       if (!sent && retryAt < Infinity) throw new RateLimited(retryAt)
       if (!bars.size) throw lastError
+    }
+    if (tf === '1d') {
+      const closed = this.clock() - DAY, kept = this.days.get(asset) ?? new Map()
+      for (const [ts, bar] of bars) if (!ownBars.has(ts) && ts < closed && kept.size < 10_000) kept.set(ts, bar)
+      if (kept.size && !this.days.has(asset)) {
+        if (this.days.size >= 16) this.days.delete(this.days.keys().next().value)
+        this.days.set(asset, kept)
+      }
     }
     return [...bars.values()].sort((a, b) => a.ts - b.ts).slice(0, limit)
   }
