@@ -206,7 +206,7 @@ function models(ctx, d) {
         losers: ['No losers yet.', 'Losers need 24 h of prices; your node is collecting them.'],
       }[d.tab];
       return {
-        cols, notes, server: true,
+        cols, notes, server: true, cls: 't-tok',
         rows: () => rows0.filter((t) => (d.tab !== 'watch' || ctx.watch.has(t.id)) && matches(q, t.name, t.symbol)),
         row: (t) => {
           const sub = d.tab === 'trending' && d.tagPosts[t.symbol] ? `${t.symbol} · ${cnt(d.tagPosts[t.symbol])} posts` : t.symbol;

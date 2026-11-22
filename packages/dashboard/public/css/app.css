@@ -343,8 +343,9 @@ tr:hover td .rm,td .rm:focus-visible{opacity:1}
 @media (prefers-reduced-motion:reduce){.look-dot.run::before{animation:none}}
 
 /* ---------- medium ---------- */
+/* Same compact nav as keyprint.css up to 1559 px, so the nav does not change look between pages. */
+@media (max-width:1559px){.app.wide{grid-template-columns:72px minmax(0,1fr)}}
 @media (max-width:1279px){
-  .app.wide{grid-template-columns:72px minmax(0,1fr)}
   .tk-price{grid-template-columns:1fr}
   .tk-stats{justify-content:flex-start}
   .rowset{grid-template-columns:170px minmax(0,1fr)}
