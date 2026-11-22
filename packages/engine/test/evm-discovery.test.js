@@ -173,15 +173,17 @@ test('seed V2, configured V3, V4 and volatile/stable Velodrome from funded state
   assert.equal(depth.get(addr(101)).liquidity, 40_000)
   assert.ok(depth.get(id).liquidity >= 10_000)
   assert.ok(f.requests.filter(r => r.method === 'eth_call').every(r => r.tag === '0x64'))
-  assert.equal(f.requests.length, 3)
+  // Besides the one pace header per source start.
+  const counted = () => f.requests.filter(r => r.method !== 'eth_getBlockByNumber' || r.arg === 'latest').length
+  assert.equal(counted(), 3)
   const restart = f.open()
   await restart.seed()
   f.advance(5 * hour, 200)
   await restart.seed()
-  assert.equal(f.requests.length, 3)
+  assert.equal(counted(), 3)
   f.advance(hour, 1)
   await restart.seed()
-  assert.equal(f.requests.length, 6)
+  assert.equal(counted(), 6)
   f.rows.length = 0
   const restartAgain = f.open()
   await restartAgain.refreshState()
@@ -303,7 +305,7 @@ test('a provider limited to one address and one call per minute advances the cre
   f.advance(60_000, 20)
   await source.logs()
   assert.deepEqual(completed, [addr(1), manager])
-  assert.equal(f.requests.filter(r => r.method === 'eth_getBlockByNumber').length, 1)
+  assert.equal(f.requests.filter(r => r.method === 'eth_getBlockByNumber' && r.arg === 'latest').length, 1)
   assert.equal(source.cursor.get('eth').block, 98)
   await source.logs()
   assert.ok(source.cursor.get('eth').block > 98)
@@ -429,4 +431,28 @@ test('the chain pace comes from the node\'s own head reads ten minutes apart', a
   await source.chainHead()
   // 1,350 blocks in 600 s: 0.444 s a block (BSC since 2026, where the signed list still says 0.75 s).
   assert.ok(Math.abs(source.blockSeconds - 600 / 1350) < 1e-9)
+})
+
+test('the chain pace is known at start from one header about an hour back', async t => {
+  const f = fixture(t, { blockTime: 750 }), source = f.open()
+  f.advance(0, 20_000)
+  const call = f.rpc.call
+  f.rpc.call = async (chain, method, params) => method === 'eth_getBlockByNumber' && params[0] !== 'latest'
+    ? { number: params[0], timestamp: '0x' + Math.floor(initial / second - (20_100 - Number(params[0])) * 0.45).toString(16) }
+    : call(chain, method, params)
+  await source.chainHead()
+  await new Promise(setImmediate)
+  // 4,800 blocks back at the signed 0.75 s; the headers say 0.45 s.
+  assert.equal(f.requests.length, 1)
+  assert.ok(Math.abs(source.blockSeconds - 0.45) < 1e-9)
+  const failing = fixture(t, { blockTime: 750 }), other = failing.open()
+  failing.advance(0, 20_000)
+  const head = failing.rpc.call
+  failing.rpc.call = async (chain, method, params) => {
+    if (method === 'eth_getBlockByNumber' && params[0] !== 'latest') throw new Error('pruned')
+    return head(chain, method, params)
+  }
+  await other.chainHead()
+  await new Promise(setImmediate)
+  assert.equal(other.blockSeconds, undefined, 'falls back to two head reads ten minutes apart')
 })

@@ -301,13 +301,29 @@ export class EvmSource {
       // (BSC: 0.75 s signed, 0.45 s measured 11-22), and New-list ages are dated with it.
       const ts = this.latest.ts
       if (ts != null) {
-        this.firstHead ??= { tip: block, ts }
+        if (!this.firstHead) {
+          this.firstHead = { tip: block, ts }
+          this.measurePace(block, ts)
+        }
         if (ts - this.firstHead.ts >= 600 && block > this.firstHead.tip)
           this.blockSeconds = (ts - this.firstHead.ts) / (block - this.firstHead.tip)
       }
       return this.latest
     })
     try { return await this.readingHead } finally { this.readingHead = null }
+  }
+  // One header about an hour back gives the pace at start; without it New-list ages wait ten minutes for a
+  // second head read and fall back to first sight meanwhile.
+  measurePace(tip, ts) {
+    const back = Math.min(tip, Math.ceil(3_600_000 / (this.chain.blockTime > 0 ? this.chain.blockTime : 12_000)))
+    if (back < 1) return
+    this.rpc.call(this.chain.id, 'eth_getBlockByNumber', [hex(tip - back), false]).then(header => {
+      const then = uint(header?.timestamp)
+      if (then == null || uint(header.number) !== tip - back || ts - then < 600 || this.firstHead?.tip !== tip) return
+      this.firstHead = { tip: tip - back, ts: then }
+      const latest = this.latest?.tip > tip && this.latest.ts != null ? this.latest : { tip, ts }
+      this.blockSeconds = (latest.ts - then) / (latest.tip - this.firstHead.tip)
+    }, () => {})
   }
   async creationLogs(filter) {
     // Only advance the chain cursor after every address partition has succeeded. If the
