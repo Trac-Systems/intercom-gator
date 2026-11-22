@@ -213,3 +213,20 @@ test('a local DEX state read with no sampled swaps keeps turnover measured by a 
   write(other, 'own', start, null)
   assert.equal(queries.detail('test:UNPROVEN').visibility, 'dust')
 })
+
+test('a signed token with a green price and a deep pool is no dust where no pool on its chain reports turnover', t => {
+  // TRON: SunSwap pools carry reserves but no swap counts, so Tron USDT ($91B, green, $89M depth) was hidden as dust.
+  const { store, registry, queries, write } = fixture(t, [['USDX'], ['THIN']])
+  const pool = (symbol, name, exchange, liquidity) => {
+    store.upsertPool({ chain: 'test', pool: name, token0: symbol, token1: 'USD', dex: exchange, liquidity, firstSeen: start })
+    return registry.register({ id: 'dex:test:' + name, exchange, kind: 'dex', chain: 'test', base: 'test:' + symbol, quote: 'fiat:USD' }).id
+  }
+  for (const [symbol, depth] of [['USDX', 50_000], ['THIN', 5_000]]) {
+    write(pool(symbol, symbol + '-a', 'swap-a', depth), 'own', start, null, '1')
+    write(pool(symbol, symbol + '-b', 'swap-b', depth), 'own', start, null, '1')
+  }
+  const usdx = queries.detail('test:USDX')
+  assert.equal(usdx.trust, 'green')
+  assert.equal(usdx.visibility, 'live')
+  assert.equal(queries.detail('test:THIN').visibility, 'dust', 'below the depth floor it stays dust')
+})

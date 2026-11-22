@@ -269,3 +269,13 @@ test('the volume guard compares turnover with the coin cap, never one deployment
   assert.ok(engine.book.guardCap(btc) > 1e12)
   assert.equal(engine.book.guardCap('ethereum:0xc669928185dbce49d2230cc9b0979be6dc797957'), null)
 })
+
+test('categories count a coin once with its group cap, like the list and the Stablecoins figure', async t => {
+  const { request } = await tether(t)
+  const stable = (await request('GET', '/categories')).items.find(c => c.name === 'Stablecoin')
+  // Per deployment this was Ethereum USDT + Base USDC + ... (TRON's $92B dropping out when hidden) and named USDT twice.
+  assert.equal(stable.marketCap, 171e9 + 44e9)
+  assert.deepEqual(stable.top, ['USDT', 'USDC'])
+  const global = await request('GET', '/global')
+  assert.equal(stable.marketCap, global.stablecoins)
+})

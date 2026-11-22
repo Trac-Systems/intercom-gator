@@ -598,16 +598,25 @@ export class Queries {
     return this.derivativeList(options).items
   }
   categories({ include, now } = {}) {
-    const { registry } = this.engine
-    const groups = new Map()
-    for (const p of this.listedPrices({ include, now })) {
+    const { registry, book } = this.engine
+    const groups = new Map(), counted = new Set(), listed = this.listedPrices({ include, now })
+    const shown = new Set(listed.map(p => p.asset)), { order } = this.derived()
+    for (const p of listed) {
       const a = registry.assets.get(p.asset),
         name = a?.category
       if (!name) continue
+      // A coin counts once with its group cap and its list row's name and change (the representative member), as in
+      // the markets list and the Stablecoins figure. Per deployment, USDT (Ethereum, BNB Chain, ...) was named twice in
+      // "top" and a hidden deployment (Tron USDT, $91B) dropped out of the sum: Stablecoins came out below USDT alone.
+      const group = this.listGroup(p.asset)
+      if (group && counted.has(group)) continue
+      if (group) counted.add(group)
+      const rep = group ? group.members.map(t => t.id).filter(id => shown.has(id)).sort(order)[0] ?? p.asset : p.asset
+      const cap = (group ? this.groupCap(group) : p.marketCap) ?? 0
       if (!groups.has(name)) groups.set(name, { name, marketCap: 0, top: [], items: [] })
       const g = groups.get(name)
-      g.marketCap += p.marketCap ?? 0
-      g.items.push({ symbol: a.symbol, cap: p.marketCap ?? 0, change: p.change24h })
+      g.marketCap += cap
+      g.items.push({ symbol: registry.assets.get(rep)?.symbol ?? a.symbol, cap, change: book.snapshots.get(rep)?.change24h ?? p.change24h })
     }
     return [...groups.values()]
       .map(({ name, marketCap, items }) => {
@@ -617,10 +626,8 @@ export class Queries {
           name,
           marketCap,
           change24h: prior ? (known.reduce((s, i) => s + i.cap, 0) / prior - 1) * 100 : null,
-          top: items
-            .sort((a, b) => b.cap - a.cap)
-            .slice(0, 3)
-            .map((i) => i.symbol),
+          // Unrelated tokens can share a ticker: the three largest distinct names.
+          top: [...new Set(items.sort((a, b) => b.cap - a.cap).map((i) => i.symbol))].slice(0, 3),
         }
       })
       .sort((a, b) => b.marketCap - a.marketCap)

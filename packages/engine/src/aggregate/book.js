@@ -438,7 +438,7 @@ export class MarketBook {
   }
   classify(snapshots, now, priorStale, depthRows = this.poolDepths.all(), prices = this.marketPrices) {
     const depths = new Map(), dexAssets = new Set(), tradedOnDex = new Set(), supportedCex = new Set()
-    const supported = new Set(), zeroTurnover = new Map(), lastMarketExpiry = new Map()
+    const supported = new Set(), zeroTurnover = new Map(), lastMarketExpiry = new Map(), turnoverChains = new Set()
     for (const { base, quote, liquidity } of depthRows) {
       for (const id of [base, quote]) depths.set(id, Math.max(depths.get(id) ?? 0, liquidity))
     }
@@ -454,6 +454,7 @@ export class MarketBook {
       } else if (m.kind === 'dex' && (m.baseVolume > 0 || m.usdVolume > 0)) {
         tradedOnDex.add(m.base)
         tradedOnDex.add(m.quote)
+        turnoverChains.add(m.chain)
       }
       const fx = snapshots.get(m.quote)
       if (m.quote !== 'fiat:USD' && !(fx && !fx.why.stale && now - fx.at <= MARKET_POLICY.maxPriceAge &&
@@ -480,7 +481,11 @@ export class MarketBook {
       } else if (!confirmed) {
         p.visibility = 'unconfirmed'
       } else if (dexAssets.has(p.asset) && !supportedCex.has(p.asset) &&
-          (!(p.volume24h > 0 || tradedOnDex.has(p.asset)) ||
+          // A signed token with a green price and a pool at the depth floor is no dust on a chain where no pool
+          // reports turnover (TRON: Tron USDT, $91B, green, $89M pool depth, was hidden as dust). A single thin
+          // pool stays dust: its price x supply can be a junk cap.
+          (!(p.volume24h > 0 || tradedOnDex.has(p.asset) || (p.trust === 'green' && this.registry.seedIds?.has(p.asset) &&
+              !turnoverChains.has(p.asset.split(':', 1)[0]) && depths.get(p.asset) >= MARKET_POLICY.minPoolLiquidityUsd)) ||
             (depths.has(p.asset) && depths.get(p.asset) < MARKET_POLICY.minPoolLiquidityUsd))) {
         p.visibility = 'dust'
       } else {
