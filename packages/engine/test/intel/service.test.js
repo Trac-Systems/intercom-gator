@@ -120,7 +120,9 @@ test('engine adapter uses local pools, registered base asset, recent trades and 
   assert.deepEqual(opts.resolveAssets(poolMessage), [asset]);
   assert.equal(opts.resolveSymbol('ABC'), asset);
   assert.equal(opts.resolveContext(asset).pool.router, a);
-  assert.deepEqual(opts.metricsFor(asset), { trades: 1, liquidityUsd: 40, createdEstimate: undefined });
+  assert.deepEqual(opts.metricsFor(asset), { trades: 1, liquidityUsd: 40, createdEstimate: undefined, poolSeen: at });
+  assert.equal(opts.poolSeen(market), at);
+  assert.equal(opts.poolSeen('dex:base:0x' + '9'.repeat(40)), undefined);
   opts.sampleGlobal(at);
   const [day] = await opts.dailyMarket({ from: at, to: at + DAY });
   assert.deepEqual([day.volumeUsd, day.btcDominance, day.btcClose, day.ethClose], [123, 55, '10', '4']);

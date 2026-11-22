@@ -121,9 +121,10 @@ export function engineData(engine) {
   // The asset's markets through indexes only (asset_markets for the base side, markets(quote) for the quote side);
   // `base=? OR quote=?` on markets scanned the whole table for every listed discovery (/new took 10-25 s).
   const assetMarkets = 'SELECT market FROM asset_markets WHERE asset=:asset UNION SELECT id FROM markets WHERE quote=:asset';
-  const pools = store.reader.prepare(`SELECT p.* FROM (${assetMarkets}) x JOIN markets m ON m.id=x.market AND m.kind='dex'
-    JOIN pools p ON p.chain=m.chain AND p.pool=substr(m.id, length(m.chain)+6)
+  const pools = store.reader.prepare(`SELECT p.*, min(p.firstSeen) OVER () AS poolSeen FROM (${assetMarkets}) x
+    JOIN markets m ON m.id=x.market AND m.kind='dex' JOIN pools p ON p.chain=m.chain AND p.pool=substr(m.id, length(m.chain)+6)
     ORDER BY p.liquidity DESC NULLS LAST, p.firstSeen DESC LIMIT 1`);
+  const poolSeenAt = store.reader.prepare('SELECT firstSeen FROM pools WHERE chain=? AND pool=?');
   const trades = store.reader.prepare(`SELECT count(*) AS n FROM engine_trades
     WHERE market IN (${assetMarkets}) AND at>=:from AND at<:to`);
   const moveTrades = engine.move?.size && store.reader.prepare(`SELECT count(*) AS n FROM (${assetMarkets}) x
@@ -191,7 +192,12 @@ export function engineData(engine) {
       const time = engine.clock(), row = poolFor(asset);
       const window = { asset, from: time - DAY, to: time + 1 };
       const n = moveTrades && moveChain(row?.chain) ? moveTrades.get({ ...window, chain: row.chain }).n : trades.get(window).n;
-      return { liquidityUsd: row?.liquidity, trades: n, createdEstimate: blockTime(row) };
+      return { liquidityUsd: row?.liquidity, trades: n, createdEstimate: blockTime(row), poolSeen: row?.poolSeen };
+    },
+    /** When this node first saw a DEX market's pool (`dex:<chain>:<pool>`), if it knows the pool. */
+    poolSeen(market) {
+      const chain = market.split(':', 2)[1];
+      return poolSeenAt.get(chain, market.slice(5 + chain.length))?.firstSeen;
     },
     sampleGlobal(at) {
       const { volume24h, btcDominance } = engine.global();

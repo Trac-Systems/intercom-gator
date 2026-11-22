@@ -54,7 +54,7 @@ function identity(message) {
  * symbol alone cannot identify a token. metricsFor returns local liquidityUsd, cumulative trades
  * and optionally confirmed createdAt. getRisk supplies locally checked flags. */
 export function createNewTokens({ thresholds = {}, resolveAssets, isKnownAsset = () => false,
-  metricsFor = () => ({}), getRisk = () => null, store, now = Date.now } = {}) {
+  metricsFor = () => ({}), poolSeen = () => undefined, getRisk = () => null, store, now = Date.now } = {}) {
   const limits = { ...NEW_THRESHOLDS, ...thresholds };
   for (const key of Object.keys(NEW_THRESHOLDS)) {
     if (!Number.isFinite(limits[key]) || limits[key] < 0) throw new TypeError('Invalid discovery threshold');
@@ -91,11 +91,18 @@ export function createNewTokens({ thresholds = {}, resolveAssets, isKnownAsset =
       if (!market || (m.t === 'listing' && m.firstSeen > envelope.ts)) return false;
       let row = discoveries.get(market), evicted;
       if (!row) {
+        // A peer's pool this node has known for longer than the New window is not new. Peers repeat their records,
+        // and a repeat arriving after this capped table evicted the pool came back dated now (11-22: ~1,000 Solana
+        // repeats per 10 minutes listed long-established tokens as "0m", and 8,192 rows covered 70 minutes).
+        // Local discoveries bring their own first sighting.
+        const known = m.t === 'pool' && localFirstSeen === undefined ? poolSeen(market) : undefined;
+        if (isTime(known) && known < now() - MARKET_POLICY.maxNewAge) return false;
         if (discoveries.size >= 8192) evicted = discoveries.keys().next().value;
         const { chain, pool, dex, kind, token0, token1, block, tx, exchange, symbol, firstSeen } = m;
         const message = m.t === 'pool' ? { v: 1, t: 'pool', chain, pool, dex, kind, token0, token1, block, tx } :
           { v: 1, t: 'listing', exchange, symbol, firstSeen };
-        const observed = isTime(localFirstSeen) && localFirstSeen <= now() ? localFirstSeen : now();
+        const observed = Math.min(isTime(localFirstSeen) && localFirstSeen <= now() ? localFirstSeen : now(),
+          isTime(known) ? known : Infinity);
         row = { message, firstSeen: observed, market, reporters: new Set() };
       } else if (m.t === 'pool') {
         // Competing descriptions of the same pool are not corroboration.
@@ -131,7 +138,9 @@ export function createNewTokens({ thresholds = {}, resolveAssets, isKnownAsset =
         const trades = Number.isSafeInteger(metrics.trades) && metrics.trades >= 0 ? metrics.trades : null;
         // Without a checked creation time, the pool's creation block estimates it (never later than first seen): a pool
         // a young node learns about late (history scans, other peers) showed its token as "0m" old.
-        const estimate = isTime(metrics.createdEstimate) ? Math.min(metrics.createdEstimate, row.firstSeen) : row.firstSeen;
+        // Nor later than this node first saw any of its pools (rows stored before repeats were dated by the pool).
+        const seen = isTime(metrics.poolSeen) ? Math.min(metrics.poolSeen, row.firstSeen) : row.firstSeen;
+        const estimate = isTime(metrics.createdEstimate) ? Math.min(metrics.createdEstimate, seen) : seen;
         const createdAt = isTime(metrics.createdAt) && metrics.createdAt <= time ? metrics.createdAt : estimate;
         const ageMs = Math.max(0, time - createdAt), reporters = row.reporters.size;
         if (liquidityUsd !== null && trades !== null && liquidityUsd >= limits.liquidityUsd &&

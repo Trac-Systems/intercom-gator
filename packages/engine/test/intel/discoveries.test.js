@@ -68,3 +68,29 @@ test('a pool learned late takes its age from the creation-block estimate, a chec
   metrics = { createdEstimate: time - 2 * DAY, createdAt: time - 3 * DAY };
   assert.equal(tracker.list()[0].ageMs, 3 * DAY);
 });
+
+test('a peer repeating a pool this node already knows is dated by the local sighting, not by its arrival', () => {
+  // 11-22: peers repeat their records; after the capped table evicted a pool its repeat came back dated now and
+  // long-established Solana tokens showed as "0m".
+  const time = 10 * DAY, market = 'dex:base:' + pool.pool;
+  let seen = { [market]: time - 2 * DAY };
+  const tracker = createNewTokens({ now: () => time, poolSeen: m => seen[m], isKnownAsset: id => id === quote });
+  assert.equal(tracker.consume(channel, envelope(pool)), false, 'known for longer than the New window: not new');
+  assert.deepEqual(tracker.list(), []);
+  seen = { [market]: time - 2 * 3600_000 };
+  assert.ok(tracker.consume(channel, envelope(pool)));
+  assert.equal(tracker.list()[0].firstSeen, time - 2 * 3600_000);
+  assert.equal(tracker.list()[0].ageMs, 2 * 3600_000);
+});
+
+test('a stored row is never younger than the first sighting of any of its pools', () => {
+  const time = 10 * DAY;
+  let metrics = {};
+  const tracker = createNewTokens({ now: () => time, metricsFor: () => metrics, isKnownAsset: id => id === quote });
+  tracker.consume(channel, envelope(pool));
+  assert.equal(tracker.list()[0].ageMs, 0);
+  metrics = { poolSeen: time - 45 * 3600_000 };
+  assert.equal(tracker.list()[0].ageMs, 45 * 3600_000);
+  metrics = { poolSeen: time - 45 * 3600_000, createdEstimate: time - 50 * 3600_000 };
+  assert.equal(tracker.list()[0].ageMs, 50 * 3600_000);
+});
